@@ -15,6 +15,7 @@ import concurrent.futures
 import json
 import logging
 import os
+import threading
 import time
 from typing import Any, List, Optional, cast
 
@@ -38,8 +39,32 @@ _EXECUTE_TIMEOUT = 600
 _MAX_OUTPUT_CHARS = 50000
 _CIRCUIT_BREAKER_THRESHOLD = 3
 _CIRCUIT_BREAKER_COOLDOWN = 30
+_SHELL_EXEC_MAX_CONCURRENCY = max(
+    1, int(os.environ.get("SANDBOX_SHELL_EXEC_MAX_CONCURRENCY", "2"))
+)
 
 _sync_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+_shell_exec_slots = threading.BoundedSemaphore(_SHELL_EXEC_MAX_CONCURRENCY)
+_session_exec_locks: dict[str, threading.Lock] = {}
+_session_exec_locks_guard = threading.Lock()
+
+
+class _ShellExecCapacityTimeout(TimeoutError):
+    """Raised when backend-side shell exec gating exhausts the command timeout budget."""
+
+    def __init__(self, stage: str, waited_seconds: float) -> None:
+        self.stage = stage
+        self.waited_seconds = waited_seconds
+        super().__init__(f"Timed out while waiting for {stage}")
+
+
+def _get_session_exec_lock(session_id: str) -> threading.Lock:
+    with _session_exec_locks_guard:
+        lock = _session_exec_locks.get(session_id)
+        if lock is None:
+            lock = threading.Lock()
+            _session_exec_locks[session_id] = lock
+        return lock
 
 def _run_sync(coro):
     """Run coroutine from sync context, safe even when an event loop is already running."""
@@ -110,6 +135,7 @@ class FullSandboxBackend(SandboxBackendProtocol):
         self._client: Optional[httpx.AsyncClient] = None
         self._consecutive_sandbox_errors = 0
         self._circuit_open_until = 0.0
+        self._session_exec_lock = _get_session_exec_lock(session_id)
 
         logger.info(
             f"[FullSandbox] Initialized: user={user_id}, session={session_id}, "
@@ -284,6 +310,74 @@ class FullSandboxBackend(SandboxBackendProtocol):
                 return True
         return False
 
+    def _infra_error_response(self, message: str) -> ExecuteResponse:
+        return ExecuteResponse(
+            output=f"[infrastructure_error] {message}",
+            exit_code=-1,
+            truncated=False,
+        )
+
+    async def _aacquire_exec_capacity(self, effective_timeout: int) -> tuple[float, int]:
+        queue_started = time.monotonic()
+        session_lock_acquired = False
+        global_slot_acquired = False
+
+        try:
+            session_lock_acquired = await asyncio.to_thread(
+                self._session_exec_lock.acquire, True, effective_timeout
+            )
+            if not session_lock_acquired:
+                raise _ShellExecCapacityTimeout(
+                    "session shell execution slot",
+                    time.monotonic() - queue_started,
+                )
+
+            waited = time.monotonic() - queue_started
+            remaining = effective_timeout - waited
+            if remaining <= 0:
+                raise _ShellExecCapacityTimeout(
+                    "sandbox execution capacity",
+                    waited,
+                )
+
+            global_slot_acquired = await asyncio.to_thread(
+                _shell_exec_slots.acquire, True, remaining
+            )
+            if not global_slot_acquired:
+                raise _ShellExecCapacityTimeout(
+                    "global sandbox execution slot",
+                    time.monotonic() - queue_started,
+                )
+
+            total_waited = time.monotonic() - queue_started
+            remaining = effective_timeout - total_waited
+            if remaining <= 0:
+                raise _ShellExecCapacityTimeout(
+                    "sandbox execution capacity",
+                    total_waited,
+                )
+
+            queue_wait_ms = int(total_waited * 1000)
+            if queue_wait_ms >= 100:
+                logger.info(
+                    "[FullSandbox] Shell exec waited for backend capacity: "
+                    f"session={self._session_id}, "
+                    f"wait_ms={queue_wait_ms}, "
+                    f"max_concurrency={_SHELL_EXEC_MAX_CONCURRENCY}"
+                )
+
+            return remaining, queue_wait_ms
+        except Exception:
+            if global_slot_acquired:
+                _shell_exec_slots.release()
+            if session_lock_acquired:
+                self._session_exec_lock.release()
+            raise
+
+    def _release_exec_capacity(self) -> None:
+        _shell_exec_slots.release()
+        self._session_exec_lock.release()
+
     async def aexecute(
         self, command: str, *, timeout: int | None = None
     ) -> ExecuteResponse:
@@ -293,55 +387,95 @@ class FullSandboxBackend(SandboxBackendProtocol):
         if circuit_response is not None:
             return circuit_response
 
-        for attempt in range(2):
-            try:
-                sid = await self._aensure_session(force_new=(attempt > 0))
-                client = self._get_client()
-                logger.info(
-                    "[FullSandbox] Executing command: "
-                    f"timeout={effective_timeout}s, "
-                    f"attempt={attempt + 1}/2, "
-                    f"command={_truncate_for_log(command, limit=200)}"
-                )
-                resp = await client.post(
-                    "/v1/shell/exec",
-                    json={
-                        "id": sid,
-                        "command": command,
-                        "async_mode": False,
-                        "exec_dir": self._remote_workspace,
-                    },
-                    timeout=httpx.Timeout(effective_timeout + 10, connect=10),
-                )
-                resp.raise_for_status()
-                result = resp.json()
-                raw_data = result.get("data") if isinstance(result, dict) else None
+        try:
+            initial_remaining_timeout, queue_wait_ms = await self._aacquire_exec_capacity(
+                effective_timeout
+            )
+        except _ShellExecCapacityTimeout as exc:
+            waited_ms = int(exc.waited_seconds * 1000)
+            logger.warning(
+                "[FullSandbox] Execute queue timed out before request dispatch: "
+                f"stage={exc.stage}, "
+                f"timeout={effective_timeout}s, "
+                f"wait_ms={waited_ms}, "
+                f"command={_truncate_for_log(command, limit=200)}"
+            )
+            return self._infra_error_response(
+                f"Command could not start within {effective_timeout}s because the sandbox "
+                f"execution queue was full ({exc.stage})."
+            )
 
-                if self._is_session_expired(result):
-                    if attempt == 0:
-                        logger.warning(f"[FullSandbox] Session expired, recreating (attempt {attempt + 1})")
-                        continue
-                    return ExecuteResponse(
-                        output="[error] Shell session expired and recreation failed", exit_code=1
+        exec_started = time.monotonic()
+        try:
+            for attempt in range(2):
+                elapsed_after_queue = time.monotonic() - exec_started
+                remaining_timeout = initial_remaining_timeout - elapsed_after_queue
+                if remaining_timeout <= 0:
+                    logger.error(
+                        "[FullSandbox] Execute timed out before sandbox response: "
+                        f"timeout={effective_timeout}s, "
+                        f"queue_wait_ms={queue_wait_ms}, "
+                        f"command={_truncate_for_log(command, limit=200)}"
+                    )
+                    return self._infra_error_response(
+                        f"Command timed out after {effective_timeout}s while waiting for sandbox execution."
                     )
 
-                exec_response, is_malformed = self._parse_exec_response(result)
-                if is_malformed:
-                    return self._record_malformed_exec_response(command, exec_response, effective_timeout)
-                self._reset_sandbox_error_state()
-                return exec_response
-            except httpx.TimeoutException as exc:
-                logger.error(f"[FullSandbox] Execute timed out after {effective_timeout}s: {exc!r}")
-                return ExecuteResponse(output=f"[error] Command timed out after {effective_timeout}s", exit_code=1)
-            except Exception as exc:
-                if attempt == 0 and ("connection" in str(exc).lower() or "connect" in str(exc).lower()):
-                    logger.warning(f"[FullSandbox] Connection error, retrying with new session: {exc!r}")
-                    self._shell_session_id = None
-                    continue
-                logger.error(f"[FullSandbox] Execute failed: {exc!r}")
-                return ExecuteResponse(output=f"[error] {exc}", exit_code=1)
+                try:
+                    sid = await self._aensure_session(force_new=(attempt > 0))
+                    client = self._get_client()
+                    logger.info(
+                        "[FullSandbox] Executing command: "
+                        f"timeout={effective_timeout}s, "
+                        f"remaining_timeout={max(1, int(remaining_timeout))}s, "
+                        f"queue_wait_ms={queue_wait_ms}, "
+                        f"attempt={attempt + 1}/2, "
+                        f"command={_truncate_for_log(command, limit=200)}"
+                    )
+                    resp = await client.post(
+                        "/v1/shell/exec",
+                        json={
+                            "id": sid,
+                            "command": command,
+                            "async_mode": False,
+                            "exec_dir": self._remote_workspace,
+                        },
+                        timeout=httpx.Timeout(
+                            remaining_timeout,
+                            connect=min(10.0, remaining_timeout),
+                        ),
+                    )
+                    resp.raise_for_status()
+                    result = resp.json()
 
-        return ExecuteResponse(output="[error] Execute failed after retries", exit_code=1)
+                    if self._is_session_expired(result):
+                        if attempt == 0:
+                            logger.warning(f"[FullSandbox] Session expired, recreating (attempt {attempt + 1})")
+                            continue
+                        return self._infra_error_response(
+                            "Shell session expired and recreation failed."
+                        )
+
+                    exec_response, is_malformed = self._parse_exec_response(result)
+                    if is_malformed:
+                        return self._record_malformed_exec_response(command, exec_response, effective_timeout)
+                    self._reset_sandbox_error_state()
+                    return exec_response
+                except httpx.TimeoutException as exc:
+                    logger.error(f"[FullSandbox] Execute timed out after {effective_timeout}s: {exc!r}")
+                    return self._infra_error_response(
+                        f"Command timed out after {effective_timeout}s."
+                    )
+                except Exception as exc:
+                    if attempt == 0 and ("connection" in str(exc).lower() or "connect" in str(exc).lower()):
+                        logger.warning(f"[FullSandbox] Connection error, retrying with new session: {exc!r}")
+                        self._shell_session_id = None
+                        continue
+                    logger.error(f"[FullSandbox] Execute failed: {exc!r}")
+                    return self._infra_error_response(str(exc))
+            return self._infra_error_response("Execute failed after retries.")
+        finally:
+            self._release_exec_capacity()
 
     def execute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
         return _run_sync(self.aexecute(command, timeout=timeout))

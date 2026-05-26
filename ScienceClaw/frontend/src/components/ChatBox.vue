@@ -75,21 +75,24 @@
                     <!-- ScienceClaw + Skills Selection Popover -->
                     <Popover v-model:open="isPanelOpen">
                     <PopoverTrigger as-child>
-                            <div
-                                class="flex items-center gap-2 bg-[var(--background-white-main)] rounded-full px-3 py-1 border cursor-pointer transition-colors h-8"
+                            <button
+                                type="button"
+                                class="relative flex h-8 shrink-0 items-center gap-2 rounded-full border bg-[var(--background-white-main)] px-3 transition-colors whitespace-nowrap"
                                 :class="selectedSkills.length
-                                    ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-300'
+                                    ? 'border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-950/20'
                                     : 'border-[var(--border-light)] hover:border-[var(--border-main)]'"
+                                :title="selectedSkills.length ? selectedSkills.map((skill) => skill.name).join(', ') : 'ScienceClaw'"
+                                aria-label="ScienceClaw skills"
                             >
                                 <RobotAvatar class="w-4 h-4" />
-                                <span class="text-xs font-medium truncate max-w-[180px]">{{ selectedSkillsTriggerLabel }}</span>
+                                <span class="text-xs font-medium text-[var(--text-secondary)]">ScienceClaw</span>
                                 <span
                                     v-if="selectedSkills.length"
-                                    class="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold text-white"
+                                    class="inline-flex min-w-[16px] h-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-semibold text-white"
                                 >
                                     {{ selectedSkills.length }}
                                 </span>
-                            </div>
+                            </button>
                         </PopoverTrigger>
                         <PopoverContent class="w-[320px] p-0 overflow-hidden bg-[var(--background-white-main)] border border-[var(--border-light)] shadow-xl rounded-xl" align="start" :side-offset="8">
                             
@@ -113,14 +116,6 @@
 
                                 <!-- SKILLS Selection Section -->
                                 <div>
-                                    <div class="px-2 pb-2">
-                                        <div class="rounded-lg border border-[var(--border-light)] bg-[var(--fill-tsp-gray-main)] px-3 py-2">
-                                            <div class="text-[11px] font-medium text-[var(--text-primary)]">{{ t('Select skills to prioritize') }}</div>
-                                            <div class="mt-0.5 text-[10px] leading-relaxed text-[var(--text-tertiary)]">
-                                                {{ t('Only selected skill names are sent to the model. Skill files are read only when needed.') }}
-                                            </div>
-                                        </div>
-                                    </div>
                                     <div class="px-2 py-1.5 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider flex justify-between items-center">
                                         <span>Skills</span>
                                         <span class="text-[9px] font-normal bg-[var(--background-gray-main)] px-1.5 py-0.5 rounded text-[var(--text-tertiary)]">{{ externalSkills.length }}</span>
@@ -392,15 +387,6 @@ const selectedSkills = computed(() => {
             blocked: false,
         };
     });
-});
-const selectedSkillsTriggerLabel = computed(() => {
-    if (!selectedSkills.value.length) {
-        return 'ScienceClaw';
-    }
-    if (selectedSkills.value.length === 1) {
-        return selectedSkills.value[0].name;
-    }
-    return t('{count} skills selected', { count: selectedSkills.value.length });
 });
 
 const loadExternalSkills = async () => {

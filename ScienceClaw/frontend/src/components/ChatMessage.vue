@@ -1,5 +1,10 @@
 <template>
-  <div v-if="message.type === 'user'" class="msg-enter-right flex w-full flex-col items-end justify-end gap-1 group mt-4">
+  <div
+    v-if="message.type === 'user'"
+    :data-message-key="messageKey"
+    :data-message-keys="messageKeysAttr"
+    :class="['msg-enter-right flex w-full flex-col items-end justify-end gap-1 group mt-4', messageFlashClass]"
+  >
     <div class="flex items-end mb-0.5">
       <div class="transition-opacity duration-200 text-[11px] text-[var(--text-tertiary)] opacity-40 group-hover:opacity-100 tabular-nums">
         {{ relativeTime(message.content.timestamp) }}
@@ -18,7 +23,12 @@
       </div>
     </div>
   </div>
-  <div v-else-if="message.type === 'assistant'" class="msg-enter-left flex flex-col gap-2 w-full group mt-3">
+  <div
+    v-else-if="message.type === 'assistant'"
+    :data-message-key="messageKey"
+    :data-message-keys="messageKeysAttr"
+    :class="['msg-enter-left flex flex-col gap-2 w-full group mt-3', messageFlashClass]"
+  >
     <!-- Header: avatar + name + time -->
     <div class="flex items-center justify-between h-7">
       <div class="flex items-center gap-2">
@@ -487,6 +497,9 @@ const props = defineProps<{
   mode?: string;
   isLast?: boolean;
   isLoading?: boolean;
+  messageKey?: string;
+  messageKeys?: string[];
+  flashToken?: number;
 }>();
 
 const botName = computed(() => {
@@ -596,6 +609,8 @@ const stepContent = computed(() => props.message.content as StepContent);
 const messageContent = computed(() => props.message.content as MessageContent);
 const toolContent = computed(() => props.message.content as ToolContent);
 const attachmentsContent = computed(() => props.message.content as AttachmentsContent);
+const messageFlashClass = computed(() => (props.flashToken ? 'session-search-hit-flash' : ''));
+const messageKeysAttr = computed(() => `|${(props.messageKeys ?? []).join('|')}|`);
 
 const { relativeTime } = useRelativeTime();
 
@@ -1725,5 +1740,27 @@ const parseContent = (markdown: string) => {
   .msg-action-btn { @apply w-8 h-8; }
   .msg-stats-capsule { @apply mt-1; }
   .markdown-content table { font-size: 0.85em; }
+}
+
+.session-search-hit-flash {
+  animation: session-search-hit-flash 1s ease-in-out 2;
+}
+
+@keyframes session-search-hit-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
+  }
+  25% {
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
+  }
+  75% {
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
+  }
 }
 </style>

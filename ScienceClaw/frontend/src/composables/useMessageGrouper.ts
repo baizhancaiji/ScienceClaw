@@ -6,6 +6,7 @@ export interface GroupedMessage {
   message?: Message;
   messages?: Message[];
   id: string;
+  sourceMessageIndexes?: number[];
 }
 
 export function useMessageGrouper(messagesRef: Ref<Message[]> | Message[]) {
@@ -49,7 +50,8 @@ export function useMessageGrouper(messagesRef: Ref<Message[]> | Message[]) {
         groups.push({
           type: 'single',
           message: mergedMsg,
-          id: `merged-assistant-${firstIdx}-${assistantGroupCounter++}`
+          id: `merged-assistant-${firstIdx}-${assistantGroupCounter++}`,
+          sourceMessageIndexes: currentAssistantGroup.map(m => messages.indexOf(m)).filter(index => index >= 0),
         });
         currentAssistantGroup = [];
       }
@@ -68,7 +70,8 @@ export function useMessageGrouper(messagesRef: Ref<Message[]> | Message[]) {
         groups.push({
           type: 'single',
           message: msg,
-          id: `msg-${index}`
+          id: `msg-${index}`,
+          sourceMessageIndexes: [index],
         });
       }
     });

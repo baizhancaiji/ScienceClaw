@@ -42,6 +42,16 @@ const scrollToTop = () => {
     }
 };
 
+const scrollToElement = (element: HTMLElement, offset = 0) => {
+    if (!contentWrapperRef.value) return;
+    const container = contentWrapperRef.value;
+    const top = element.offsetTop - (container.clientHeight / 2) + (element.offsetHeight / 2) - offset;
+    container.scrollTo({
+        top: Math.max(0, top),
+        behavior: 'smooth',
+    });
+};
+
 const isScrolledToBottom = (threshold = 10) => {
     if (!contentWrapperRef.value) return false;
     const { scrollTop, scrollHeight, clientHeight } = contentWrapperRef.value;
@@ -55,6 +65,7 @@ const canScroll = () => {
 
 defineExpose({
     scrollToBottom,
+    scrollToElement,
     scrollToTop,
     isScrolledToBottom,
     canScroll

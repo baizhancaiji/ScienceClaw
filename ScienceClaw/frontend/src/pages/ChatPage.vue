@@ -15,6 +15,85 @@
               </span>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
+              <div class="session-search-shell" :class="{ 'session-search-shell--open': isSessionSearchOpen }">
+                <div
+                  class="session-search-popover"
+                  :class="{ 'session-search-popover--visible': isSessionSearchOpen && !!sessionSearchQuery.trim() }"
+                >
+                  <div
+                    v-if="sessionSearchQuery.trim() && sessionSearchResults.length"
+                    class="session-search-results"
+                    role="listbox"
+                    aria-label="Session search results"
+                  >
+                    <button
+                      v-for="(result, resultIndex) in sessionSearchResults"
+                      :key="result.id"
+                      type="button"
+                      class="session-search-result"
+                      :class="{ 'session-search-result--active': resultIndex === sessionSearchActiveIndex }"
+                      @click="handleSessionSearchResultClick(resultIndex)"
+                    >
+                      <span class="session-search-result__role">{{ result.roleLabel }}</span>
+                      <span class="session-search-result__snippet">{{ result.snippet }}</span>
+                    </button>
+                  </div>
+                  <div
+                    v-else-if="sessionSearchQuery.trim()"
+                    class="session-search-empty"
+                  >
+                    {{ t('No matches found') }}
+                  </div>
+                  <div
+                    class="session-search-nav"
+                    :class="{ 'session-search-nav--visible': isSessionSearchOpen && !!sessionSearchQuery.trim() }"
+                  >
+                    <button
+                      type="button"
+                      class="session-search-nav__button"
+                      :disabled="!canSelectPreviousSearchResult"
+                      @click="handleSessionSearchPrevious"
+                    >
+                      <span class="session-search-nav__icon">↑</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="session-search-nav__button"
+                      :disabled="!canSelectNextSearchResult"
+                      @click="handleSessionSearchNext"
+                    >
+                      <span class="session-search-nav__icon">↓</span>
+                    </button>
+                  </div>
+                </div>
+                <transition name="session-search-expand">
+                  <div v-if="isSessionSearchOpen" class="session-search-bar">
+                    <Search class="session-search-bar__icon" :size="15" />
+                    <input
+                      ref="sessionSearchInputRef"
+                      v-model="sessionSearchQuery"
+                      type="text"
+                      class="session-search-bar__input"
+                      :placeholder="t('Search this session')"
+                      @keydown.enter.prevent="handleSessionSearchNext"
+                      @keydown.shift.enter.prevent="handleSessionSearchPrevious"
+                      @keydown.esc.prevent="closeSessionSearch"
+                    />
+                    <span class="session-search-bar__count">
+                      {{ sessionSearchCountLabel }}
+                    </span>
+                  </div>
+                </transition>
+                <button
+                  type="button"
+                  class="session-search-toggle"
+                  :aria-label="isSessionSearchOpen ? t('Close search') : t('Search this session')"
+                  @click="toggleSessionSearch"
+                >
+                  <X v-if="isSessionSearchOpen" :size="16" />
+                  <Search v-else :size="16" />
+                </button>
+              </div>
               <span class="relative flex-shrink-0" aria-expanded="false" aria-haspopup="dialog">
                 <Popover>
                   <PopoverTrigger>
@@ -148,7 +227,10 @@
             </div>
             <ChatMessage v-else-if="group.type === 'single' && group.message" :message="group.message"
               @toolClick="handleToolClick" @suggestionClick="handleSuggestionClick" @convertToPdf="handleConvertToPdf" :mode="mode"
-              :isLast="index === lastProcessGroupIndex" :isLoading="isLoading" />
+              :isLast="index === lastProcessGroupIndex" :isLoading="isLoading"
+              :messageKey="getPrimaryMessageKey(group)"
+              :messageKeys="getGroupMessageKeys(group)"
+              :flashToken="getGroupFlashToken(group)" />
           </template>
 
           <!-- Loading indicator -->
@@ -256,7 +338,7 @@ import {
 } from '../types/event';
 import ToolPanel from '../components/ToolPanel.vue'
 import PlanPanel from '../components/PlanPanel.vue';
-import { ArrowDown, FileSearch, PanelLeft, Lock, Globe, Link, Check, Package, Wrench, X } from 'lucide-vue-next';
+import { ArrowDown, FileSearch, PanelLeft, Lock, Globe, Link, Check, Package, Wrench, X, Search } from 'lucide-vue-next';
 import ShareIcon from '@/components/icons/ShareIcon.vue';
 import { showErrorToast, showSuccessToast } from '../utils/toast';
 import type { FileInfo } from '../api/file';
@@ -275,6 +357,7 @@ import { useSessionNotifications } from '../composables/useSessionNotifications'
 import { consumePendingChat } from '../composables/usePendingChat';
 
 import { useMessageGrouper } from '../composables/useMessageGrouper';
+import { getSessionSearchMessageKey, useSessionSearch } from '../composables/useSessionSearch';
 import ProcessMessage from '../components/ProcessMessage.vue';
 import ActivityPanel from '../components/ActivityPanel.vue';
 import type { ActivityItem } from '../components/ActivityPanel.vue';
@@ -352,6 +435,32 @@ const {
 } = toRefs(state);
 
 const { groupedMessages } = useMessageGrouper(messages);
+// ── Streaming state for message_chunk ──
+const _streamingMsgIndex = ref<number | null>(null);
+const sessionSearchExcludedIndexes = computed(() =>
+  _streamingMsgIndex.value === null ? [] : [_streamingMsgIndex.value],
+);
+const {
+  activeIndex: sessionSearchActiveIndex,
+  canSelectNext: canSelectNextSearchResult,
+  canSelectPrevious: canSelectPreviousSearchResult,
+  closeSearch: closeSessionSearchState,
+  query: sessionSearchQuery,
+  results: sessionSearchResults,
+  currentResult: currentSearchResult,
+  isOpen: isSessionSearchOpen,
+  openSearch: openSessionSearchState,
+  selectNext: selectNextSearchResult,
+  selectPrevious: selectPreviousSearchResult,
+  selectResult: selectSearchResult,
+} = useSessionSearch(messages, {
+  excludedMessageIndexes: sessionSearchExcludedIndexes,
+});
+const sessionSearchCountLabel = computed(() => {
+  if (!sessionSearchQuery.value.trim()) return '0 / 0';
+  if (!sessionSearchResults.value.length) return '0 / 0';
+  return `${sessionSearchActiveIndex.value + 1} / ${sessionSearchResults.value.length}`;
+});
 
 // 最后一个 process 组的索引（推理失败时会先 push 一条 assistant 消息，此时最后一组不是 process，需用此判断当前轮次的 process 组）
 const lastProcessGroupIndex = computed(() => {
@@ -394,6 +503,8 @@ const activityPanelRef = ref<InstanceType<typeof ActivityPanel>>()
 const simpleBarRef = ref<InstanceType<typeof SimpleBar>>();
 const observerRef = ref<HTMLDivElement>();
 const chatContainerRef = ref<HTMLDivElement>();
+const messageFlashTokens = ref<Record<string, number>>({});
+const sessionSearchInputRef = ref<HTMLInputElement | null>(null);
 
 // Watch message changes and automatically scroll to bottom
 watch(messages, async () => {
@@ -408,6 +519,88 @@ watch(messages, async () => {
 const getLastStep = (): StepContent | undefined => {
   return messages.value.filter(message => message.type === 'step').pop()?.content as StepContent;
 }
+
+const getGroupMessageKeys = (group: { sourceMessageIndexes?: number[] }) => {
+  return (group.sourceMessageIndexes ?? []).map(getSessionSearchMessageKey);
+};
+
+const getPrimaryMessageKey = (group: { sourceMessageIndexes?: number[] }) => {
+  return getGroupMessageKeys(group)[0] ?? '';
+};
+
+const getGroupFlashToken = (group: { sourceMessageIndexes?: number[] }) => {
+  const tokens = getGroupMessageKeys(group)
+    .map(key => messageFlashTokens.value[key] ?? 0)
+    .filter(token => token > 0);
+
+  return tokens.length ? Math.max(...tokens) : 0;
+};
+
+const scrollToMessageKey = async (messageKey: string) => {
+  await nextTick();
+
+  const container = chatContainerRef.value;
+  const target = container?.querySelector<HTMLElement>(`[data-message-keys*="|${messageKey}|"]`);
+  if (!target) return false;
+
+  simpleBarRef.value?.scrollToElement(target, 160);
+  return true;
+};
+
+const triggerMessageFlash = (messageKey: string) => {
+  messageFlashTokens.value = {
+    ...messageFlashTokens.value,
+    [messageKey]: Date.now(),
+  };
+};
+
+const toggleSessionSearch = async () => {
+  if (isSessionSearchOpen.value) {
+    closeSessionSearchState();
+    return;
+  }
+
+  openSessionSearchState();
+  await nextTick();
+  sessionSearchInputRef.value?.focus();
+  sessionSearchInputRef.value?.select();
+};
+
+const closeSessionSearch = () => {
+  closeSessionSearchState();
+};
+
+const handleSessionSearchResultClick = (resultIndex: number) => {
+  selectSearchResult(resultIndex);
+};
+
+const handleSessionSearchPrevious = () => {
+  selectPreviousSearchResult();
+};
+
+const handleSessionSearchNext = () => {
+  if (currentSearchResult.value && !canSelectNextSearchResult.value) {
+    return;
+  }
+  selectNextSearchResult();
+};
+
+watch(sessionSearchResults, (results) => {
+  if (!sessionSearchQuery.value.trim() || !results.length) {
+    return;
+  }
+
+  selectSearchResult(0);
+});
+
+watch(currentSearchResult, async (result) => {
+  if (!result) return;
+
+  const found = await scrollToMessageKey(result.messageKey);
+  if (found) {
+    triggerMessageFlash(result.messageKey);
+  }
+});
 
 // Determine which conversation turn a process group belongs to
 const getProcessTurnIndex = (groupIndex: number): number => {
@@ -434,9 +627,6 @@ const showActivityForTurn = (turnIndex: number) => {
   selectedActivityTurn.value = targetTurn;
   activityPanelRef.value?.show();
 };
-
-// ── Streaming state for message_chunk ──
-const _streamingMsgIndex = ref<number | null>(null);
 
 // Set to true when the component unmounts; async callbacks check this
 // to avoid mutating dead state after the user navigated away.
@@ -1368,5 +1558,271 @@ const handleCopyLink = async () => {
 }
 .animate-fadeIn {
   animation: fadeIn 0.4s ease-out;
+}
+
+.session-search-shell {
+  --session-search-toggle-width: 32px;
+  --session-search-bar-width: clamp(240px, 46vw, 390px);
+  --session-search-results-width: calc(var(--session-search-bar-width) - 20px);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  width: var(--session-search-toggle-width);
+  min-width: var(--session-search-toggle-width);
+  overflow: visible;
+}
+
+.session-search-shell--open {
+  z-index: 18;
+}
+
+.session-search-toggle {
+  width: var(--session-search-toggle-width);
+  height: var(--session-search-toggle-width);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgb(229 231 235);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--icon-secondary);
+  transition: all 0.2s ease;
+}
+
+.session-search-toggle:hover {
+  background: rgb(249 250 251);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.dark .session-search-toggle {
+  border-color: rgb(55 65 81);
+  background: rgba(31, 41, 55, 0.72);
+}
+
+.dark .session-search-toggle:hover {
+  background: rgb(31 41 55);
+}
+
+.session-search-bar {
+  position: absolute;
+  right: calc(var(--session-search-toggle-width) + 8px);
+  top: 0;
+  height: 32px;
+  width: var(--session-search-bar-width);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(10px);
+  z-index: 14;
+}
+
+.dark .session-search-bar {
+  border-color: rgba(55, 65, 81, 0.95);
+  background: rgba(17, 24, 39, 0.94);
+}
+
+.session-search-bar__icon {
+  color: rgb(96 165 250);
+  flex-shrink: 0;
+}
+
+.session-search-bar__input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  outline: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.session-search-bar__input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.session-search-bar__count {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.session-search-popover {
+  position: absolute;
+  right: calc(var(--session-search-toggle-width) + 8px);
+  top: 40px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 13;
+}
+
+.session-search-popover--visible {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.session-search-results,
+.session-search-empty {
+  width: var(--session-search-results-width);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px;
+  border-radius: 16px 0 0 16px;
+  border: 1px solid rgba(191, 219, 254, 0.8);
+  border-right: none;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.12);
+}
+
+.dark .session-search-results,
+.dark .session-search-empty {
+  border-color: rgba(55, 65, 81, 0.95);
+  background: rgba(17, 24, 39, 0.98);
+}
+
+.session-search-empty {
+  display: flex;
+  align-items: center;
+  min-height: 72px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.session-search-result {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-align: left;
+  transition: background 0.18s ease, border-color 0.18s ease;
+  border: 1px solid transparent;
+}
+
+.session-search-result:hover {
+  background: rgba(239, 246, 255, 0.85);
+}
+
+.dark .session-search-result:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.session-search-result--active {
+  background: rgba(219, 234, 254, 0.9);
+  border-color: rgba(96, 165, 250, 0.55);
+}
+
+.dark .session-search-result--active {
+  background: rgba(30, 64, 175, 0.18);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.session-search-result__role {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgb(59 130 246);
+}
+
+.session-search-result__snippet {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.session-search-nav {
+  width: 40px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0 16px 16px 0;
+  border: 1px solid rgba(191, 219, 254, 0.8);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.dark .session-search-nav {
+  border-color: rgba(55, 65, 81, 0.95);
+  background: rgba(17, 24, 39, 0.98);
+}
+
+.session-search-nav__button {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.session-search-nav__button + .session-search-nav__button {
+  border-top: 1px solid rgba(191, 219, 254, 0.5);
+}
+
+.dark .session-search-nav__button + .session-search-nav__button {
+  border-top-color: rgba(55, 65, 81, 0.65);
+}
+
+.session-search-nav__button:hover:not(:disabled) {
+  background: rgba(239, 246, 255, 0.9);
+  color: rgb(59 130 246);
+}
+
+.dark .session-search-nav__button:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.92);
+}
+
+.session-search-nav__button:disabled {
+  color: rgb(156 163 175);
+  cursor: not-allowed;
+}
+
+.session-search-nav__icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.session-search-expand-enter-active,
+.session-search-expand-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.session-search-expand-enter-from,
+.session-search-expand-leave-to {
+  opacity: 0;
+  transform: translateX(12px);
+}
+
+@media (max-width: 768px) {
+  .session-search-shell {
+    --session-search-bar-width: min(68vw, 280px);
+    --session-search-results-width: var(--session-search-bar-width);
+  }
+
+  .session-search-bar,
+  .session-search-results,
+  .session-search-empty {
+    width: var(--session-search-bar-width);
+  }
 }
 </style>

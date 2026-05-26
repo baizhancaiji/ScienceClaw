@@ -408,6 +408,7 @@ async def _arun_deep_agent_stream(
         task_settings=task_cfg,
         diagnostic_enabled=DIAGNOSTIC_ENABLED,
         language=language,
+        selected_skill_names=getattr(session, "selected_skill_names", []) or [],
     )
     middleware.clear()  # 确保干净状态
 

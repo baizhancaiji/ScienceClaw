@@ -290,7 +290,9 @@
             :sessionId="sessionId"
             :models="models"
             :selectedModelId="selectedModelId"
+            :selectedSkillNames="selectedSkillNames"
             @update:selectedModelId="selectedModelId = $event"
+            @update:selectedSkillNames="selectedSkillNames = $event"
             @files-changed="onFilesChanged"
             @open-model-settings="openSettingsDialog('models')"
             />
@@ -373,6 +375,7 @@ const { onSessionUpdated } = useSessionNotifications()
 // Models related state
 const models = ref<ModelConfig[]>([]);
 const selectedModelId = ref<string | null>(null);
+const selectedSkillNames = ref<string[]>([]);
 const { isSettingsDialogOpen, openSettingsDialog } = useSettingsDialog();
 
 
@@ -1150,6 +1153,7 @@ const chat = async (message: string = '', files: FileInfo[] = [], reconnect: boo
         attachments: files.map((file: FileInfo) => file.file_id),
         language: locale.value,
         model_config_id: selectedModelId.value || undefined,
+        selected_skill_names: selectedSkillNames.value,
       },
       {
         onOpen: () => {
@@ -1241,6 +1245,7 @@ const restoreSession = async () => {
   if (session.model_config_id) {
     selectedModelId.value = session.model_config_id;
   }
+  selectedSkillNames.value = session.selected_skill_names || [];
   realTime.value = false;
   for (const event of session.events) {
     if (isStale()) return;
@@ -1291,6 +1296,7 @@ const restoreSession = async () => {
         console.log('[ChatPage] has pending chat, files:', pending.files?.length || 0);
         if (pending.mode) mode.value = pending.mode;
         if (pending.selectedModelId) selectedModelId.value = pending.selectedModelId;
+        selectedSkillNames.value = pending.selectedSkillNames || [];
         chat(pending.message, pending.files || []);
       } else {
         console.log('[ChatPage] no pending chat, restoring session');

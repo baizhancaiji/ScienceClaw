@@ -219,6 +219,20 @@ def get_system_prompt(workspace_dir: str, sandbox_env: str | None = None, langua
     return prompt
 
 
+def append_selected_skills_instruction(prompt: str, selected_skill_names: List[str] | None = None) -> str:
+    names = [name.strip() for name in (selected_skill_names or []) if isinstance(name, str) and name.strip()]
+    if not names:
+        return prompt
+    selected_lines = "\n".join(f"- `{name}`" for name in names)
+    return (
+        f"{prompt}\n\n"
+        "## User-Selected Skills\n"
+        "The user explicitly selected these skills for this task. Treat them as high-priority skills to inspect first.\n"
+        "Only the skill names are provided here; do not assume their contents. Read the matching SKILL.md files when needed.\n"
+        f"{selected_lines}"
+    )
+
+
 def _get_eval_system_prompt(workspace_dir: str, sandbox_env: str | None = None) -> str:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S %A")
     prompt = _EVAL_SYSTEM_PROMPT_TEMPLATE.format(
@@ -319,6 +333,7 @@ async def deep_agent(
     task_settings: Optional["TaskSettings"] = None,
     diagnostic_enabled: bool = False,
     language: Optional[str] = None,
+    selected_skill_names: Optional[List[str]] = None,
 ) -> Tuple[Any, SSEMonitoringMiddleware, int, Optional[DiagnosticLogger]]:
     """
     创建一个完整的 DeepAgent 实例（会话级隔离），并注入 SSE 监控中间件。
@@ -393,6 +408,7 @@ async def deep_agent(
 
     # 4. 注入系统提示词
     system_prompt = get_system_prompt(actual_workspace, sandbox_info, language=language)
+    system_prompt = append_selected_skills_instruction(system_prompt, selected_skill_names)
     agent_kwargs["system_prompt"] = system_prompt
 
     if diag:

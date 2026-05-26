@@ -68,11 +68,13 @@ class ApiResponse(BaseModel):
 class CreateSessionRequest(BaseModel):
     mode: str = Field(default="deep", description="Session mode")
     model_config_id: Optional[str] = Field(default=None, description="Model config ID")
+    selected_skill_names: List[str] = Field(default_factory=list, description="User-selected skill names")
 
 
 class CreateSessionData(BaseModel):
     session_id: str = Field(..., description="Session ID")
     mode: str = Field(default="deep", description="Session mode")
+    selected_skill_names: List[str] = Field(default_factory=list, description="User-selected skill names")
 
 
 class SessionStatus:
@@ -106,6 +108,7 @@ class GetSessionData(BaseModel):
     is_shared: bool = Field(default=False, description="Whether shared")
     mode: str = Field(default="deep", description="Session mode")
     model_config_id: Optional[str] = Field(default=None, description="Model config ID")
+    selected_skill_names: List[str] = Field(default_factory=list, description="User-selected skill names")
 
 
 class ChatRequest(BaseModel):
@@ -116,6 +119,7 @@ class ChatRequest(BaseModel):
     attachments: Optional[List[str]] = Field(default=None, description="Attachment path list")
     language: Optional[str] = Field(default=None, description="User interface language (e.g. 'zh', 'en')")
     model_config_id: Optional[str] = Field(default=None, description="Model config ID to use (overrides session default)")
+    selected_skill_names: List[str] = Field(default_factory=list, description="User-selected skill names for this chat")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -165,6 +169,22 @@ def _append_session_event(session: Any, event: Dict[str, Any]) -> None:
         if isinstance(content, str) and content.strip():
             setattr(session, "latest_message", content)
             setattr(session, "latest_message_at", int(data.get("timestamp") or _now_ts()))
+
+
+def _normalize_selected_skill_names(skill_names: Optional[List[str]]) -> List[str]:
+    if not skill_names:
+        return []
+    normalized: List[str] = []
+    seen: Set[str] = set()
+    for raw_name in skill_names:
+        if not isinstance(raw_name, str):
+            continue
+        name = raw_name.strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        normalized.append(name)
+    return normalized
 
 
 def _count_user_messages(events: List[Dict[str, Any]]) -> int:
@@ -667,8 +687,13 @@ async def create_session(
             mode=body.mode,
             user_id=current_user.id,
             model_config=model_config_dict,
+            selected_skill_names=_normalize_selected_skill_names(body.selected_skill_names),
         )
-        return ApiResponse(data=CreateSessionData(session_id=session.session_id, mode=session.mode).model_dump())
+        return ApiResponse(data=CreateSessionData(
+            session_id=session.session_id,
+            mode=session.mode,
+            selected_skill_names=getattr(session, "selected_skill_names", []) or [],
+        ).model_dump())
     except HTTPException:
         raise
     except Exception as exc:
@@ -699,6 +724,7 @@ async def get_shared_session(session_id: str) -> ApiResponse:
             events=events,
             is_shared=True,
             mode=getattr(session, "mode", "deep"),
+            selected_skill_names=getattr(session, "selected_skill_names", []) or [],
         ).model_dump())
     except ScienceSessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Shared session not found") from exc
@@ -1254,6 +1280,7 @@ async def get_session(session_id: str, current_user: User = Depends(require_user
             is_shared=getattr(session, "is_shared", False),
             mode=getattr(session, "mode", "deep"),
             model_config_id=mc_id,
+            selected_skill_names=getattr(session, "selected_skill_names", []) or [],
         ).model_dump())
     except ScienceSessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -1710,6 +1737,12 @@ async def chat_with_session(
                 session.model_config = mc.model_dump()
                 await session.save()
                 logger.info(f"[Chat] Model switched for session {session_id}: {current_mc_id} → {body.model_config_id}")
+
+    selected_skill_names = _normalize_selected_skill_names(body.selected_skill_names)
+    if selected_skill_names != (getattr(session, "selected_skill_names", []) or []):
+        session.selected_skill_names = selected_skill_names
+        await session.save()
+        logger.info(f"[Chat] Selected skills updated for session {session_id}: {selected_skill_names}")
 
     existing_task = _agent_tasks.get(session_id)
     is_reconnect = existing_task is not None and not existing_task.done()

@@ -102,7 +102,9 @@
               :attachments="attachments"
               :models="models"
               :selectedModelId="selectedModelId"
+              :selectedSkillNames="selectedSkillNames"
               @update:selectedModelId="selectedModelId = $event"
+              @update:selectedSkillNames="selectedSkillNames = $event"
               @open-model-settings="openSettingsDialog('models')"
             />
           </div>
@@ -245,6 +247,7 @@ const { isSettingsDialogOpen, openSettingsDialog } = useSettingsDialog();
 
 const models = ref<ModelConfig[]>([]);
 const selectedModelId = ref<string | null>(null);
+const selectedSkillNames = ref<string[]>([]);
 
 const avatarLetter = computed(() => {
   return currentUser.value?.fullname?.charAt(0)?.toUpperCase() || 'M';
@@ -312,7 +315,8 @@ const handleSubmit = async () => {
     // Step 1: Create session
     const session = await createSession({
       mode: 'deep',
-      model_config_id: selectedModelId.value || undefined
+      model_config_id: selectedModelId.value || undefined,
+      selected_skill_names: selectedSkillNames.value,
     });
     const sessionId = session.session_id;
 
@@ -327,7 +331,8 @@ const handleSubmit = async () => {
       message: message.value,
       files: uploadedFiles,
       mode: 'deep',
-      selectedModelId: selectedModelId.value
+      selectedModelId: selectedModelId.value,
+      selectedSkillNames: selectedSkillNames.value,
     });
     router.push(`/chat/${sessionId}`);
   } catch (error) {

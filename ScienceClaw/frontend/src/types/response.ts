@@ -19,6 +19,7 @@ export interface GetSessionResponse {
     is_shared: boolean;
     mode: string;
     model_config_id: string | null;
+    selected_skill_names?: string[];
 }
 
 export interface ListSessionItem {

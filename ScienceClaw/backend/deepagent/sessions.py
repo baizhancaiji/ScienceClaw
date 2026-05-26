@@ -49,6 +49,7 @@ class ScienceSession:
     plan: List[PlanStep] = field(default_factory=list)
     user_id: Optional[str] = None
     model_config: Optional[Dict[str, Any]] = None
+    selected_skill_names: List[str] = field(default_factory=list)
 
     _planner_md_digest: str = field(default="", repr=False)
     events: List[Dict[str, Any]] = field(default_factory=list)
@@ -125,6 +126,7 @@ class ScienceSession:
             "latest_message": self.latest_message,
             "latest_message_at": self.latest_message_at,
             "model_config": self.model_config,
+            "selected_skill_names": self.selected_skill_names,
             "events": self.events,
             "pinned": self.pinned,
             "source": self.source,
@@ -175,6 +177,7 @@ async def async_create_science_session(
     mode: str = "deep",
     user_id: Optional[str] = None,
     model_config: Optional[Dict[str, Any]] = None,
+    selected_skill_names: Optional[List[str]] = None,
     source: Optional[str] = None,
 ) -> ScienceSession:
     session_id = shortuuid.uuid()
@@ -192,6 +195,7 @@ async def async_create_science_session(
         mode=mode,
         user_id=user_id,
         model_config=model_config,
+        selected_skill_names=list(selected_skill_names or []),
         created_at=now,
         updated_at=now,
         source=source,
@@ -203,6 +207,7 @@ async def async_create_science_session(
         "user_id": user_id,
         "mode": mode,
         "model_config": model_config,
+        "selected_skill_names": list(selected_skill_names or []),
         "vm_root_dir": str(vm_root),
         "created_at": now,
         "updated_at": now,
@@ -247,6 +252,7 @@ async def async_get_science_session(session_id: str) -> ScienceSession:
         mode=doc.get("mode", "deep"),
         user_id=doc.get("user_id"),
         model_config=doc.get("model_config"),
+        selected_skill_names=doc.get("selected_skill_names", []),
         plan=doc.get("plan", []),
         events=doc.get("events", []),
         title=doc.get("title"),
@@ -295,6 +301,7 @@ async def async_list_science_sessions(user_id: Optional[str] = None) -> List[Sci
             mode=doc.get("mode", "deep"),
             user_id=doc.get("user_id"),
             model_config=doc.get("model_config"),
+            selected_skill_names=doc.get("selected_skill_names", []),
             title=doc.get("title"),
             status=doc.get("status", "pending"),
             created_at=doc.get("created_at", 0),

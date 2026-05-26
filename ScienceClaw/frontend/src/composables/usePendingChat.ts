@@ -5,6 +5,7 @@ interface PendingChatData {
   files: FileInfo[];
   mode?: string;
   selectedModelId?: string | null;
+  selectedSkillNames?: string[];
 }
 
 let _pending: PendingChatData | null = null;

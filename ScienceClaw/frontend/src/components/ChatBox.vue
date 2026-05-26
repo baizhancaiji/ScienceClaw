@@ -42,6 +42,19 @@
                 @upload-ready="allFilesReady = $event" />
 
             <div class="overflow-y-auto pl-4 pr-2 relative min-h-[46px]">
+                <div v-if="selectedSkills.length" class="flex flex-wrap gap-2 pt-1 pb-2">
+                    <button
+                        v-for="skill in selectedSkills"
+                        :key="skill.name"
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-300"
+                        @click="removeSelectedSkill(skill.name)"
+                    >
+                        <Wrench :size="12" />
+                        <span class="max-w-[180px] truncate">{{ skill.name }}</span>
+                        <X :size="12" />
+                    </button>
+                </div>
                 <textarea
                     ref="textarea"
                     class="flex rounded-md border-input focus-visible:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden flex-1 bg-transparent p-0 pt-[10px] border-0 focus-visible:ring-0 focus-visible:ring-offset-0 w-full placeholder:text-[var(--text-disable)] text-[15px] shadow-none resize-none min-h-[40px] max-h-[135px] overflow-y-auto"
@@ -59,12 +72,23 @@
                         <Paperclip :size="16" />
                     </button>
 
-                    <!-- ScienceClaw + Skills Management Popover -->
+                    <!-- ScienceClaw + Skills Selection Popover -->
                     <Popover v-model:open="isPanelOpen">
-                        <PopoverTrigger as-child>
-                            <div class="flex items-center gap-2 bg-[var(--background-white-main)] rounded-full px-3 py-1 border border-[var(--border-light)] cursor-pointer hover:border-[var(--border-main)] transition-colors h-8">
+                    <PopoverTrigger as-child>
+                            <div
+                                class="flex items-center gap-2 bg-[var(--background-white-main)] rounded-full px-3 py-1 border cursor-pointer transition-colors h-8"
+                                :class="selectedSkills.length
+                                    ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-300'
+                                    : 'border-[var(--border-light)] hover:border-[var(--border-main)]'"
+                            >
                                 <RobotAvatar class="w-4 h-4" />
-                                <span class="text-xs font-medium text-[var(--text-secondary)]">ScienceClaw</span>
+                                <span class="text-xs font-medium truncate max-w-[180px]">{{ selectedSkillsTriggerLabel }}</span>
+                                <span
+                                    v-if="selectedSkills.length"
+                                    class="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold text-white"
+                                >
+                                    {{ selectedSkills.length }}
+                                </span>
                             </div>
                         </PopoverTrigger>
                         <PopoverContent class="w-[320px] p-0 overflow-hidden bg-[var(--background-white-main)] border border-[var(--border-light)] shadow-xl rounded-xl" align="start" :side-offset="8">
@@ -87,8 +111,16 @@
                                     </div>
                                 </div>
 
-                                <!-- SKILLS Management Section -->
+                                <!-- SKILLS Selection Section -->
                                 <div>
+                                    <div class="px-2 pb-2">
+                                        <div class="rounded-lg border border-[var(--border-light)] bg-[var(--fill-tsp-gray-main)] px-3 py-2">
+                                            <div class="text-[11px] font-medium text-[var(--text-primary)]">{{ t('Select skills to prioritize') }}</div>
+                                            <div class="mt-0.5 text-[10px] leading-relaxed text-[var(--text-tertiary)]">
+                                                {{ t('Only selected skill names are sent to the model. Skill files are read only when needed.') }}
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="px-2 py-1.5 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider flex justify-between items-center">
                                         <span>Skills</span>
                                         <span class="text-[9px] font-normal bg-[var(--background-gray-main)] px-1.5 py-0.5 rounded text-[var(--text-tertiary)]">{{ externalSkills.length }}</span>
@@ -108,11 +140,19 @@
 
                                     <!-- Skills List -->
                                     <div v-else class="flex flex-col gap-0.5">
-                                        <div 
+                                        <button
                                             v-for="skill in externalSkills" 
                                             :key="skill.name"
-                                            class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-[var(--fill-tsp-gray-main)] transition-all group border border-transparent hover:border-[var(--border-light)]"
-                                            :class="{ 'opacity-50': skill.blocked }"
+                                            type="button"
+                                            class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all group border text-left"
+                                            :class="[
+                                                isSkillSelected(skill.name)
+                                                    ? 'border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-950/20'
+                                                    : 'border-transparent hover:border-[var(--border-light)] hover:bg-[var(--fill-tsp-gray-main)]',
+                                                skill.blocked ? 'opacity-50' : ''
+                                            ]"
+                                            @click="toggleSkillSelection(skill)"
+                                            :disabled="skill.blocked"
                                         >
                                             <div class="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--background-gray-main)] border border-[var(--border-light)] text-[var(--text-secondary)] flex-shrink-0 shadow-sm">
                                                 <Wrench :size="14" />
@@ -123,6 +163,12 @@
                                             </div>
                                             <div class="flex items-center gap-1 flex-shrink-0">
                                                 <span v-if="skill.builtin" class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-medium">Built-in</span>
+                                                <div
+                                                    v-if="isSkillSelected(skill.name)"
+                                                    class="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shadow-sm"
+                                                >
+                                                    <Check :size="12" class="text-white" />
+                                                </div>
                                                 <template v-else>
                                                     <button 
                                                         @click.stop="handleToggleBlock(skill)"
@@ -144,7 +190,7 @@
                                                     </button>
                                                 </template>
                                             </div>
-                                        </div>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -289,6 +335,7 @@ const props = defineProps<{
     sessionId?: string;
     models?: ModelConfig[];
     selectedModelId?: string | null;
+    selectedSkillNames?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -299,6 +346,7 @@ const emit = defineEmits<{
     (e: 'files-changed', files: any[]): void;
     (e: 'upload-ready', ready: boolean): void;
     (e: 'open-model-settings'): void;
+    (e: 'update:selectedSkillNames', value: string[]): void;
 }>();
 
 const { t } = useI18n();
@@ -332,6 +380,28 @@ watch(input, (value) => {
 // ── Skills Management ──
 const externalSkills = ref<ExternalSkillItem[]>([]);
 const loadingSkills = ref(false);
+const selectedSkillNameSet = computed(() => new Set(props.selectedSkillNames || []));
+const selectedSkills = computed(() => {
+    const skillsByName = new Map(externalSkills.value.map(skill => [skill.name, skill]));
+    return (props.selectedSkillNames || []).map((name) => {
+        const existing = skillsByName.get(name);
+        return existing || {
+            name,
+            description: '',
+            files: [],
+            blocked: false,
+        };
+    });
+});
+const selectedSkillsTriggerLabel = computed(() => {
+    if (!selectedSkills.value.length) {
+        return 'ScienceClaw';
+    }
+    if (selectedSkills.value.length === 1) {
+        return selectedSkills.value[0].name;
+    }
+    return t('{count} skills selected', { count: selectedSkills.value.length });
+});
 
 const loadExternalSkills = async () => {
     loadingSkills.value = true;
@@ -361,6 +431,27 @@ const handleToggleBlock = async (skill: ExternalSkillItem) => {
     } catch (e) {
         console.error("Failed to toggle block", e);
     }
+};
+
+const emitSelectedSkillNames = (skillNames: string[]) => {
+    emit('update:selectedSkillNames', skillNames);
+};
+
+const isSkillSelected = (skillName: string) => {
+    return selectedSkillNameSet.value.has(skillName);
+};
+
+const toggleSkillSelection = (skill: ExternalSkillItem) => {
+    if (skill.blocked) return;
+    if (isSkillSelected(skill.name)) {
+        return;
+    }
+    emitSelectedSkillNames([...(props.selectedSkillNames || []), skill.name]);
+    isPanelOpen.value = false;
+};
+
+const removeSelectedSkill = (skillName: string) => {
+    emitSelectedSkillNames((props.selectedSkillNames || []).filter((name) => name !== skillName));
 };
 
 // ── Delete Confirmation ──

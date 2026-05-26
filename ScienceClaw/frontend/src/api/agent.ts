@@ -10,6 +10,7 @@ export type SessionDetail = GetSessionResponse;
 export interface CreateSessionRequest {
   mode: string;
   model_config_id?: string;
+  selected_skill_names?: string[];
 }
 
 export interface ChatRequest {
@@ -20,6 +21,7 @@ export interface ChatRequest {
   attachments?: string[];
   language?: string;
   model_config_id?: string;
+  selected_skill_names?: string[];
 }
 
 export async function createSession(data: CreateSessionRequest): Promise<Session> {

@@ -125,6 +125,22 @@ class MCPClientTests(unittest.TestCase):
             captured.exception.to_dict(),
         )
 
+    def test_auth_http_errors_are_non_retryable_and_keep_status_only(self):
+        for status_code in (401, 403):
+            with self.subTest(status_code=status_code):
+                with patch.object(
+                    client.httpx,
+                    "AsyncClient",
+                    lambda **kwargs: FakeAsyncClient(response=_response(status_code), **kwargs),
+                ):
+                    with self.assertRaises(client.MCPClientError) as captured:
+                        asyncio.run(client.initialize("https://example.com/mcp"))
+
+                self.assertEqual("remote_mcp_http_error", captured.exception.code)
+                self.assertEqual(f"Remote MCP returned HTTP {status_code}", captured.exception.message)
+                self.assertFalse(captured.exception.retryable)
+                self.assertEqual(status_code, captured.exception.status_code)
+
     def test_timeout_maps_to_retryable_error(self):
         request = httpx.Request("POST", "https://example.com/mcp")
 
@@ -172,6 +188,25 @@ class MCPClientTests(unittest.TestCase):
                 asyncio.run(client.initialize("https://example.com/mcp"))
 
         self.assertEqual("remote_mcp_invalid_response", captured.exception.code)
+        self.assertFalse(captured.exception.retryable)
+
+    def test_invalid_json_response_is_non_retryable(self):
+        invalid_response = httpx.Response(
+            200,
+            content=b"not-json",
+            headers={"Content-Type": "application/json"},
+        )
+
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(response=invalid_response, **kwargs),
+        ):
+            with self.assertRaises(client.MCPClientError) as captured:
+                asyncio.run(client.initialize("https://example.com/mcp"))
+
+        self.assertEqual("remote_mcp_invalid_response", captured.exception.code)
+        self.assertEqual("Remote MCP returned invalid JSON", captured.exception.message)
         self.assertFalse(captured.exception.retryable)
 
     def test_jsonrpc_error_maps_to_remote_mcp_error(self):

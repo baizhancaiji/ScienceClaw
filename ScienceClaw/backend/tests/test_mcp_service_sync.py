@@ -95,6 +95,45 @@ class MCPVerifyServiceTests(unittest.TestCase):
         self.assertEqual("error", patch_doc["verify_status"])
         self.assertNotIn("tool_count", patch_doc)
 
+    def test_verify_server_error_summary_does_not_include_secret_headers(self):
+        existing = _server_doc(
+            auth_mode="headers",
+            auth_config={
+                "headers_encrypted": [
+                    {
+                        "name": "X-Api-Key",
+                        "value_encrypted": encrypt_secret("super-secret-token", "key"),
+                    }
+                ]
+            },
+        )
+        update_server = AsyncMock(
+            side_effect=lambda server_id, user_id, patch: {**existing, **patch}
+        )
+        failure = MCPClientError(
+            code="remote_mcp_http_error",
+            message="Remote MCP returned HTTP 403",
+            retryable=False,
+            status_code=403,
+        )
+
+        with (
+            patch.object(service.repository, "get_server", new=AsyncMock(return_value=existing)),
+            patch.object(service.repository, "update_server", new=update_server),
+            patch.object(service.client, "initialize", new=AsyncMock(side_effect=failure)),
+            patch.object(service.client, "list_tools", new=AsyncMock()) as list_tools,
+        ):
+            result = _run(service.verify_server("server-1", "user-1", "key"))
+            list_tools.assert_not_awaited()
+
+        self.assertEqual("error", result.verify_status)
+        self.assertEqual("remote_mcp_http_error: Remote MCP returned HTTP 403", result.verify_error)
+        self.assertNotIn("super-secret-token", result.verify_error)
+        self.assertNotIn("X-Api-Key", result.verify_error)
+        patch_doc = update_server.await_args.args[2]
+        self.assertEqual("error", patch_doc["verify_status"])
+        self.assertNotIn("super-secret-token", str(patch_doc))
+
     def test_verify_server_returns_none_when_server_not_found(self):
         update_server = AsyncMock()
 

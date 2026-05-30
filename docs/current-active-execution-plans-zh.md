@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 5 批 / 5.2 复杂 schema server 联调已按设计文档完成本地收口。使用 `https://mcp.deepwiki.com/mcp` 的 `ask_question` 工具验证 `repoName.anyOf` 复杂 schema 命中 `payload` 回退模式；本批最小代码调整限定为补充 payload 解包回归测试，既有后端映射与前端提示无需扩大改动。
+- 状态：执行中；第 5 批 / 5.3 异常路径联调已按设计文档完成本地收口。已验证连接失败、401/403、500、非法返回的稳定错误合同；本批最小代码调整限定为补充 client/service 异常路径回归测试，既有 verify 状态回写和脱敏实现无需扩大改动。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：5.2 复杂 schema server 联调；已验证 DeepWiki `ask_question` 的 `input_schema_raw` 包含 `anyOf`，Tools 页 MCP tab 中复杂工具可见且卡片/详情抽屉显示 `payload mode`，wrapper 使用 `payload` 调用远端时会解包为 MCP `tools/call` 参数且不崩溃。
-- 下一批最小增量：5.3 异常路径联调；只验证超时、401/403、500、非法返回，验收点限定为前端提示稳定、日志脱敏、状态能回写。
+- 当前批次：5.3 异常路径联调；已用真实 API 验证 `https://127.0.0.1:9/mcp` 连接失败、`https://httpbin.org/status/403`、`https://httpbin.org/status/500` 都回写 `verify_status=error` 和稳定 `verify_error`，且错误摘要不含 secret/token；401/403、500、非法 JSON/JSON-RPC 返回由 client/service 单元测试覆盖。
+- 下一批最小增量：5.4 规模与性能边界；只验证 30-50 工具规模下 Tools 页不卡死、设置页可操作、新会话创建耗时可接受。
 - 建议验证：
 
 ```powershell

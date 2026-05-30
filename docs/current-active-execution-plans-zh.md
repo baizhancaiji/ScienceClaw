@@ -15,16 +15,17 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 0 批 / 0.2 Mongo 集合与索引骨架已按最小增量完成并进入本地验证收口。
+- 状态：执行中；第 0 批 / 0.3 加密与脱敏工具已按最小增量完成并进入本地验证收口。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：0.2 Mongo 集合与索引骨架；只在 `ScienceClaw/backend/mongodb/db.py` 注册 `mcp_servers` / `mcp_tools` 索引，并用 `ScienceClaw/backend/tests/test_mcp_repository.py` 覆盖重复初始化。
-- 下一批最小增量：0.3 加密与脱敏工具；只触碰 `ScienceClaw/backend/mcp/crypto.py` 和 `ScienceClaw/backend/tests/test_mcp_crypto.py`，不引入仓储或路由业务逻辑。
+- 当前批次：0.3 加密与脱敏工具；只在 `ScienceClaw/backend/mcp/crypto.py` 定义 `encrypt_secret()`、`decrypt_secret()`、`mask_secret()`，并用 `ScienceClaw/backend/tests/test_mcp_crypto.py` 覆盖 round-trip、空值、坏 key、坏密文。
+- 下一批最小增量：0.4 仓储接口占位；只触碰 `ScienceClaw/backend/mcp/repository.py` 和 `ScienceClaw/backend/tests/test_mcp_repository.py`，先定义仓储接口签名并补最小 create/get/list 行为。
 - 建议验证：
 
 ```powershell
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_smoke
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_repository
+$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_crypto
 npm --prefix ScienceClaw/frontend run type-check
 gitnexus detect-changes -r ScienceClaw
 ```

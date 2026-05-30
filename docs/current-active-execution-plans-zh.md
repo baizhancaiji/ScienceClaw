@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 4 批 / 4.3 Settings 管理页收口已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护；本次复审已追加枚举所有 `/api/v1/mcp/*` 路由的默认鉴权结构护栏、未认证请求行为护栏，并固定 route smoke 的认证模式以降低本地/CI 环境漂移风险。
+- 状态：执行中；第 4 批 / 4.4 国际化与状态文案已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护；本次复审已追加枚举所有 `/api/v1/mcp/*` 路由的默认鉴权结构护栏、未认证请求行为护栏，并固定 route smoke 的认证模式以降低本地/CI 环境漂移风险。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：4.3 Settings 管理页收口；只触碰 `ScienceClaw/frontend/src/components/settings/McpServerDrawer.vue` 与 `ScienceClaw/frontend/src/components/settings/McpSettings.vue`，统一新建/编辑抽屉、状态 badge 和错误提示。
-- 下一批最小增量：4.4 国际化与状态文案；只触碰 `ScienceClaw/frontend/src/locales/zh.ts` 与 `ScienceClaw/frontend/src/locales/en.ts`，收口状态文案、表单文案、错误提示和 payload 模式提示。
+- 当前批次：4.4 国际化与状态文案；只触碰 `ScienceClaw/frontend/src/locales/zh.ts` 与 `ScienceClaw/frontend/src/locales/en.ts`，收口状态文案、表单文案、错误提示和 payload 模式提示。
+- 下一批最小增量：5.1 简单 server 联调；按文档验收 `create -> verify -> refresh -> enable -> chat call`，使用 schema 简单、工具数少的 HTTPS MCP Server 做全链路回归。
 - 建议验证：
 
 ```powershell

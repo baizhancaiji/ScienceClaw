@@ -21,6 +21,17 @@
     </div>
 
     <div v-else class="flex flex-col gap-4">
+      <div class="grid grid-cols-2 gap-2 md:grid-cols-5">
+        <div
+          v-for="metric in summaryMetrics"
+          :key="metric.label"
+          class="rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-sm dark:border-gray-700/50 dark:bg-gray-800/50"
+        >
+          <p class="text-[10px] font-semibold uppercase text-gray-400 dark:text-gray-500">{{ metric.label }}</p>
+          <p class="mt-1 text-lg font-bold text-gray-800 dark:text-gray-100">{{ metric.value }}</p>
+        </div>
+      </div>
+
       <div
         v-if="servers.length === 0"
         class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/80 py-12 dark:border-gray-700 dark:bg-gray-800/30"
@@ -33,7 +44,9 @@
         <div
           v-for="server in servers"
           :key="server.id"
-          class="grid grid-cols-[1fr_auto] gap-3 border-b border-gray-100 p-4 last:border-b-0 dark:border-gray-700/50"
+          class="grid cursor-pointer grid-cols-[1fr_auto] gap-3 border-b border-gray-100 p-4 transition-colors last:border-b-0 dark:border-gray-700/50"
+          :class="selectedServerId === server.id ? 'bg-blue-50/60 dark:bg-blue-950/20' : 'hover:bg-gray-50/70 dark:hover:bg-gray-800/70'"
+          @click="selectServer(server)"
         >
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
@@ -57,11 +70,31 @@
           <div class="flex items-center gap-1 self-start">
             <button
               type="button"
+              class="inline-flex size-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+              title="Verify"
+              :disabled="saving || verifyingServerId === server.id"
+              @click.stop="verifyServer(server)"
+            >
+              <Loader2 v-if="verifyingServerId === server.id" class="size-4 animate-spin" />
+              <ShieldCheck v-else class="size-4" />
+            </button>
+            <button
+              type="button"
+              class="inline-flex size-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+              title="Refresh tools"
+              :disabled="saving || refreshingServerId === server.id"
+              @click.stop="refreshTools(server)"
+            >
+              <Loader2 v-if="refreshingServerId === server.id" class="size-4 animate-spin" />
+              <RefreshCw v-else class="size-4" />
+            </button>
+            <button
+              type="button"
               class="inline-flex size-8 items-center justify-center rounded-lg border transition-colors"
               :class="server.enabled ? 'border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400' : 'border-gray-200 bg-white text-gray-400 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'"
               :title="server.enabled ? 'Disable' : 'Enable'"
               :disabled="saving"
-              @click="toggleServer(server)"
+              @click.stop="toggleServer(server)"
             >
               <Power class="size-4" />
             </button>
@@ -70,7 +103,7 @@
               class="inline-flex size-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
               title="Edit"
               :disabled="saving"
-              @click="openEditor(server)"
+              @click.stop="openEditor(server)"
             >
               <Pencil class="size-4" />
             </button>
@@ -79,13 +112,24 @@
               class="inline-flex size-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
               title="Delete"
               :disabled="saving"
-              @click="confirmDelete(server)"
+              @click.stop="confirmDelete(server)"
             >
               <Trash2 class="size-4" />
             </button>
           </div>
         </div>
       </div>
+
+      <McpToolList
+        v-if="selectedServer"
+        :tools="tools"
+        :loading="toolsLoading"
+        :refreshing="refreshingServerId === selectedServer.id"
+        :disabled="saving"
+        :toggling-tool-id="togglingToolId"
+        @refresh="refreshTools(selectedServer)"
+        @toggle="toggleTool"
+      />
     </div>
 
     <Dialog v-model:open="editorOpen">
@@ -144,44 +188,13 @@
             />
           </div>
 
-          <div v-if="form.auth_mode === 'headers'" class="grid gap-3">
-            <div class="flex items-center justify-between">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Headers <span class="text-red-500">*</span></label>
-              <button
-                type="button"
-                class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                @click="addHeader"
-              >
-                <Plus class="size-3.5" />
-                Header
-              </button>
-            </div>
-            <div
-              v-for="(header, index) in form.headers"
-              :key="index"
-              class="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] gap-2"
-            >
-              <input
-                v-model.trim="header.name"
-                class="h-10 min-w-0 rounded-lg border border-gray-200 bg-white px-3 font-mono text-sm text-gray-800 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                placeholder="X-API-Key"
-              />
-              <input
-                v-model="header.value"
-                type="password"
-                class="h-10 min-w-0 rounded-lg border border-gray-200 bg-white px-3 font-mono text-sm text-gray-800 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                :placeholder="header.existing ? 'Leave all existing values empty to keep them' : 'Value'"
-              />
-              <button
-                type="button"
-                class="inline-flex size-10 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                title="Remove"
-                @click="removeHeader(index)"
-              >
-                <X class="size-4" />
-              </button>
-            </div>
-          </div>
+          <McpHeaderEditor
+            v-if="form.auth_mode === 'headers'"
+            :headers="form.headers"
+            @add="addHeader"
+            @remove="removeHeader"
+            @update="updateHeader"
+          />
 
           <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
             <input
@@ -191,6 +204,25 @@
             />
             Enabled
           </label>
+
+          <div class="grid gap-2 rounded-xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-800 dark:bg-gray-800/40">
+            <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <input
+                v-model="form.verify_now"
+                type="checkbox"
+                class="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              Verify after save
+            </label>
+            <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <input
+                v-model="form.refresh_after_save"
+                type="checkbox"
+                class="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              Refresh tools after save
+            </label>
+          </div>
         </div>
 
         <DialogFooter class="border-t border-gray-100 bg-gray-50/70 px-6 py-4 dark:border-gray-800 dark:bg-gray-800/30">
@@ -220,20 +252,28 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Circle, Loader2, Pencil, Plus, Power, Server, Trash2, X } from 'lucide-vue-next';
+import { Circle, Loader2, Pencil, Plus, Power, RefreshCw, Server, ShieldCheck, Trash2 } from 'lucide-vue-next';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   createMCPServer,
   deleteMCPServer,
+  listMCPTools,
+  listMCPServerTools,
   listMCPServers,
+  refreshMCPServerTools,
   setMCPServerEnabled,
+  setMCPToolEnabled,
   updateMCPServer,
+  verifyMCPServer,
   type CreateMCPServerRequest,
   type MCPAuthMode,
   type MCPServer,
+  type MCPTool,
   type UpdateMCPServerRequest,
 } from '@/api/mcp';
 import { showErrorToast, showSuccessToast } from '@/utils/toast';
+import McpHeaderEditor from './McpHeaderEditor.vue';
+import McpToolList from './McpToolList.vue';
 
 type HeaderForm = {
   name: string;
@@ -244,10 +284,17 @@ type HeaderForm = {
 const authModes: MCPAuthMode[] = ['none', 'bearer', 'headers'];
 
 const servers = ref<MCPServer[]>([]);
+const tools = ref<MCPTool[]>([]);
+const enabledToolCount = ref(0);
 const loading = ref(false);
+const toolsLoading = ref(false);
 const saving = ref(false);
+const verifyingServerId = ref<string | null>(null);
+const refreshingServerId = ref<string | null>(null);
+const togglingToolId = ref<string | null>(null);
 const editorOpen = ref(false);
 const editingServer = ref<MCPServer | null>(null);
+const selectedServerId = ref<string | null>(null);
 
 const form = reactive({
   name: '',
@@ -256,14 +303,42 @@ const form = reactive({
   bearer_token: '',
   headers: [] as HeaderForm[],
   enabled: true,
+  verify_now: false,
+  refresh_after_save: false,
 });
 
 const isEditing = computed(() => Boolean(editingServer.value));
+
+const selectedServer = computed(() => {
+  return servers.value.find((server) => server.id === selectedServerId.value) ?? null;
+});
+
+const summaryMetrics = computed(() => {
+  return [
+    { label: 'Servers', value: servers.value.length },
+    { label: 'Enabled', value: servers.value.filter((server) => server.enabled).length },
+    { label: 'Healthy', value: servers.value.filter((server) => server.verify_status === 'healthy').length },
+    { label: 'Tools', value: enabledToolCount.value },
+    { label: 'Errors', value: servers.value.filter((server) => server.verify_status === 'error').length },
+  ];
+});
 
 const loadServers = async () => {
   loading.value = true;
   try {
     servers.value = await listMCPServers();
+    enabledToolCount.value = (await listMCPTools()).length;
+    if (!selectedServerId.value && servers.value.length > 0) {
+      selectedServerId.value = servers.value[0].id;
+    }
+    if (selectedServerId.value && !servers.value.some((server) => server.id === selectedServerId.value)) {
+      selectedServerId.value = servers.value[0]?.id ?? null;
+    }
+    if (selectedServerId.value) {
+      await loadTools(selectedServerId.value);
+    } else {
+      tools.value = [];
+    }
   } catch (error: any) {
     showErrorToast(error?.message || 'Failed to load MCP servers');
   } finally {
@@ -278,6 +353,8 @@ const resetForm = () => {
   form.bearer_token = '';
   form.headers = [];
   form.enabled = true;
+  form.verify_now = false;
+  form.refresh_after_save = false;
 };
 
 const openEditor = (server: MCPServer | null) => {
@@ -315,6 +392,14 @@ const removeHeader = (index: number) => {
   form.headers.splice(index, 1);
 };
 
+const updateHeader = (index: number, field: 'name' | 'value', value: string) => {
+  const header = form.headers[index];
+  if (!header) {
+    return;
+  }
+  header[field] = value;
+};
+
 const authModeTitle = (mode: MCPAuthMode): string => {
   if (mode === 'bearer') return 'Bearer';
   if (mode === 'headers') return 'Headers';
@@ -339,6 +424,33 @@ const statusClass = (status: MCPServer['verify_status']): string => {
     return 'border-red-200 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400';
   }
   return 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400';
+};
+
+const selectServer = async (server: MCPServer) => {
+  if (selectedServerId.value === server.id) {
+    return;
+  }
+  selectedServerId.value = server.id;
+  await loadTools(server.id);
+};
+
+const replaceServer = (updated: MCPServer) => {
+  const index = servers.value.findIndex((item) => item.id === updated.id);
+  if (index >= 0) {
+    servers.value[index] = updated;
+  }
+};
+
+const loadTools = async (serverId: string) => {
+  toolsLoading.value = true;
+  try {
+    tools.value = await listMCPServerTools(serverId);
+  } catch (error: any) {
+    tools.value = [];
+    showErrorToast(error?.message || 'Failed to load MCP tools');
+  } finally {
+    toolsLoading.value = false;
+  }
 };
 
 const buildCreatePayload = (): CreateMCPServerRequest => ({
@@ -426,14 +538,22 @@ const saveServer = async () => {
   }
   saving.value = true;
   try {
+    let saved: MCPServer;
     if (editingServer.value) {
-      await updateMCPServer(editingServer.value.id, buildUpdatePayload());
+      saved = await updateMCPServer(editingServer.value.id, buildUpdatePayload());
       showSuccessToast('MCP server updated');
     } else {
-      await createMCPServer(buildCreatePayload());
+      saved = await createMCPServer(buildCreatePayload());
       showSuccessToast('MCP server created');
     }
     editorOpen.value = false;
+    selectedServerId.value = saved.id;
+    if (form.verify_now) {
+      await verifyServer(saved, false);
+    }
+    if (form.refresh_after_save) {
+      await refreshTools(saved, false);
+    }
     await loadServers();
   } catch (error: any) {
     showErrorToast(error?.message || 'Failed to save MCP server');
@@ -446,14 +566,61 @@ const toggleServer = async (server: MCPServer) => {
   saving.value = true;
   try {
     const updated = await setMCPServerEnabled(server.id, !server.enabled);
-    const index = servers.value.findIndex((item) => item.id === server.id);
-    if (index >= 0) {
-      servers.value[index] = updated;
-    }
+    replaceServer(updated);
   } catch (error: any) {
     showErrorToast(error?.message || 'Failed to update MCP server');
   } finally {
     saving.value = false;
+  }
+};
+
+const verifyServer = async (server: MCPServer, toast = true) => {
+  verifyingServerId.value = server.id;
+  try {
+    const result = await verifyMCPServer(server.id);
+    replaceServer(result);
+    if (toast) {
+      showSuccessToast(result.verify_status === 'healthy' ? 'MCP server verified' : 'MCP verification finished');
+    }
+  } catch (error: any) {
+    showErrorToast(error?.message || 'Failed to verify MCP server');
+  } finally {
+    verifyingServerId.value = null;
+  }
+};
+
+const refreshTools = async (server: MCPServer, toast = true) => {
+  refreshingServerId.value = server.id;
+  try {
+    const result = await refreshMCPServerTools(server.id);
+    replaceServer(result);
+    selectedServerId.value = server.id;
+    await loadTools(server.id);
+    if (toast) {
+      showSuccessToast(`MCP tools refreshed: ${result.inserted} added, ${result.updated} updated, ${result.removed} removed`);
+    }
+  } catch (error: any) {
+    showErrorToast(error?.message || 'Failed to refresh MCP tools');
+  } finally {
+    refreshingServerId.value = null;
+  }
+};
+
+const toggleTool = async (tool: MCPTool) => {
+  const previous = tool.enabled;
+  togglingToolId.value = tool.id;
+  tool.enabled = !tool.enabled;
+  try {
+    const updated = await setMCPToolEnabled(tool.id, tool.enabled);
+    const index = tools.value.findIndex((item) => item.id === tool.id);
+    if (index >= 0) {
+      tools.value[index] = updated;
+    }
+  } catch (error: any) {
+    tool.enabled = previous;
+    showErrorToast(error?.message || 'Failed to update MCP tool');
+  } finally {
+    togglingToolId.value = null;
   }
 };
 

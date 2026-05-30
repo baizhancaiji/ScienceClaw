@@ -27,6 +27,34 @@ export interface MCPServer {
   updated_at?: number | null;
 }
 
+export interface MCPTool {
+  id: string;
+  server_id: string;
+  original_name: string;
+  tool_slug: string;
+  canonical_name: string;
+  display_name: string;
+  description: string;
+  input_schema_raw: Record<string, unknown>;
+  input_schema_normalized: Record<string, unknown>;
+  enabled: boolean;
+  removed: boolean;
+  last_seen_at: number | null;
+  created_at?: number | null;
+  updated_at?: number | null;
+}
+
+export interface MCPVerifyResult extends MCPServer {
+  duration_ms: number;
+}
+
+export interface MCPRefreshResult extends MCPServer {
+  inserted: number;
+  updated: number;
+  removed: number;
+  duration_ms: number;
+}
+
 export interface MCPHeaderSecret {
   name: string;
   value: string;
@@ -73,5 +101,30 @@ export async function deleteMCPServer(serverId: string): Promise<{ ok: boolean }
 
 export async function setMCPServerEnabled(serverId: string, enabled: boolean): Promise<MCPServer> {
   const response = await apiClient.put<ApiResponse<MCPServer>>(`/mcp/servers/${serverId}/enabled`, { enabled });
+  return response.data.data;
+}
+
+export async function verifyMCPServer(serverId: string): Promise<MCPVerifyResult> {
+  const response = await apiClient.post<ApiResponse<MCPVerifyResult>>(`/mcp/servers/${serverId}/verify`);
+  return response.data.data;
+}
+
+export async function refreshMCPServerTools(serverId: string): Promise<MCPRefreshResult> {
+  const response = await apiClient.post<ApiResponse<MCPRefreshResult>>(`/mcp/servers/${serverId}/refresh-tools`);
+  return response.data.data;
+}
+
+export async function listMCPServerTools(serverId: string): Promise<MCPTool[]> {
+  const response = await apiClient.get<ApiResponse<MCPTool[]>>(`/mcp/servers/${serverId}/tools`);
+  return response.data.data;
+}
+
+export async function listMCPTools(): Promise<MCPTool[]> {
+  const response = await apiClient.get<ApiResponse<MCPTool[]>>('/mcp/tools');
+  return response.data.data;
+}
+
+export async function setMCPToolEnabled(toolId: string, enabled: boolean): Promise<MCPTool> {
+  const response = await apiClient.put<ApiResponse<MCPTool>>(`/mcp/tools/${toolId}/enabled`, { enabled });
   return response.data.data;
 }

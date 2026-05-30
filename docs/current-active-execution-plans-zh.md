@@ -15,17 +15,20 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：待执行。
+- 状态：执行中；第 0 批 / 0.1 路由骨架已按最小增量完成并进入本地验证收口。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 下一批最小增量：先做后端只读配置与验证链路，不直接触碰现有 sandbox 主执行链。
+- 当前批次：0.1 路由骨架；新增 `GET /api/v1/mcp/health`，只触碰 `ScienceClaw/backend/route/mcp.py`、`ScienceClaw/backend/main.py` 和对应 smoke 测试。
+- 下一批最小增量：0.2 Mongo 集合与索引骨架；只触碰 `ScienceClaw/backend/mongodb/db.py` 和对应仓储/索引测试，不引入业务逻辑。
 - 建议验证：
 
 ```powershell
-docker compose -f docker-compose-china.yml up -d --build
+$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_smoke
+npm --prefix ScienceClaw/frontend run type-check
+gitnexus detect-changes -r ScienceClaw
 ```
 
-以及对应新增后端测试、前端类型检查和构建命令。
+Docker Compose 仍是主运行方式；本地 0.1 验证优先使用仓库指定的 `D:\conda\envs\scienceclaw` 环境。
 
 ### VNC signed URL 接口闭环
 
@@ -50,4 +53,3 @@ npm --prefix .\ScienceClaw\frontend run build
 | 计划文档 | 归档原因 | 后续事项 |
 | --- | --- | --- |
 | `docs/archive/plans/frontend-typescript-remediation-plan-zh.md` | 已完成主要目标：`vue-tsc` 从 63 条错误收敛到 0，生产构建通过。 | VNC 后端 signed URL 路由仍需单独闭环，已登记为活跃计划。 |
-

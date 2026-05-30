@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 3 批 / 3.3 结果归一化已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护；本次复审已追加枚举所有 `/api/v1/mcp/*` 路由的默认鉴权回归护栏。
+- 状态：执行中；第 3 批 / 3.4 Agent 注入已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护；本次复审已追加枚举所有 `/api/v1/mcp/*` 路由的默认鉴权回归护栏。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：3.3 结果归一化；只触碰 `ScienceClaw/backend/mcp/tool_factory.py` 与 `ScienceClaw/backend/tests/test_mcp_result_normalization.py`，实现 `structuredContent`、`content[].text`、普通字符串和错误对象到 offload 兼容 envelope 的归一化。
-- 下一批最小增量：3.4 Agent 注入；只触碰 `ScienceClaw/backend/deepagent/agent.py` 与 `ScienceClaw/backend/tests/test_agent_mcp_injection.py`，查询当前用户启用 MCP 工具、合并进工具列表，并保持现有工具顺序稳定。
+- 当前批次：3.4 Agent 注入；只触碰 `ScienceClaw/backend/deepagent/agent.py` 与 `ScienceClaw/backend/tests/test_agent_mcp_injection.py`，查询当前用户启用 MCP 工具、合并进工具列表，并保持现有工具顺序稳定。
+- 下一批最小增量：3.5 SSE 元数据与前端事件兼容；只触碰 `ScienceClaw/backend/deepagent/sse_protocol.py`、`ScienceClaw/frontend/src/types/event.ts` 与 `ScienceClaw/frontend/src/composables/useTool.ts`，扩展 `tool_meta` 并让工具使用 UI 能识别 MCP 来源。
 - 建议验证：
 
 ```powershell
@@ -35,6 +35,7 @@ $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unit
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_tools
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_tool_factory
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_result_normalization
+$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_agent_mcp_injection
 npm --prefix ScienceClaw/frontend run type-check
 npm --prefix ScienceClaw/frontend run build
 gitnexus detect-changes -r ScienceClaw

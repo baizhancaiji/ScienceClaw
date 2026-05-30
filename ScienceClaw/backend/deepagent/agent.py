@@ -31,6 +31,7 @@ from loguru import logger
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, FilesystemBackend
 from deepagents.middleware.subagents import GENERAL_PURPOSE_SUBAGENT, DEFAULT_SUBAGENT_PROMPT
+from langchain_core.tools import StructuredTool
 from backend.deepagent.engine import get_llm_model
 from backend.deepagent.tools import web_search, web_crawl, propose_skill_save, propose_tool_save, eval_skill, grade_eval
 from backend.deepagent.tooluniverse_tools import (
@@ -44,6 +45,8 @@ from backend.deepagent.sse_middleware import SSEMonitoringMiddleware
 from backend.deepagent.offload_middleware import ToolResultOffloadMiddleware
 from backend.deepagent.diagnostic import DIAGNOSTIC_ENABLED, DiagnosticLogger
 from backend.deepagent.dir_watcher import watcher as _dir_watcher
+from backend.mcp import service as mcp_service
+from backend.mcp import tool_factory as mcp_tool_factory
 from backend.config import settings
 
 # ───────────────────────────────────────────────────────────────────
@@ -284,6 +287,64 @@ def _collect_tools(blocked_tools: Set[str] | None = None) -> List:
     return all_tools
 
 
+async def _collect_user_mcp_tools(
+    user_id: Optional[str],
+    existing_tool_names: Set[str] | None = None,
+) -> List[StructuredTool]:
+    if not user_id:
+        return []
+    existing = existing_tool_names or set()
+    try:
+        tool_items = await mcp_service.list_enabled_tools(user_id)
+    except Exception:
+        logger.warning("[MCP] 查询用户启用工具失败", exc_info=True)
+        return []
+
+    tools: List[StructuredTool] = []
+    for item in tool_items:
+        definition = mcp_tool_factory.build_tool_definition(_mcp_tool_item_to_factory_doc(item))
+        if definition.name in existing:
+            logger.warning(f"[MCP] 工具名称重复，跳过: {definition.name}")
+            continue
+        tools.append(_mcp_definition_to_langchain_tool(definition))
+        existing.add(definition.name)
+    if tools:
+        logger.info(f"[MCP] 已注入用户 MCP 工具({len(tools)}): {[tool.name for tool in tools]}")
+    return tools
+
+
+async def _append_user_mcp_tools(tools: List, user_id: Optional[str]) -> List:
+    mcp_tools = await _collect_user_mcp_tools(
+        user_id,
+        existing_tool_names={getattr(tool, "name", "") for tool in tools},
+    )
+    tools.extend(mcp_tools)
+    return tools
+
+
+def _mcp_definition_to_langchain_tool(
+    definition: mcp_tool_factory.MCPToolDefinition,
+) -> StructuredTool:
+    def _run(**kwargs: Any) -> dict[str, Any]:
+        return definition.func(**kwargs)
+
+    return StructuredTool.from_function(
+        func=_run,
+        name=definition.name,
+        description=definition.description or definition.name,
+        args_schema=definition.args_schema,
+    )
+
+
+def _mcp_tool_item_to_factory_doc(item: Any) -> dict[str, Any]:
+    doc = item.model_dump()
+    if not doc.get("server_slug"):
+        parts = str(doc.get("canonical_name") or "").split("__")
+        if len(parts) >= 3 and parts[0] == "mcp":
+            doc["server_slug"] = parts[1]
+    return doc
+
+
 # ───────────────────────────────────────────────────────────────────
 # 屏蔽查询（MongoDB）
 # ───────────────────────────────────────────────────────────────────
@@ -360,6 +421,7 @@ async def deep_agent(
     _dir_watcher.has_changed(_EXTERNAL_SKILLS_DIR)
 
     tools = _collect_tools(blocked_tools=blocked_tools)
+    tools = await _append_user_mcp_tools(tools, user_id)
 
     sse_middleware = SSEMonitoringMiddleware(
         agent_name="DeepAgent",

@@ -46,7 +46,10 @@ async def delete_server(server_id: str, user_id: str) -> None:
 
 
 async def list_tools_by_server(server_id: str, user_id: str) -> list[dict[str, Any]]:
-    raise NotImplementedError("list_tools_by_server is reserved for a later MCP batch")
+    cursor = db.get_collection(MCP_TOOLS_COLLECTION).find(
+        {"server_id": server_id, "user_id": user_id}
+    )
+    return await cursor.to_list(length=None)
 
 
 async def list_enabled_tools_by_user(user_id: str) -> list[dict[str, Any]]:
@@ -57,16 +60,54 @@ async def upsert_tools_from_remote(
     server_id: str,
     user_id: str,
     tools: list[dict[str, Any]],
-) -> None:
-    raise NotImplementedError("upsert_tools_from_remote is reserved for a later MCP batch")
+) -> dict[str, int]:
+    added = 0
+    updated = 0
+    collection = db.get_collection(MCP_TOOLS_COLLECTION)
+    for tool in tools:
+        query = {
+            "server_id": server_id,
+            "user_id": user_id,
+            "original_name": tool["original_name"],
+        }
+        existing = await collection.find_one(query)
+        if existing is None:
+            await collection.insert_one(tool)
+            added += 1
+        else:
+            patch = dict(tool)
+            patch.pop("_id", None)
+            patch.pop("enabled", None)
+            patch.pop("created_at", None)
+            changed = _tool_has_material_changes(existing, patch)
+            await collection.update_one(query, {"$set": patch})
+            if changed:
+                updated += 1
+    return {"added": added, "updated": updated}
 
 
 async def mark_removed_tools(
     server_id: str,
     user_id: str,
     missing_tool_names: list[str],
-) -> None:
-    raise NotImplementedError("mark_removed_tools is reserved for a later MCP batch")
+) -> int:
+    if not missing_tool_names:
+        return 0
+    collection = db.get_collection(MCP_TOOLS_COLLECTION)
+    removed = 0
+    now_patch = {"removed": True}
+    for original_name in missing_tool_names:
+        query = {
+            "server_id": server_id,
+            "user_id": user_id,
+            "original_name": original_name,
+        }
+        existing = await collection.find_one(query)
+        if existing is None or existing.get("removed") is True:
+            continue
+        await collection.update_one(query, {"$set": now_patch})
+        removed += 1
+    return removed
 
 
 async def toggle_server_enabled(server_id: str, user_id: str, enabled: bool) -> None:
@@ -83,3 +124,15 @@ async def touch_verify_result(
     result: dict[str, Any],
 ) -> None:
     raise NotImplementedError("touch_verify_result is reserved for a later MCP batch")
+
+
+def _tool_has_material_changes(
+    existing: dict[str, Any],
+    patch: dict[str, Any],
+) -> bool:
+    for key, value in patch.items():
+        if key in {"last_seen_at", "updated_at"}:
+            continue
+        if existing.get(key) != value:
+            return True
+    return False

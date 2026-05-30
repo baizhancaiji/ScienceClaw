@@ -157,8 +157,6 @@ class MCPRepositoryTests(unittest.TestCase):
 
     def test_later_batch_methods_are_declared_but_not_implemented(self):
         with self.assertRaises(NotImplementedError):
-            asyncio.run(repository.list_tools_by_server("server-1", "user-1"))
-        with self.assertRaises(NotImplementedError):
             asyncio.run(repository.list_enabled_tools_by_user("user-1"))
 
     def test_update_server_is_user_scoped_and_preserves_unpatched_secrets(self):
@@ -215,6 +213,147 @@ class MCPRepositoryTests(unittest.TestCase):
             [{"_id": "tool-2", "server_id": "server-1", "user_id": "user-2"}],
             self.fake_db.mcp_tools.documents,
         )
+
+    def test_upsert_tools_from_remote_adds_and_updates_without_overwriting_enabled(self):
+        existing_tool = {
+            "_id": "tool-1",
+            "server_id": "server-1",
+            "user_id": "user-1",
+            "original_name": "search",
+            "canonical_name": "mcp__server__search",
+            "description": "old",
+            "enabled": False,
+            "removed": True,
+            "created_at": 1,
+            "updated_at": 1,
+        }
+        self.fake_db.mcp_tools.documents.append(existing_tool)
+
+        diff = asyncio.run(
+            repository.upsert_tools_from_remote(
+                "server-1",
+                "user-1",
+                [
+                    {
+                        "_id": "ignored-new-id",
+                        "server_id": "server-1",
+                        "user_id": "user-1",
+                        "original_name": "search",
+                        "canonical_name": "mcp__server__search",
+                        "description": "new",
+                        "enabled": True,
+                        "removed": False,
+                        "created_at": 99,
+                        "updated_at": 2,
+                    },
+                    {
+                        "_id": "tool-2",
+                        "server_id": "server-1",
+                        "user_id": "user-1",
+                        "original_name": "read",
+                        "canonical_name": "mcp__server__read",
+                        "description": "read",
+                        "enabled": True,
+                        "removed": False,
+                        "created_at": 2,
+                        "updated_at": 2,
+                    },
+                ],
+            )
+        )
+
+        self.assertEqual({"added": 1, "updated": 1}, diff)
+        tools = asyncio.run(repository.list_tools_by_server("server-1", "user-1"))
+        search = next(tool for tool in tools if tool["original_name"] == "search")
+        self.assertEqual("tool-1", search["_id"])
+        self.assertEqual("new", search["description"])
+        self.assertFalse(search["enabled"])
+        self.assertFalse(search["removed"])
+        self.assertEqual(1, search["created_at"])
+
+    def test_upsert_tools_from_remote_does_not_count_seen_only_refresh_as_update(self):
+        self.fake_db.mcp_tools.documents.append(
+            {
+                "_id": "tool-1",
+                "server_id": "server-1",
+                "user_id": "user-1",
+                "original_name": "search",
+                "canonical_name": "mcp__server__search",
+                "description": "same",
+                "input_schema_raw": {},
+                "enabled": True,
+                "removed": False,
+                "created_at": 1,
+                "last_seen_at": 1,
+                "updated_at": 1,
+            }
+        )
+
+        diff = asyncio.run(
+            repository.upsert_tools_from_remote(
+                "server-1",
+                "user-1",
+                [
+                    {
+                        "_id": "new-id",
+                        "server_id": "server-1",
+                        "user_id": "user-1",
+                        "original_name": "search",
+                        "canonical_name": "mcp__server__search",
+                        "description": "same",
+                        "input_schema_raw": {},
+                        "enabled": True,
+                        "removed": False,
+                        "created_at": 2,
+                        "last_seen_at": 2,
+                        "updated_at": 2,
+                    },
+                ],
+            )
+        )
+
+        self.assertEqual({"added": 0, "updated": 0}, diff)
+
+    def test_mark_removed_tools_marks_only_owned_present_tools_once(self):
+        self.fake_db.mcp_tools.documents.extend(
+            [
+                {
+                    "_id": "tool-1",
+                    "server_id": "server-1",
+                    "user_id": "user-1",
+                    "original_name": "gone",
+                    "removed": False,
+                },
+                {
+                    "_id": "tool-2",
+                    "server_id": "server-1",
+                    "user_id": "user-1",
+                    "original_name": "already_gone",
+                    "removed": True,
+                },
+                {
+                    "_id": "tool-3",
+                    "server_id": "server-1",
+                    "user_id": "user-2",
+                    "original_name": "gone",
+                    "removed": False,
+                },
+            ]
+        )
+
+        removed = asyncio.run(
+            repository.mark_removed_tools(
+                "server-1",
+                "user-1",
+                ["gone", "already_gone", "missing"],
+            )
+        )
+
+        self.assertEqual(1, removed)
+        owned = asyncio.run(repository.list_tools_by_server("server-1", "user-1"))
+        self.assertTrue(next(tool for tool in owned if tool["original_name"] == "gone")["removed"])
+        other = asyncio.run(repository.list_tools_by_server("server-1", "user-2"))
+        self.assertFalse(other[0]["removed"])
 
 
 if __name__ == "__main__":

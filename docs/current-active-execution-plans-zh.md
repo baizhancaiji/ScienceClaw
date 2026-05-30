@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 2 批 / 2.3 Verify service 已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护。
+- 状态：执行中；第 2 批 / 2.4 Tool repository 与同步差异计算已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：2.3 Verify service；只触碰 `ScienceClaw/backend/mcp/service.py` 与 `ScienceClaw/backend/tests/test_mcp_service_sync.py`，新增 `verify_server()`、远端 `initialize` + `tools/list` 验证、`verify_status` 状态流转和 `verify_error` 摘要写回。
-- 下一批最小增量：2.4 Tool repository 与同步差异计算；只触碰 `ScienceClaw/backend/mcp/repository.py`、`ScienceClaw/backend/mcp/service.py`、`ScienceClaw/backend/tests/test_mcp_service_sync.py`，新增 `upsert_tools_from_remote`、`mark_removed_tools`、差异统计 `added/updated/removed`。
+- 当前批次：2.4 Tool repository 与同步差异计算；只触碰 `ScienceClaw/backend/mcp/repository.py`、`ScienceClaw/backend/mcp/service.py`、`ScienceClaw/backend/tests/test_mcp_repository.py`、`ScienceClaw/backend/tests/test_mcp_service_sync.py`，新增 `upsert_tools_from_remote`、`mark_removed_tools`、工具缓存写回与差异统计 `added/updated/removed`。
+- 下一批最小增量：2.5 Tool route 层；只触碰 `ScienceClaw/backend/route/mcp.py` 与 `ScienceClaw/backend/tests/test_mcp_route_tools.py`，新增 `POST /servers/{server_id}/verify`、`POST /servers/{server_id}/refresh-tools`、工具列表与工具启用开关的最小 route 合同。
 - 建议验证：
 
 ```powershell
@@ -31,6 +31,7 @@ $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unit
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_service_servers
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_servers
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_service_sync
+$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_repository
 npm --prefix ScienceClaw/frontend run type-check
 npm --prefix ScienceClaw/frontend run build
 gitnexus detect-changes -r ScienceClaw

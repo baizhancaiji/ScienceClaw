@@ -23,6 +23,13 @@ class MCPVerifyResult(MCPServerDetailItem):
     duration_ms: int = 0
 
 
+class MCPRefreshResult(MCPServerDetailItem):
+    added: int = 0
+    updated: int = 0
+    removed: int = 0
+    duration_ms: int = 0
+
+
 async def create_server(
     user_id: str,
     request: CreateMCPServerRequest,
@@ -132,6 +139,53 @@ async def verify_server(
     )
 
 
+async def refresh_server_tools(
+    server_id: str,
+    user_id: str,
+    encryption_key: str | bytes | None,
+) -> MCPRefreshResult | None:
+    started_at = time.monotonic()
+    existing = await repository.get_server(server_id, user_id)
+    if existing is None:
+        return None
+
+    headers = _build_request_headers(existing, encryption_key)
+    remote_tools = await client.list_tools(existing["endpoint_url"], headers=headers)
+    now = _now()
+    tool_docs = [
+        _remote_tool_to_doc(existing, remote_tool, user_id, now)
+        for remote_tool in remote_tools
+    ]
+    diff = await repository.upsert_tools_from_remote(server_id, user_id, tool_docs)
+
+    existing_tools = await repository.list_tools_by_server(server_id, user_id)
+    remote_names = {tool.name for tool in remote_tools}
+    missing_tool_names = [
+        tool["original_name"]
+        for tool in existing_tools
+        if tool.get("removed") is not True and tool.get("original_name") not in remote_names
+    ]
+    removed = await repository.mark_removed_tools(server_id, user_id, missing_tool_names)
+    updated_server = await repository.update_server(
+        server_id,
+        user_id,
+        {
+            "tool_count": len(remote_tools),
+            "last_synced_at": now,
+            "updated_at": now,
+        },
+    )
+    if updated_server is None:
+        return None
+    return MCPRefreshResult(
+        **_to_detail_item(updated_server).model_dump(),
+        added=diff["added"],
+        updated=diff["updated"],
+        removed=removed,
+        duration_ms=_duration_ms(started_at),
+    )
+
+
 def _build_update_patch(
     existing: dict[str, Any],
     request: UpdateMCPServerRequest,
@@ -208,6 +262,33 @@ def _summarize_verify_error(exc: client.MCPClientError) -> str:
     return message[: _MAX_VERIFY_ERROR_CHARS - 3] + "..."
 
 
+def _remote_tool_to_doc(
+    server_doc: dict[str, Any],
+    remote_tool: client.MCPRemoteTool,
+    user_id: str,
+    now: int,
+) -> dict[str, Any]:
+    tool_slug = _normalize_tool_slug(remote_tool.name)
+    canonical_tool_slug = _normalize_slug(remote_tool.name)
+    return {
+        "_id": str(uuid.uuid4()),
+        "server_id": server_doc["_id"],
+        "user_id": user_id,
+        "original_name": remote_tool.name,
+        "tool_slug": tool_slug,
+        "canonical_name": f"mcp__{server_doc['slug']}__{canonical_tool_slug}",
+        "display_name": remote_tool.name,
+        "description": remote_tool.description,
+        "input_schema_raw": remote_tool.input_schema_raw,
+        "input_schema_normalized": {},
+        "enabled": True,
+        "removed": False,
+        "last_seen_at": now,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
 def _to_list_item(doc: dict[str, Any]) -> MCPServerListItem:
     auth_config = doc.get("auth_config") or {}
     return MCPServerListItem(
@@ -247,6 +328,11 @@ def _masked_headers(auth_config: dict[str, Any]) -> list[MCPMaskedHeader]:
 def _normalize_slug(name: str) -> str:
     slug = _SLUG_RE.sub("_", name.strip().lower()).strip("_")
     return slug or "mcp_server"
+
+
+def _normalize_tool_slug(name: str) -> str:
+    slug = _SLUG_RE.sub("-", name.strip().lower()).strip("-")
+    return slug or "mcp-tool"
 
 
 def _now() -> int:

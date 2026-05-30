@@ -15,6 +15,10 @@ from backend.mcp.client import MCPClientError, MCPRemoteTool  # noqa: E402
 from backend.mcp.crypto import encrypt_secret  # noqa: E402
 
 
+def _run(coro):
+    return asyncio.run(coro)
+
+
 def _server_doc(**overrides):
     data = {
         "_id": "server-1",
@@ -54,7 +58,7 @@ class MCPVerifyServiceTests(unittest.TestCase):
             patch.object(service.client, "initialize", new=AsyncMock(return_value={})),
             patch.object(service.client, "list_tools", new=AsyncMock(return_value=remote_tools)),
         ):
-            result = asyncio.run(service.verify_server("server-1", "user-1", "key"))
+            result = _run(service.verify_server("server-1", "user-1", "key"))
 
         self.assertEqual("healthy", result.verify_status)
         self.assertEqual("", result.verify_error)
@@ -82,7 +86,7 @@ class MCPVerifyServiceTests(unittest.TestCase):
             patch.object(service.client, "initialize", new=AsyncMock(side_effect=failure)),
             patch.object(service.client, "list_tools", new=AsyncMock()) as list_tools,
         ):
-            result = asyncio.run(service.verify_server("server-1", "user-1", "key"))
+            result = _run(service.verify_server("server-1", "user-1", "key"))
             list_tools.assert_not_awaited()
 
         self.assertEqual("error", result.verify_status)
@@ -100,7 +104,7 @@ class MCPVerifyServiceTests(unittest.TestCase):
             patch.object(service.client, "initialize", new=AsyncMock()) as initialize,
             patch.object(service.client, "list_tools", new=AsyncMock()),
         ):
-            result = asyncio.run(service.verify_server("missing", "user-1", "key"))
+            result = _run(service.verify_server("missing", "user-1", "key"))
             initialize.assert_not_awaited()
 
         self.assertIsNone(result)
@@ -121,7 +125,7 @@ class MCPVerifyServiceTests(unittest.TestCase):
             patch.object(service.client, "initialize", new=AsyncMock(return_value={})) as initialize,
             patch.object(service.client, "list_tools", new=AsyncMock(return_value=[])) as list_tools,
         ):
-            asyncio.run(service.verify_server("server-1", "user-1", "key"))
+            _run(service.verify_server("server-1", "user-1", "key"))
             self.assertEqual(
                 {"Authorization": "Bearer token-value"},
                 initialize.await_args.kwargs["headers"],
@@ -153,7 +157,7 @@ class MCPVerifyServiceTests(unittest.TestCase):
             patch.object(service.client, "initialize", new=AsyncMock(return_value={})) as initialize,
             patch.object(service.client, "list_tools", new=AsyncMock(return_value=[])),
         ):
-            asyncio.run(service.verify_server("server-1", "user-1", "key"))
+            _run(service.verify_server("server-1", "user-1", "key"))
             self.assertEqual(
                 {"X-Api-Key": "header-secret"},
                 initialize.await_args.kwargs["headers"],
@@ -173,7 +177,7 @@ class MCPVerifyServiceTests(unittest.TestCase):
             patch.object(service.repository, "update_server", new=update_server),
             patch.object(service.client, "initialize", new=AsyncMock()) as initialize,
         ):
-            result = asyncio.run(service.verify_server("server-1", "user-1", "wrong-key"))
+            result = _run(service.verify_server("server-1", "user-1", "wrong-key"))
             initialize.assert_not_awaited()
 
         self.assertEqual("error", result.verify_status)
@@ -191,10 +195,99 @@ class MCPVerifyServiceTests(unittest.TestCase):
             patch.object(service.repository, "update_server", new=update_server),
             patch.object(service.client, "initialize", new=AsyncMock(side_effect=long_failure)),
         ):
-            result = asyncio.run(service.verify_server("server-1", "user-1", "key"))
+            result = _run(service.verify_server("server-1", "user-1", "key"))
 
         self.assertEqual(300, len(result.verify_error))
         self.assertTrue(result.verify_error.endswith("..."))
+
+
+class MCPRefreshServiceTests(unittest.TestCase):
+    def test_refresh_server_tools_syncs_remote_tools_and_updates_server_count(self):
+        existing = _server_doc()
+        remote_tools = [
+            MCPRemoteTool(
+                name="Search Repositories",
+                description="Search repos",
+                input_schema_raw={"type": "object"},
+            ),
+            MCPRemoteTool(name="read_file", description="Read", input_schema_raw={}),
+        ]
+        upsert_tools = AsyncMock(return_value={"added": 2, "updated": 0})
+        update_server = AsyncMock(
+            side_effect=lambda server_id, user_id, patch: {**existing, **patch}
+        )
+
+        with (
+            patch.object(service.repository, "get_server", new=AsyncMock(return_value=existing)),
+            patch.object(service.repository, "upsert_tools_from_remote", new=upsert_tools),
+            patch.object(service.repository, "list_tools_by_server", new=AsyncMock(return_value=[])),
+            patch.object(service.repository, "mark_removed_tools", new=AsyncMock(return_value=0)),
+            patch.object(service.repository, "update_server", new=update_server),
+            patch.object(service.client, "list_tools", new=AsyncMock(return_value=remote_tools)),
+        ):
+            result = _run(service.refresh_server_tools("server-1", "user-1", "key"))
+
+        self.assertEqual(2, result.added)
+        self.assertEqual(0, result.updated)
+        self.assertEqual(0, result.removed)
+        self.assertEqual(2, result.tool_count)
+        tool_docs = upsert_tools.await_args.args[2]
+        self.assertEqual("Search Repositories", tool_docs[0]["original_name"])
+        self.assertEqual("search-repositories", tool_docs[0]["tool_slug"])
+        self.assertEqual("mcp__github_mcp__search_repositories", tool_docs[0]["canonical_name"])
+        self.assertFalse(tool_docs[0]["removed"])
+        patch_doc = update_server.await_args.args[2]
+        self.assertEqual(2, patch_doc["tool_count"])
+        self.assertIsInstance(patch_doc["last_synced_at"], int)
+
+    def test_refresh_server_tools_marks_missing_tools_removed(self):
+        existing = _server_doc()
+        remote_tools = [
+            MCPRemoteTool(name="search", description="", input_schema_raw={}),
+        ]
+        current_tools = [
+            {"original_name": "search", "removed": False},
+            {"original_name": "gone", "removed": False},
+            {"original_name": "old_gone", "removed": True},
+        ]
+        mark_removed = AsyncMock(return_value=1)
+
+        with (
+            patch.object(service.repository, "get_server", new=AsyncMock(return_value=existing)),
+            patch.object(
+                service.repository,
+                "upsert_tools_from_remote",
+                new=AsyncMock(return_value={"added": 0, "updated": 1}),
+            ),
+            patch.object(
+                service.repository,
+                "list_tools_by_server",
+                new=AsyncMock(return_value=current_tools),
+            ),
+            patch.object(service.repository, "mark_removed_tools", new=mark_removed),
+            patch.object(
+                service.repository,
+                "update_server",
+                new=AsyncMock(side_effect=lambda server_id, user_id, patch: {**existing, **patch}),
+            ),
+            patch.object(service.client, "list_tools", new=AsyncMock(return_value=remote_tools)),
+        ):
+            result = _run(service.refresh_server_tools("server-1", "user-1", "key"))
+
+        self.assertEqual(0, result.added)
+        self.assertEqual(1, result.updated)
+        self.assertEqual(1, result.removed)
+        self.assertEqual(["gone"], mark_removed.await_args.args[2])
+
+    def test_refresh_server_tools_returns_none_when_server_not_found(self):
+        with (
+            patch.object(service.repository, "get_server", new=AsyncMock(return_value=None)),
+            patch.object(service.client, "list_tools", new=AsyncMock()) as list_tools,
+        ):
+            result = _run(service.refresh_server_tools("missing", "user-1", "key"))
+            list_tools.assert_not_awaited()
+
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

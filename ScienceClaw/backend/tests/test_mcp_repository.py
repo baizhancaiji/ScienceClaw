@@ -40,6 +40,25 @@ class FakeCollection:
         ]
         return FakeCursor(docs)
 
+    async def update_one(self, query, update):
+        for doc in self.documents:
+            if all(doc.get(key) == value for key, value in query.items()):
+                doc.update(update.get("$set", {}))
+                return None
+        return None
+
+    async def delete_one(self, query):
+        self.documents = [
+            doc
+            for doc in self.documents
+            if not all(doc.get(key) == value for key, value in query.items())
+        ]
+        return None
+
+    async def delete_many(self, query):
+        await self.delete_one(query)
+        return None
+
 
 class FakeCursor:
     def __init__(self, docs):
@@ -138,9 +157,64 @@ class MCPRepositoryTests(unittest.TestCase):
 
     def test_later_batch_methods_are_declared_but_not_implemented(self):
         with self.assertRaises(NotImplementedError):
-            asyncio.run(repository.update_server("server-1", "user-1", {"name": "New"}))
-        with self.assertRaises(NotImplementedError):
             asyncio.run(repository.list_tools_by_server("server-1", "user-1"))
+        with self.assertRaises(NotImplementedError):
+            asyncio.run(repository.list_enabled_tools_by_user("user-1"))
+
+    def test_update_server_is_user_scoped_and_preserves_unpatched_secrets(self):
+        server = {
+            "_id": "server-1",
+            "user_id": "user-1",
+            "name": "First",
+            "slug": "first",
+            "auth_config": {"bearer_token_encrypted": "encrypted-token"},
+        }
+        asyncio.run(repository.create_server(server))
+
+        updated = asyncio.run(
+            repository.update_server("server-1", "user-1", {"name": "Renamed"})
+        )
+        blocked = asyncio.run(
+            repository.update_server("server-1", "user-2", {"name": "Wrong User"})
+        )
+
+        self.assertIsNone(blocked)
+        self.assertEqual("Renamed", updated["name"])
+        self.assertEqual(
+            {"bearer_token_encrypted": "encrypted-token"},
+            updated["auth_config"],
+        )
+
+    def test_delete_server_is_user_scoped_and_deletes_owned_tools(self):
+        server = {
+            "_id": "server-1",
+            "user_id": "user-1",
+            "name": "First",
+            "slug": "first",
+        }
+        other = {
+            "_id": "server-1",
+            "user_id": "user-2",
+            "name": "Other",
+            "slug": "other",
+        }
+        asyncio.run(repository.create_server(server))
+        asyncio.run(repository.create_server(other))
+        self.fake_db.mcp_tools.documents.extend(
+            [
+                {"_id": "tool-1", "server_id": "server-1", "user_id": "user-1"},
+                {"_id": "tool-2", "server_id": "server-1", "user_id": "user-2"},
+            ]
+        )
+
+        asyncio.run(repository.delete_server("server-1", "user-1"))
+
+        self.assertIsNone(asyncio.run(repository.get_server("server-1", "user-1")))
+        self.assertEqual(other, asyncio.run(repository.get_server("server-1", "user-2")))
+        self.assertEqual(
+            [{"_id": "tool-2", "server_id": "server-1", "user_id": "user-2"}],
+            self.fake_db.mcp_tools.documents,
+        )
 
 
 if __name__ == "__main__":

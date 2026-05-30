@@ -23,12 +23,26 @@ async def list_servers(user_id: str) -> list[dict[str, Any]]:
     return await cursor.to_list(length=None)
 
 
-async def update_server(server_id: str, user_id: str, patch: dict[str, Any]) -> None:
-    raise NotImplementedError("update_server is reserved for a later MCP batch")
+async def update_server(
+    server_id: str,
+    user_id: str,
+    patch: dict[str, Any],
+) -> dict[str, Any] | None:
+    if patch:
+        await db.get_collection(MCP_SERVERS_COLLECTION).update_one(
+            {"_id": server_id, "user_id": user_id},
+            {"$set": patch},
+        )
+    return await get_server(server_id, user_id)
 
 
 async def delete_server(server_id: str, user_id: str) -> None:
-    raise NotImplementedError("delete_server is reserved for a later MCP batch")
+    await db.get_collection(MCP_SERVERS_COLLECTION).delete_one(
+        {"_id": server_id, "user_id": user_id}
+    )
+    await db.get_collection(MCP_TOOLS_COLLECTION).delete_many(
+        {"server_id": server_id, "user_id": user_id}
+    )
 
 
 async def list_tools_by_server(server_id: str, user_id: str) -> list[dict[str, Any]]:

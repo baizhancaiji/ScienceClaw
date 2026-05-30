@@ -326,7 +326,7 @@ import { useI18n } from 'vue-i18n';
 import ChatBox from '../components/ChatBox.vue';
 import ChatMessage from '../components/ChatMessage.vue';
 import * as agentApi from '../api/agent';
-import { Message, MessageContent, ToolContent, StepContent, AttachmentsContent, ThinkingContent } from '../types/message';
+import { Message, MessageContent, ToolContent, StepContent, AttachmentsContent } from '../types/message';
 import {
   StepEventData,
   ToolEventData,
@@ -339,16 +339,13 @@ import {
   AgentSSEEvent,
 } from '../types/event';
 import ToolPanel from '../components/ToolPanel.vue'
-import PlanPanel from '../components/PlanPanel.vue';
-import { ArrowDown, FileSearch, PanelLeft, Lock, Globe, Link, Check, Package, Wrench, X, Search } from 'lucide-vue-next';
+import { ArrowDown, FileSearch, Lock, Globe, Link, Check, Package, Wrench, X, Search } from 'lucide-vue-next';
 import ShareIcon from '@/components/icons/ShareIcon.vue';
 import { showErrorToast, showSuccessToast } from '../utils/toast';
 import type { FileInfo } from '../api/file';
-import { useLeftPanel } from '../composables/useLeftPanel'
 import { useSessionListUpdate } from '../composables/useSessionListUpdate'
 import { useSessionFileList } from '../composables/useSessionFileList'
 import { useFilePanel } from '../composables/useFilePanel'
-import { useAuth } from '../composables/useAuth' // Import useAuth
 import { copyToClipboard } from '../utils/dom'
 import { SessionStatus } from '../types/response';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -360,7 +357,6 @@ import { consumePendingChat } from '../composables/usePendingChat';
 
 import { useMessageGrouper } from '../composables/useMessageGrouper';
 import { getSessionSearchMessageKey, useSessionSearch } from '../composables/useSessionSearch';
-import ProcessMessage from '../components/ProcessMessage.vue';
 import ActivityPanel from '../components/ActivityPanel.vue';
 import type { ActivityItem } from '../components/ActivityPanel.vue';
 
@@ -368,7 +364,6 @@ const router = useRouter()
 const { t, locale } = useI18n()
 const { shared } = useSessionFileList()
 const { hideFilePanel, showFileListPanel } = useFilePanel()
-const { currentUser } = useAuth()
 const { updateSessionTitle } = useSessionListUpdate()
 const { onSessionUpdated } = useSessionNotifications()
 
@@ -1517,19 +1512,6 @@ const handleInstantShare = async () => {
     sharingLoading.value = false;
   }
 }
-
-const formatStatsDuration = (ms: number): string => {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  const mins = Math.floor(ms / 60000);
-  const secs = ((ms % 60000) / 1000).toFixed(0);
-  return `${mins}m ${secs}s`;
-};
-
-const formatTokenCount = (count: number): string => {
-  if (count < 1000) return `${count}`;
-  return `${(count / 1000).toFixed(1)}K`;
-};
 
 const handleCopyLink = async () => {
   if (!sessionId.value) return;

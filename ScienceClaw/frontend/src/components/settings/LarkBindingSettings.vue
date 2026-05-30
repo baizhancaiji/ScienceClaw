@@ -64,7 +64,7 @@ import { computed, onMounted, ref } from 'vue';
 import { bindLarkAccount, getLarkBindingStatus, unbindLarkAccount, type LarkBindingStatus } from '../../api/im';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 
-const emit = defineEmits<{
+defineEmits<{
   back: []
 }>();
 

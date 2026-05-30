@@ -3,7 +3,8 @@ import time
 import uuid
 from typing import Any
 
-from backend.mcp.crypto import encrypt_secret
+from backend.mcp import client
+from backend.mcp.crypto import decrypt_secret, encrypt_secret
 from backend.mcp import repository
 from backend.mcp.schemas import (
     CreateMCPServerRequest,
@@ -15,6 +16,11 @@ from backend.mcp.schemas import (
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+_MAX_VERIFY_ERROR_CHARS = 300
+
+
+class MCPVerifyResult(MCPServerDetailItem):
+    duration_ms: int = 0
 
 
 async def create_server(
@@ -77,6 +83,55 @@ async def delete_server(server_id: str, user_id: str) -> None:
     await repository.delete_server(server_id, user_id)
 
 
+async def verify_server(
+    server_id: str,
+    user_id: str,
+    encryption_key: str | bytes | None,
+) -> MCPVerifyResult | None:
+    started_at = time.monotonic()
+    existing = await repository.get_server(server_id, user_id)
+    if existing is None:
+        return None
+    try:
+        headers = _build_request_headers(existing, encryption_key)
+        await client.initialize(existing["endpoint_url"], headers=headers)
+        tools = await client.list_tools(existing["endpoint_url"], headers=headers)
+        patch = {
+            "verify_status": "healthy",
+            "verify_error": "",
+            "last_verified_at": _now(),
+            "tool_count": len(tools),
+            "updated_at": _now(),
+        }
+    except client.MCPClientError as exc:
+        patch = {
+            "verify_status": "error",
+            "verify_error": _summarize_verify_error(exc),
+            "last_verified_at": _now(),
+            "updated_at": _now(),
+        }
+    except ValueError as exc:
+        patch = {
+            "verify_status": "error",
+            "verify_error": _summarize_verify_error(
+                client.MCPClientError(
+                    code="mcp_auth_error",
+                    message=str(exc),
+                    retryable=False,
+                )
+            ),
+            "last_verified_at": _now(),
+            "updated_at": _now(),
+        }
+    updated = await repository.update_server(server_id, user_id, patch)
+    if updated is None:
+        return None
+    return MCPVerifyResult(
+        **_to_detail_item(updated).model_dump(),
+        duration_ms=_duration_ms(started_at),
+    )
+
+
 def _build_update_patch(
     existing: dict[str, Any],
     request: UpdateMCPServerRequest,
@@ -126,6 +181,33 @@ def _build_auth_config(
     return {}
 
 
+def _build_request_headers(
+    server_doc: dict[str, Any],
+    encryption_key: str | bytes | None,
+) -> dict[str, str]:
+    auth_mode = server_doc.get("auth_mode", "none")
+    auth_config = server_doc.get("auth_config") or {}
+    if auth_mode == "bearer":
+        token = decrypt_secret(auth_config.get("bearer_token_encrypted"), encryption_key)
+        return {"Authorization": f"Bearer {token}"} if token else {}
+    if auth_mode == "headers":
+        headers: dict[str, str] = {}
+        for header in auth_config.get("headers_encrypted", []):
+            name = header.get("name", "")
+            value = decrypt_secret(header.get("value_encrypted"), encryption_key)
+            if name and value:
+                headers[name] = value
+        return headers
+    return {}
+
+
+def _summarize_verify_error(exc: client.MCPClientError) -> str:
+    message = f"{exc.code}: {exc.message}"
+    if len(message) <= _MAX_VERIFY_ERROR_CHARS:
+        return message
+    return message[: _MAX_VERIFY_ERROR_CHARS - 3] + "..."
+
+
 def _to_list_item(doc: dict[str, Any]) -> MCPServerListItem:
     auth_config = doc.get("auth_config") or {}
     return MCPServerListItem(
@@ -169,3 +251,7 @@ def _normalize_slug(name: str) -> str:
 
 def _now() -> int:
     return int(time.time())
+
+
+def _duration_ms(started_at: float) -> int:
+    return max(0, int((time.monotonic() - started_at) * 1000))

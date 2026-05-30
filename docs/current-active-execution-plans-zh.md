@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 3 批 / 3.5 SSE 元数据与前端事件兼容已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护；本次复审已追加枚举所有 `/api/v1/mcp/*` 路由的默认鉴权结构护栏和未认证请求行为护栏。
+- 状态：执行中；第 4 批 / 4.1 Tools 页 MCP tab 已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护；本次复审已追加枚举所有 `/api/v1/mcp/*` 路由的默认鉴权结构护栏和未认证请求行为护栏。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：3.5 SSE 元数据与前端事件兼容；只触碰 `ScienceClaw/backend/deepagent/sse_protocol.py`、`ScienceClaw/frontend/src/types/event.ts` 与 `ScienceClaw/frontend/src/composables/useTool.ts`，扩展 `tool_meta` 并让工具使用 UI 能识别 MCP 来源。
-- 下一批最小增量：4.1 Tools 页新增 MCP tab；只触碰 `ScienceClaw/frontend/src/pages/ToolsPage.vue` 与 `ScienceClaw/frontend/src/components/tools/McpToolsTab.vue`，接入 MCP tab、聚合工具列表和搜索。
+- 当前批次：4.1 Tools 页新增 MCP tab；只触碰 `ScienceClaw/frontend/src/pages/ToolsPage.vue` 与 `ScienceClaw/frontend/src/components/tools/McpToolsTab.vue`，接入 MCP tab、聚合工具列表和搜索。
+- 下一批最小增量：4.2 MCP 工具卡片与详情抽屉；只触碰 `ScienceClaw/frontend/src/components/tools/McpToolCard.vue` 与 `ScienceClaw/frontend/src/components/settings/McpToolSchemaDrawer.vue`，补齐工具卡片抽取和 schema 详情展示。
 - 建议验证：
 
 ```powershell

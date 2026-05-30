@@ -84,6 +84,24 @@ class MongoDB:
             expireAfterSeconds=86400
         )
 
+        # HTTPS MCP server and tool catalog indexes.
+        await cls.db.mcp_servers.create_index([("user_id", 1), ("updated_at", -1)])
+        await cls.db.mcp_servers.create_index(
+            [("user_id", 1), ("enabled", 1), ("verify_status", 1)]
+        )
+        await cls.db.mcp_servers.create_index([("user_id", 1), ("slug", 1)], unique=True)
+        await cls.db.mcp_servers.create_index([("user_id", 1), ("endpoint_url", 1)])
+
+        await cls.db.mcp_tools.create_index([("server_id", 1), ("original_name", 1)], unique=True)
+        await cls.db.mcp_tools.create_index([("user_id", 1), ("canonical_name", 1)], unique=True)
+        await cls.db.mcp_tools.create_index([("user_id", 1), ("enabled", 1), ("updated_at", -1)])
+        await cls.db.mcp_tools.create_index(
+            [("user_id", 1), ("enabled", 1), ("removed", 1), ("updated_at", -1)]
+        )
+        await cls.db.mcp_tools.create_index(
+            [("user_id", 1), ("server_id", 1), ("last_seen_at", -1)]
+        )
+
     @classmethod
     def get_collection(cls, collection_name: str):
         if cls.db is None:

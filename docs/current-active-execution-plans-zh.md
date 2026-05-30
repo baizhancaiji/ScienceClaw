@@ -15,20 +15,21 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 0 批 / 0.1 路由骨架已按最小增量完成并进入本地验证收口。
+- 状态：执行中；第 0 批 / 0.2 Mongo 集合与索引骨架已按最小增量完成并进入本地验证收口。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：0.1 路由骨架；新增 `GET /api/v1/mcp/health`，只触碰 `ScienceClaw/backend/route/mcp.py`、`ScienceClaw/backend/main.py` 和对应 smoke 测试。
-- 下一批最小增量：0.2 Mongo 集合与索引骨架；只触碰 `ScienceClaw/backend/mongodb/db.py` 和对应仓储/索引测试，不引入业务逻辑。
+- 当前批次：0.2 Mongo 集合与索引骨架；只在 `ScienceClaw/backend/mongodb/db.py` 注册 `mcp_servers` / `mcp_tools` 索引，并用 `ScienceClaw/backend/tests/test_mcp_repository.py` 覆盖重复初始化。
+- 下一批最小增量：0.3 加密与脱敏工具；只触碰 `ScienceClaw/backend/mcp/crypto.py` 和 `ScienceClaw/backend/tests/test_mcp_crypto.py`，不引入仓储或路由业务逻辑。
 - 建议验证：
 
 ```powershell
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_smoke
+$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_repository
 npm --prefix ScienceClaw/frontend run type-check
 gitnexus detect-changes -r ScienceClaw
 ```
 
-Docker Compose 仍是主运行方式；本地 0.1 验证优先使用仓库指定的 `D:\conda\envs\scienceclaw` 环境。
+Docker Compose 仍是主运行方式；本地第 0 批验证优先使用仓库指定的 `D:\conda\envs\scienceclaw` 环境。
 
 ### VNC signed URL 接口闭环
 

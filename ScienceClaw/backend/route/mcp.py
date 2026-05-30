@@ -13,7 +13,7 @@ from backend.mcp.schemas import (
 from backend.user.dependencies import User, require_user
 
 
-router = APIRouter(prefix="/mcp", tags=["mcp"])
+router = APIRouter(prefix="/mcp", tags=["mcp"], dependencies=[Depends(require_user)])
 
 
 class ApiResponse(BaseModel):
@@ -23,7 +23,7 @@ class ApiResponse(BaseModel):
 
 
 @router.get("/health", response_model=ApiResponse)
-async def mcp_health(_current_user: User = Depends(require_user)) -> ApiResponse:
+async def mcp_health() -> ApiResponse:
     return ApiResponse(data={"status": "ok"})
 
 

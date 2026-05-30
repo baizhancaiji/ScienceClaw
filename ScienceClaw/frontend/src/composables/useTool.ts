@@ -31,8 +31,22 @@ export function useToolInfo(tool?: Ref<ToolContent | undefined>) {
 
   const toolInfo = computed(() => {
     if (!tool || !tool.value) return null;
+    const meta = tool.value.tool_meta;
     
-    // MCP tool
+    // HTTPS MCP tools: prefer explicit tool_meta over legacy prefix fallback.
+    if (meta?.mcp === true || meta?.source_type === 'https_mcp') {
+      const functionName = meta.original_tool_name || tool.value.function;
+      const serverName = meta.server_name || meta.server_slug;
+      return {
+        icon: TOOL_ICON_MAP['mcp'] || null,
+        name: serverName ? `${serverName} MCP` : t(TOOL_NAME_MAP['mcp'] || 'MCP Tool'),
+        function: functionName,
+        functionArg: extractFirstArg(tool.value.args),
+        view: TOOL_COMPONENT_MAP['mcp'] || null
+      };
+    }
+
+    // Legacy MCP sandbox fallback.
     if (tool.value.function.startsWith('mcp_')) {
       const mcpToolName = tool.value.function.replace(/^mcp_/, '');
       return {
@@ -86,7 +100,6 @@ export function useToolInfo(tool?: Ref<ToolContent | undefined>) {
     }
 
     // 未知/自定义工具：通用 fallback
-    const meta = tool.value.tool_meta;
     const displayName = meta?.description || tool.value.function;
 
     // Sandbox proxy tools: use ShellToolView to show execution process
@@ -112,4 +125,4 @@ export function useToolInfo(tool?: Ref<ToolContent | undefined>) {
   return {
     toolInfo
   };
-} 
+}

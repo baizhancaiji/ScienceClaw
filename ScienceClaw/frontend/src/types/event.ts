@@ -27,6 +27,13 @@ export interface ToolMetaData {
   category: string;
   description: string;
   sandbox?: boolean;
+  mcp?: boolean;
+  source_type?: 'https_mcp' | string;
+  server_id?: string;
+  server_name?: string;
+  server_slug?: string;
+  tool_id?: string;
+  original_tool_name?: string;
 }
 
 export interface ToolEventData extends BaseEventData {

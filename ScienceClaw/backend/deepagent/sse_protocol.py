@@ -54,7 +54,7 @@ class ToolMeta:
         self.icon = icon
         self.description = description
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
             "category": self.category.value,
@@ -165,6 +165,29 @@ class ToolRegistry:
         self.register(ToolMeta(name, ToolCategory.EXECUTION, "🔧", description))
         self._extra_meta[name] = {"sandbox": True}
 
+    def register_mcp_tool(
+        self,
+        name: str,
+        description: str,
+        *,
+        server_id: str = "",
+        server_name: str = "",
+        server_slug: str = "",
+        tool_id: str = "",
+        original_tool_name: str = "",
+    ):
+        """注册一个第三方 HTTPS MCP 工具。"""
+        self.register(ToolMeta(name, ToolCategory.CUSTOM, "🔌", description))
+        self._extra_meta[name] = {
+            "mcp": True,
+            "source_type": "https_mcp",
+            "server_id": server_id,
+            "server_name": server_name,
+            "server_slug": server_slug,
+            "tool_id": tool_id,
+            "original_tool_name": original_tool_name,
+        }
+
     def get(self, name: str) -> Optional[ToolMeta]:
         return self._tools.get(name)
 
@@ -188,6 +211,8 @@ class ToolRegistry:
             if extra:
                 d.update(extra)
             return d
+        if name.startswith("mcp__"):
+            return _fallback_mcp_meta(name)
         return {
             "name": name,
             "category": ToolCategory.CUSTOM.value,
@@ -214,7 +239,7 @@ class SSEProtocolManager:
     def now_ts(self) -> int:
         return int(time.time())
 
-    def get_tool_meta(self, tool_function: str) -> Dict[str, str]:
+    def get_tool_meta(self, tool_function: str) -> Dict[str, Any]:
         """根据工具函数名获取元数据"""
         return self.tool_registry.get_meta_dict(tool_function)
 
@@ -226,9 +251,50 @@ class SSEProtocolManager:
         """注册一个沙箱执行的外部代理工具（tool_meta 会带 sandbox: true）"""
         self.tool_registry.register_sandbox_tool(name, description)
 
+    def register_mcp_tool(
+        self,
+        name: str,
+        description: str,
+        *,
+        server_id: str = "",
+        server_name: str = "",
+        server_slug: str = "",
+        tool_id: str = "",
+        original_tool_name: str = "",
+    ):
+        """注册一个第三方 HTTPS MCP 工具（tool_meta 会带 mcp/source_type）。"""
+        self.tool_registry.register_mcp_tool(
+            name,
+            description,
+            server_id=server_id,
+            server_name=server_name,
+            server_slug=server_slug,
+            tool_id=tool_id,
+            original_tool_name=original_tool_name,
+        )
+
 
 # 全局单例
 _protocol_manager: Optional[SSEProtocolManager] = None
+
+
+def _fallback_mcp_meta(name: str) -> Dict[str, Any]:
+    parts = name.split("__")
+    server_slug = parts[1] if len(parts) >= 3 else ""
+    original_tool_name = "__".join(parts[2:]) if len(parts) >= 3 else name
+    return {
+        "name": name,
+        "category": ToolCategory.CUSTOM.value,
+        "icon": "🔌",
+        "description": original_tool_name or name,
+        "mcp": True,
+        "source_type": "https_mcp",
+        "server_id": "",
+        "server_name": server_slug,
+        "server_slug": server_slug,
+        "tool_id": "",
+        "original_tool_name": original_tool_name,
+    }
 
 
 def get_protocol_manager() -> SSEProtocolManager:

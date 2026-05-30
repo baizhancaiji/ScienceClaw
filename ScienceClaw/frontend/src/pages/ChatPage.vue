@@ -801,7 +801,8 @@ const handleToolEvent = (toolData: ToolEventData) => {
       (a) => a.type === 'tool' && a.tool?.tool_call_id === toolContent.tool_call_id
     );
     if (existingIdx >= 0) {
-      const merged = { ...activityItems.value[existingIdx].tool };
+      const existingTool = activityItems.value[existingIdx].tool;
+      const merged: ToolContent = existingTool ? { ...existingTool } : { ...toolContent };
       smartMerge(merged, toolContent);
       activityItems.value[existingIdx] = {
         ...activityItems.value[existingIdx],
@@ -1016,37 +1017,37 @@ const handleEvent = (event: AgentSSEEvent) => {
   } else if (event.event === 'message_chunk_done') {
     handleMessageChunkDoneEvent();
   } else if (event.event === 'message') {
-    handleMessageEvent(event.data as MessageEventData);
+    handleMessageEvent(event.data);
   } else if (event.event === 'tool') {
-    handleToolEvent(event.data as ToolEventData);
+    handleToolEvent(event.data);
   } else if (event.event === 'step') {
-    handleStepEvent(event.data as StepEventData);
+    handleStepEvent(event.data);
   } else if (event.event === 'thinking') {
-    handleThinkingEvent(event.data as ThinkingEventData);
+    handleThinkingEvent(event.data);
   } else if (event.event === 'skill_save_prompt') {
     if (realTime.value) {
-      const skillName = (event.data as any)?.skill_name;
+      const skillName = event.data.skill_name;
       if (skillName && !pendingSkillSave.value) {
         pendingSkillSave.value = skillName;
       }
     }
   } else if (event.event === 'tool_save_prompt') {
     if (realTime.value) {
-      const toolName = (event.data as any)?.tool_name;
+      const toolName = event.data.tool_name;
       if (toolName && !pendingToolSave.value) {
         pendingToolSave.value = toolName;
       }
     }
   } else if (event.event === 'done') {
-    handleDoneEvent(event.data as DoneEventData);
+    handleDoneEvent(event.data);
   } else if (event.event === 'wait') {
     // TODO: handle wait event
   } else if (event.event === 'error') {
-    handleErrorEvent(event.data as ErrorEventData);
+    handleErrorEvent(event.data);
   } else if (event.event === 'title') {
-    handleTitleEvent(event.data as TitleEventData);
+    handleTitleEvent(event.data);
   } else if (event.event === 'plan') {
-    handlePlanEvent(event.data as PlanEventData);
+    handlePlanEvent(event.data);
   }
   lastEventId.value = event.data.event_id;
 }
@@ -1166,10 +1167,7 @@ const chat = async (message: string = '', files: FileInfo[] = [], reconnect: boo
           if (isStale()) return;
           resetSSETimer();
           try {
-            handleEvent({
-              event: event as AgentSSEEvent['event'],
-              data: data as AgentSSEEvent['data']
-            });
+            handleEvent({ event, data } as AgentSSEEvent);
           } catch (e) {
             console.error('handleEvent error:', e);
           }

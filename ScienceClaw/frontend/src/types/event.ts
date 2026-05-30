@@ -1,9 +1,20 @@
 import type { FileInfo } from '../api/file';
 
-export type AgentSSEEvent = {
-  event: 'tool' | 'step' | 'message' | 'error' | 'done' | 'title' | 'wait' | 'plan' | 'attachments' | 'thinking';
-  data: ToolEventData | StepEventData | MessageEventData | ErrorEventData | DoneEventData | TitleEventData | WaitEventData | PlanEventData | ThinkingEventData;
-}
+export type AgentSSEEvent =
+  | { event: 'tool'; data: ToolEventData }
+  | { event: 'step'; data: StepEventData }
+  | { event: 'message'; data: MessageEventData }
+  | { event: 'message_chunk'; data: MessageChunkEventData }
+  | { event: 'message_chunk_done'; data: MessageChunkDoneEventData }
+  | { event: 'error'; data: ErrorEventData }
+  | { event: 'done'; data: DoneEventData }
+  | { event: 'title'; data: TitleEventData }
+  | { event: 'wait'; data: WaitEventData }
+  | { event: 'plan'; data: PlanEventData }
+  | { event: 'attachments'; data: AttachmentsEventData }
+  | { event: 'thinking'; data: ThinkingEventData }
+  | { event: 'skill_save_prompt'; data: SkillSavePromptEventData }
+  | { event: 'tool_save_prompt'; data: ToolSavePromptEventData };
 
 export interface BaseEventData {
   event_id: string;
@@ -31,8 +42,10 @@ export interface ToolEventData extends BaseEventData {
   tool_meta?: ToolMetaData;
 }
 
+export type StepStatus = "pending" | "running" | "in_progress" | "completed" | "failed";
+
 export interface StepEventData extends BaseEventData {
-  status: "pending" | "running" | "completed" | "failed"
+  status: StepStatus
   id: string
   description: string
   tools?: ToolEventData[]
@@ -40,6 +53,19 @@ export interface StepEventData extends BaseEventData {
 
 export interface MessageEventData extends BaseEventData {
   content: string;
+  role: "user" | "assistant";
+  attachments: FileInfo[];
+}
+
+export interface MessageChunkEventData extends BaseEventData {
+  content: string;
+  role: "assistant";
+}
+
+export interface MessageChunkDoneEventData extends BaseEventData {
+}
+
+export interface AttachmentsEventData extends BaseEventData {
   role: "user" | "assistant";
   attachments: FileInfo[];
 }
@@ -89,4 +115,12 @@ export interface PlanEventData extends BaseEventData {
 /** 思考过程事件 */
 export interface ThinkingEventData extends BaseEventData {
   content: string;
+}
+
+export interface SkillSavePromptEventData extends BaseEventData {
+  skill_name: string;
+}
+
+export interface ToolSavePromptEventData extends BaseEventData {
+  tool_name: string;
 }

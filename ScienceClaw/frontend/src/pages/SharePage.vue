@@ -519,23 +519,23 @@ const handlePlanEvent = (planData: PlanEventData) => {
 
 const handleEvent = (event: AgentSSEEvent) => {
   if (event.event === 'message') {
-    handleMessageEvent(event.data as MessageEventData);
+    handleMessageEvent(event.data);
   } else if (event.event === 'tool') {
-    handleToolEvent(event.data as ToolEventData);
+    handleToolEvent(event.data);
   } else if (event.event === 'step') {
-    handleStepEvent(event.data as StepEventData);
+    handleStepEvent(event.data);
   } else if (event.event === 'thinking') {
-    handleThinkingEvent(event.data as ThinkingEventData);
+    handleThinkingEvent(event.data);
   } else if (event.event === 'done') {
-    handleDoneEvent(event.data as DoneEventData);
+    handleDoneEvent(event.data);
   } else if (event.event === 'wait') {
     // noop
   } else if (event.event === 'error') {
-    handleErrorEvent(event.data as ErrorEventData);
+    handleErrorEvent(event.data);
   } else if (event.event === 'title') {
-    handleTitleEvent(event.data as TitleEventData);
+    handleTitleEvent(event.data);
   } else if (event.event === 'plan') {
-    handlePlanEvent(event.data as PlanEventData);
+    handlePlanEvent(event.data);
   }
   lastEventId.value = event.data.event_id;
 }

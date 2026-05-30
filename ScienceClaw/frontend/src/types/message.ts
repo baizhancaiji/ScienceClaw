@@ -1,5 +1,5 @@
 import type { FileInfo } from '../api/file';
-import type { ToolMetaData, StatisticsData, RoundFileInfo } from './event';
+import type { ToolMetaData, StatisticsData, RoundFileInfo, StepStatus } from './event';
 
 export type MessageType = "user" | "assistant" | "tool" | "step" | "attachments" | "thinking";
 
@@ -36,7 +36,7 @@ export interface ToolContent extends BaseContent {
 export interface StepContent extends BaseContent {
   id: string;
   description: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: StepStatus;
   tools: ToolContent[];
 }
 

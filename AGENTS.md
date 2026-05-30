@@ -16,6 +16,7 @@ The project heavily relies on Docker Compose for local environments. Never run c
 - **Domestic users (China)**: `docker compose -f docker-compose-china.yml up -d --build` (See [Deployment Guide](docs/deployment-guide-zh.md)).
 - **Standard release**: `docker compose -f docker-compose-release.yml up -d --pull always`.
 - Generated files and local executions are safely contained inside the `./workspace` directory.
+- **Local Python environment**: When a host-side Python command is needed for tests, import probes, or lightweight debugging, use the project Conda environment at `D:\conda\envs\scienceclaw`. Prefer `conda run -p D:\conda\envs\scienceclaw ...` and set `PYTHONNOUSERSITE=1` so commands do not fall back to user-level packages from `C:\Users\keepoux\AppData\Roaming\Python`. Do not use the old `C:\ProgramData\miniconda3\envs\py312` environment for this repository.
 
 ## 📝 Conventions
 - **DO NOT** edit code directly inside the Docker containers. Edit local files and allow volume mounts or rebuilds to sync changes.

@@ -1,3 +1,4 @@
+import json
 import re
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -79,6 +80,43 @@ def canonical_tool_name(server_slug: str, tool_name: str) -> str:
     return f"mcp__{_normalize_name_part(server_slug)}__{_normalize_name_part(tool_name)}"
 
 
+def normalize_mcp_tool_result(
+    result: Any,
+    server: dict[str, Any] | None = None,
+    tool: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if _is_error_result(result):
+        text = _extract_error_text(result)
+        error = result.get("error") if isinstance(result.get("error"), dict) else _default_error(text)
+        return _normalized_result(
+            ok=False,
+            is_error=True,
+            text=text,
+            structured=None,
+            error=error,
+            server=server,
+            tool=tool,
+        )
+
+    payload = result.get("result") if isinstance(result, dict) and result.get("ok") is True else result
+    structured = payload.get("structuredContent") if isinstance(payload, dict) else None
+    text_blocks = _extract_text_blocks(payload)
+    text = (
+        "\n\n".join(text_blocks)
+        if text_blocks
+        else _stringify_for_text(structured if structured is not None else payload)
+    )
+    return _normalized_result(
+        ok=True,
+        is_error=False,
+        text=text,
+        structured=structured,
+        error=None,
+        server=server,
+        tool=tool,
+    )
+
+
 def _schema_to_annotation(schema: dict[str, Any], model_name: str) -> Any:
     if _is_complex_schema(schema):
         return dict[str, Any]
@@ -149,3 +187,78 @@ def _normalize_name_part(value: str) -> str:
 def _model_name(value: str) -> str:
     parts = [part.capitalize() for part in _normalize_name_part(value).split("_") if part]
     return "".join(parts) + "Args" if parts else "MCPToolArgs"
+
+
+def _is_error_result(result: Any) -> bool:
+    return isinstance(result, dict) and (result.get("ok") is False or result.get("is_error") is True)
+
+
+def _normalized_result(
+    *,
+    ok: bool,
+    is_error: bool,
+    text: str,
+    structured: Any,
+    error: dict[str, Any] | None,
+    server: dict[str, Any] | None,
+    tool: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "ok": ok,
+        "server": server,
+        "tool": tool,
+        "text": text,
+        "structured": structured,
+        "content_blocks": [{"type": "text", "text": text}] if text else [],
+        "is_error": is_error,
+        "error": error,
+    }
+
+
+def _extract_text_blocks(payload: Any) -> list[str]:
+    if isinstance(payload, str):
+        return [payload]
+    if not isinstance(payload, dict):
+        return []
+    content = payload.get("content")
+    if not isinstance(content, list):
+        return []
+    blocks: list[str] = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        text = block.get("text")
+        if isinstance(text, str) and text:
+            blocks.append(text)
+    return blocks
+
+
+def _extract_error_text(result: dict[str, Any]) -> str:
+    text = result.get("text")
+    if isinstance(text, str) and text:
+        return text
+    error = result.get("error")
+    if isinstance(error, dict):
+        message = str(error.get("message") or "Remote MCP error")
+        code = error.get("code")
+        return f"{code}: {message}" if code else f"Remote MCP error: {message}"
+    return "Remote MCP error"
+
+
+def _default_error(text: str) -> dict[str, Any]:
+    return {
+        "message": text or "Remote MCP error",
+        "code": "remote_mcp_error",
+        "retryable": False,
+    }
+
+
+def _stringify_for_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    except TypeError:
+        return str(value)

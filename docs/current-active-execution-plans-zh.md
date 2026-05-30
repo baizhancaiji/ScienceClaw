@@ -15,7 +15,7 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 1 批 / 1.4 Server route 层已按最小增量完成并进入本地验证收口。
+- 状态：执行中；第 1 批 / 1.4 Server route 层已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
 - 当前批次：1.4 Server route 层；只在 `ScienceClaw/backend/route/mcp.py` 接入 `GET/POST/PUT/DELETE /servers` 与 `PUT /servers/{id}/enabled`，全部走当前用户鉴权。

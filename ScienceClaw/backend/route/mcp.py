@@ -23,7 +23,7 @@ class ApiResponse(BaseModel):
 
 
 @router.get("/health", response_model=ApiResponse)
-async def mcp_health() -> ApiResponse:
+async def mcp_health(_current_user: User = Depends(require_user)) -> ApiResponse:
     return ApiResponse(data={"status": "ok"})
 
 

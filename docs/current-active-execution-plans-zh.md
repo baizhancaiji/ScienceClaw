@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 1 批 / 1.2 Server repository CRUD 已按最小增量完成并进入本地验证收口。
+- 状态：执行中；第 1 批 / 1.3 Server service 层已按最小增量完成并进入本地验证收口。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：1.2 Server repository CRUD；只在 `ScienceClaw/backend/mcp/repository.py` 补齐 `update_server` / `delete_server`，并用测试覆盖用户隔离、级联删除和未传 secret 字段保留。
-- 下一批最小增量：1.3 Server service 层；只触碰 `ScienceClaw/backend/mcp/service.py` 和 `ScienceClaw/backend/tests/test_mcp_service_servers.py`，做 slug 规范化、secret 加密写入和 create/update/delete/list 编排，不依赖远端 MCP。
+- 当前批次：1.3 Server service 层；只在 `ScienceClaw/backend/mcp/service.py` 做 slug 规范化、secret 加密写入和 create/update/delete/list 编排，不依赖远端 MCP。
+- 下一批最小增量：1.4 Server route 层；只触碰 `ScienceClaw/backend/route/mcp.py` 和 `ScienceClaw/backend/tests/test_mcp_route_servers.py`，接入 `GET/POST/PUT/DELETE /servers` 与 `PUT /servers/{id}/enabled`，全部走当前用户鉴权。
 - 建议验证：
 
 ```powershell
@@ -27,6 +27,7 @@ $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unit
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_repository
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_crypto
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_schemas
+$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_service_servers
 npm --prefix ScienceClaw/frontend run type-check
 gitnexus detect-changes -r ScienceClaw
 ```

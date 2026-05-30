@@ -289,6 +289,100 @@ class MCPClientTests(unittest.TestCase):
 
         self.assertEqual("remote_mcp_invalid_tools", captured.exception.code)
 
+    def test_call_tool_posts_tools_call_with_name_and_arguments(self):
+        response = _response(
+            body={
+                "jsonrpc": "2.0",
+                "id": "rpc-id",
+                "result": {
+                    "content": [{"type": "text", "text": "done"}],
+                    "structuredContent": {"ok": True},
+                },
+            }
+        )
+
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(response=response, **kwargs),
+        ):
+            result = asyncio.run(
+                client.call_tool(
+                    "https://example.com/mcp",
+                    " search ",
+                    arguments={"query": "science"},
+                    headers={"Authorization": "Bearer token"},
+                )
+            )
+
+        self.assertEqual({"ok": True}, result["structuredContent"])
+        _, kwargs = FakeAsyncClient.last_instance.post.await_args
+        self.assertEqual("tools/call", kwargs["json"]["method"])
+        self.assertEqual(
+            {"name": "search", "arguments": {"query": "science"}},
+            kwargs["json"]["params"],
+        )
+        self.assertEqual("Bearer token", kwargs["headers"]["Authorization"])
+
+    def test_call_tool_rejects_empty_tool_name_before_network(self):
+        with patch.object(client.httpx, "AsyncClient") as async_client:
+            with self.assertRaises(client.MCPClientError) as captured:
+                asyncio.run(client.call_tool("https://example.com/mcp", " "))
+
+        self.assertEqual("invalid_mcp_tool_name", captured.exception.code)
+        async_client.assert_not_called()
+
+    def test_call_tool_maps_jsonrpc_error_to_client_error(self):
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(
+                response=_response(
+                    body={
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32000, "message": "Tool failed"},
+                    }
+                ),
+                **kwargs,
+            ),
+        ):
+            with self.assertRaises(client.MCPClientError) as captured:
+                asyncio.run(client.call_tool("https://example.com/mcp", "search"))
+
+        self.assertEqual("remote_mcp_error", captured.exception.code)
+        self.assertEqual("Tool failed", captured.exception.message)
+
+    def test_call_tool_safely_returns_success_envelope(self):
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(
+                response=_response(
+                    body={"jsonrpc": "2.0", "result": {"content": []}},
+                ),
+                **kwargs,
+            ),
+        ):
+            result = asyncio.run(client.call_tool_safely("https://example.com/mcp", "search"))
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["is_error"])
+        self.assertEqual({"content": []}, result["result"])
+
+    def test_call_tool_safely_returns_standard_error_object(self):
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(response=_response(503), **kwargs),
+        ):
+            result = asyncio.run(client.call_tool_safely("https://example.com/mcp", "search"))
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["is_error"])
+        self.assertEqual("remote_mcp_http_error", result["error"]["code"])
+        self.assertTrue(result["error"]["retryable"])
+        self.assertEqual("remote_mcp_http_error: Remote MCP returned HTTP 503", result["text"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -81,6 +81,55 @@ async def list_tools(
     return _parse_tools_list_result(result)
 
 
+async def call_tool(
+    endpoint_url: str,
+    tool_name: str,
+    arguments: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    timeout_seconds: float = DEFAULT_MCP_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    if not tool_name or not tool_name.strip():
+        raise MCPClientError(
+            code="invalid_mcp_tool_name",
+            message="MCP tool name is required",
+            retryable=False,
+        )
+    return await request(
+        endpoint_url,
+        "tools/call",
+        params={
+            "name": tool_name.strip(),
+            "arguments": arguments or {},
+        },
+        headers=headers,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+async def call_tool_safely(
+    endpoint_url: str,
+    tool_name: str,
+    arguments: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    timeout_seconds: float = DEFAULT_MCP_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    try:
+        result = await call_tool(
+            endpoint_url,
+            tool_name,
+            arguments=arguments,
+            headers=headers,
+            timeout_seconds=timeout_seconds,
+        )
+    except MCPClientError as exc:
+        return _error_envelope(exc)
+    return {
+        "ok": True,
+        "is_error": False,
+        "result": result,
+    }
+
+
 async def request(
     endpoint_url: str,
     method: str,
@@ -230,3 +279,12 @@ def _parse_remote_tool(tool: Any) -> MCPRemoteTool:
         description=description.strip() if isinstance(description, str) else "",
         input_schema_raw=dict(input_schema),
     )
+
+
+def _error_envelope(exc: MCPClientError) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "is_error": True,
+        "error": exc.to_dict(),
+        "text": f"{exc.code}: {exc.message}",
+    }

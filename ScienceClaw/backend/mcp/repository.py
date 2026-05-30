@@ -53,7 +53,10 @@ async def list_tools_by_server(server_id: str, user_id: str) -> list[dict[str, A
 
 
 async def list_enabled_tools_by_user(user_id: str) -> list[dict[str, Any]]:
-    raise NotImplementedError("list_enabled_tools_by_user is reserved for a later MCP batch")
+    cursor = db.get_collection(MCP_TOOLS_COLLECTION).find(
+        {"user_id": user_id, "enabled": True, "removed": False}
+    )
+    return await cursor.to_list(length=None)
 
 
 async def upsert_tools_from_remote(
@@ -114,8 +117,18 @@ async def toggle_server_enabled(server_id: str, user_id: str, enabled: bool) -> 
     raise NotImplementedError("toggle_server_enabled is reserved for a later MCP batch")
 
 
-async def toggle_tool_enabled(tool_id: str, user_id: str, enabled: bool) -> None:
-    raise NotImplementedError("toggle_tool_enabled is reserved for a later MCP batch")
+async def toggle_tool_enabled(
+    tool_id: str,
+    user_id: str,
+    enabled: bool,
+) -> dict[str, Any] | None:
+    await db.get_collection(MCP_TOOLS_COLLECTION).update_one(
+        {"_id": tool_id, "user_id": user_id},
+        {"$set": {"enabled": enabled}},
+    )
+    return await db.get_collection(MCP_TOOLS_COLLECTION).find_one(
+        {"_id": tool_id, "user_id": user_id}
+    )
 
 
 async def touch_verify_result(

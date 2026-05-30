@@ -8,6 +8,7 @@ from backend.mcp import service
 from backend.mcp.schemas import (
     CreateMCPServerRequest,
     ToggleMCPServerRequest,
+    ToggleMCPToolRequest,
     UpdateMCPServerRequest,
 )
 from backend.user.dependencies import User, require_user
@@ -84,6 +85,59 @@ async def toggle_mcp_server_enabled(
     if server is None:
         raise HTTPException(status_code=404, detail="MCP server not found")
     return ApiResponse(data=server.model_dump())
+
+
+@router.post("/servers/{server_id}/verify", response_model=ApiResponse)
+async def verify_mcp_server(
+    server_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    result = await service.verify_server(server_id, current_user.id, _encryption_key())
+    if result is None:
+        raise HTTPException(status_code=404, detail="MCP server not found")
+    return ApiResponse(data=result.model_dump())
+
+
+@router.post("/servers/{server_id}/refresh-tools", response_model=ApiResponse)
+async def refresh_mcp_server_tools(
+    server_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    result = await service.refresh_server_tools(server_id, current_user.id, _encryption_key())
+    if result is None:
+        raise HTTPException(status_code=404, detail="MCP server not found")
+    data = result.model_dump()
+    data["inserted"] = data.pop("added")
+    return ApiResponse(data=data)
+
+
+@router.get("/servers/{server_id}/tools", response_model=ApiResponse)
+async def list_mcp_server_tools(
+    server_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    tools = await service.list_tools_by_server(server_id, current_user.id)
+    if tools is None:
+        raise HTTPException(status_code=404, detail="MCP server not found")
+    return ApiResponse(data=[tool.model_dump() for tool in tools])
+
+
+@router.get("/tools", response_model=ApiResponse)
+async def list_enabled_mcp_tools(current_user: User = Depends(require_user)) -> ApiResponse:
+    tools = await service.list_enabled_tools(current_user.id)
+    return ApiResponse(data=[tool.model_dump() for tool in tools])
+
+
+@router.put("/tools/{tool_id}/enabled", response_model=ApiResponse)
+async def toggle_mcp_tool_enabled(
+    tool_id: str,
+    body: ToggleMCPToolRequest,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    tool = await service.toggle_tool_enabled(tool_id, current_user.id, body.enabled)
+    if tool is None:
+        raise HTTPException(status_code=404, detail="MCP tool not found")
+    return ApiResponse(data=tool.model_dump())
 
 
 def _encryption_key() -> str:

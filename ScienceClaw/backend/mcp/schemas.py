@@ -107,6 +107,10 @@ class ToggleMCPServerRequest(BaseModel):
     enabled: bool
 
 
+class ToggleMCPToolRequest(BaseModel):
+    enabled: bool
+
+
 class MCPServerListItem(BaseModel):
     id: str
     name: str
@@ -125,5 +129,22 @@ class MCPServerListItem(BaseModel):
 
 
 class MCPServerDetailItem(MCPServerListItem):
+    created_at: int | None = None
+    updated_at: int | None = None
+
+
+class MCPToolListItem(BaseModel):
+    id: str
+    server_id: str
+    original_name: str
+    tool_slug: str
+    canonical_name: str
+    display_name: str
+    description: str = ""
+    input_schema_raw: dict = Field(default_factory=dict)
+    input_schema_normalized: dict = Field(default_factory=dict)
+    enabled: bool = True
+    removed: bool = False
+    last_seen_at: int | None = None
     created_at: int | None = None
     updated_at: int | None = None

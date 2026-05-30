@@ -11,6 +11,7 @@ from backend.mcp.schemas import (
     MCPMaskedHeader,
     MCPServerDetailItem,
     MCPServerListItem,
+    MCPToolListItem,
     UpdateMCPServerRequest,
 )
 
@@ -186,6 +187,29 @@ async def refresh_server_tools(
     )
 
 
+async def list_tools_by_server(server_id: str, user_id: str) -> list[MCPToolListItem] | None:
+    if await repository.get_server(server_id, user_id) is None:
+        return None
+    docs = await repository.list_tools_by_server(server_id, user_id)
+    return [_to_tool_item(doc) for doc in docs]
+
+
+async def list_enabled_tools(user_id: str) -> list[MCPToolListItem]:
+    docs = await repository.list_enabled_tools_by_user(user_id)
+    return [_to_tool_item(doc) for doc in docs]
+
+
+async def toggle_tool_enabled(
+    tool_id: str,
+    user_id: str,
+    enabled: bool,
+) -> MCPToolListItem | None:
+    updated = await repository.toggle_tool_enabled(tool_id, user_id, enabled)
+    if updated is None:
+        return None
+    return _to_tool_item(updated)
+
+
 def _build_update_patch(
     existing: dict[str, Any],
     request: UpdateMCPServerRequest,
@@ -313,6 +337,25 @@ def _to_detail_item(doc: dict[str, Any]) -> MCPServerDetailItem:
     item = _to_list_item(doc)
     return MCPServerDetailItem(
         **item.model_dump(),
+        created_at=doc.get("created_at"),
+        updated_at=doc.get("updated_at"),
+    )
+
+
+def _to_tool_item(doc: dict[str, Any]) -> MCPToolListItem:
+    return MCPToolListItem(
+        id=str(doc.get("_id", "")),
+        server_id=str(doc.get("server_id", "")),
+        original_name=doc.get("original_name", ""),
+        tool_slug=doc.get("tool_slug", ""),
+        canonical_name=doc.get("canonical_name", ""),
+        display_name=doc.get("display_name", ""),
+        description=doc.get("description", ""),
+        input_schema_raw=doc.get("input_schema_raw") or {},
+        input_schema_normalized=doc.get("input_schema_normalized") or {},
+        enabled=bool(doc.get("enabled", True)),
+        removed=bool(doc.get("removed", False)),
+        last_seen_at=doc.get("last_seen_at"),
         created_at=doc.get("created_at"),
         updated_at=doc.get("updated_at"),
     )

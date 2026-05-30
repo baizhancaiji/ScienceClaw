@@ -157,7 +157,9 @@ class MCPRepositoryTests(unittest.TestCase):
 
     def test_later_batch_methods_are_declared_but_not_implemented(self):
         with self.assertRaises(NotImplementedError):
-            asyncio.run(repository.list_enabled_tools_by_user("user-1"))
+            asyncio.run(repository.toggle_server_enabled("server-1", "user-1", True))
+        with self.assertRaises(NotImplementedError):
+            asyncio.run(repository.touch_verify_result("server-1", "user-1", {}))
 
     def test_update_server_is_user_scoped_and_preserves_unpatched_secrets(self):
         server = {
@@ -354,6 +356,61 @@ class MCPRepositoryTests(unittest.TestCase):
         self.assertTrue(next(tool for tool in owned if tool["original_name"] == "gone")["removed"])
         other = asyncio.run(repository.list_tools_by_server("server-1", "user-2"))
         self.assertFalse(other[0]["removed"])
+
+    def test_list_enabled_tools_by_user_returns_enabled_active_tools_only(self):
+        self.fake_db.mcp_tools.documents.extend(
+            [
+                {
+                    "_id": "tool-1",
+                    "user_id": "user-1",
+                    "enabled": True,
+                    "removed": False,
+                },
+                {
+                    "_id": "tool-2",
+                    "user_id": "user-1",
+                    "enabled": False,
+                    "removed": False,
+                },
+                {
+                    "_id": "tool-3",
+                    "user_id": "user-1",
+                    "enabled": True,
+                    "removed": True,
+                },
+                {
+                    "_id": "tool-4",
+                    "user_id": "user-2",
+                    "enabled": True,
+                    "removed": False,
+                },
+            ]
+        )
+
+        tools = asyncio.run(repository.list_enabled_tools_by_user("user-1"))
+
+        self.assertEqual(["tool-1"], [tool["_id"] for tool in tools])
+
+    def test_toggle_tool_enabled_is_user_scoped_and_returns_updated_tool(self):
+        self.fake_db.mcp_tools.documents.extend(
+            [
+                {"_id": "tool-1", "user_id": "user-1", "enabled": True},
+                {"_id": "tool-1", "user_id": "user-2", "enabled": True},
+            ]
+        )
+
+        updated = asyncio.run(repository.toggle_tool_enabled("tool-1", "user-1", False))
+
+        self.assertFalse(updated["enabled"])
+        other = asyncio.run(repository.toggle_tool_enabled("tool-1", "missing", False))
+        self.assertIsNone(other)
+        self.assertTrue(
+            next(
+                tool
+                for tool in self.fake_db.mcp_tools.documents
+                if tool["_id"] == "tool-1" and tool["user_id"] == "user-2"
+            )["enabled"]
+        )
 
 
 if __name__ == "__main__":

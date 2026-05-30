@@ -290,5 +290,92 @@ class MCPRefreshServiceTests(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class MCPToolServiceTests(unittest.TestCase):
+    def test_list_tools_by_server_returns_none_for_missing_server(self):
+        with (
+            patch.object(service.repository, "get_server", new=AsyncMock(return_value=None)),
+            patch.object(service.repository, "list_tools_by_server", new=AsyncMock()) as list_tools,
+        ):
+            result = _run(service.list_tools_by_server("missing", "user-1"))
+            list_tools.assert_not_awaited()
+
+        self.assertIsNone(result)
+
+    def test_list_tools_by_server_maps_repository_docs(self):
+        existing = _server_doc()
+        tool_doc = {
+            "_id": "tool-1",
+            "server_id": "server-1",
+            "original_name": "search",
+            "tool_slug": "search",
+            "canonical_name": "mcp__github_mcp__search",
+            "display_name": "search",
+            "description": "Search",
+            "enabled": True,
+            "removed": False,
+        }
+
+        with (
+            patch.object(service.repository, "get_server", new=AsyncMock(return_value=existing)),
+            patch.object(
+                service.repository,
+                "list_tools_by_server",
+                new=AsyncMock(return_value=[tool_doc]),
+            ),
+        ):
+            result = _run(service.list_tools_by_server("server-1", "user-1"))
+
+        self.assertEqual("tool-1", result[0].id)
+        self.assertEqual("mcp__github_mcp__search", result[0].canonical_name)
+
+    def test_list_enabled_tools_maps_repository_docs(self):
+        tool_doc = {
+            "_id": "tool-1",
+            "server_id": "server-1",
+            "original_name": "search",
+            "tool_slug": "search",
+            "canonical_name": "mcp__github_mcp__search",
+            "display_name": "search",
+        }
+
+        with patch.object(
+            service.repository,
+            "list_enabled_tools_by_user",
+            new=AsyncMock(return_value=[tool_doc]),
+        ):
+            result = _run(service.list_enabled_tools("user-1"))
+
+        self.assertEqual("tool-1", result[0].id)
+        self.assertTrue(result[0].enabled)
+
+    def test_toggle_tool_enabled_maps_updated_tool_or_none(self):
+        tool_doc = {
+            "_id": "tool-1",
+            "server_id": "server-1",
+            "original_name": "search",
+            "tool_slug": "search",
+            "canonical_name": "mcp__github_mcp__search",
+            "display_name": "search",
+            "enabled": False,
+        }
+
+        with patch.object(
+            service.repository,
+            "toggle_tool_enabled",
+            new=AsyncMock(return_value=tool_doc),
+        ) as toggle:
+            result = _run(service.toggle_tool_enabled("tool-1", "user-1", False))
+
+        self.assertFalse(result.enabled)
+        toggle.assert_awaited_once_with("tool-1", "user-1", False)
+
+        with patch.object(
+            service.repository,
+            "toggle_tool_enabled",
+            new=AsyncMock(return_value=None),
+        ):
+            self.assertIsNone(_run(service.toggle_tool_enabled("missing", "user-1", True)))
+
+
 if __name__ == "__main__":
     unittest.main()

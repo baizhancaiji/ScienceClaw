@@ -1,0 +1,4 @@
+services:
+  websearch:
+    ports: !override
+      - "18068:8068"

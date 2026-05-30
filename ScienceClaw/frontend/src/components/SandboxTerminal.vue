@@ -73,7 +73,7 @@ const initTerminal = () => {
   resizeObserver.observe(terminalContainer.value);
 };
 
-const writeExecution = (toolName: string, command: string, output?: string, status?: string) => {
+const writeExecution = (_toolName: string, command: string, output?: string, status?: string) => {
   if (!terminal) {
     initTerminal();
   }

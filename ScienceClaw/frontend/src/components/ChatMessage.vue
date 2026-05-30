@@ -149,7 +149,6 @@
 
 <script setup lang="ts">
 import { Message, MessageContent, AttachmentsContent } from '../types/message';
-import ToolUse from './ToolUse.vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
@@ -158,7 +157,7 @@ import mermaid from 'mermaid';
 import { CheckIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, ClockIcon, WrenchIcon, ArrowDownIcon, ArrowUpIcon, FolderOpen } from 'lucide-vue-next';
 import PdfIcon from './icons/PdfIcon.vue';
 import { computed, ref, onMounted, nextTick, watch } from 'vue';
-import { ToolContent, StepContent } from '../types/message';
+import { ToolContent } from '../types/message';
 import { useRelativeTime } from '../composables/useTime';
 import AttachmentsMessage from './AttachmentsMessage.vue';
 import ImageViewer from './ImageViewer.vue';
@@ -515,10 +514,6 @@ const emit = defineEmits<{
   (e: 'convertToPdf'): void;
 }>();
 
-const handleToolClick = (tool: ToolContent) => {
-  emit('toolClick', tool);
-};
-
 // Feedback state
 const feedback = ref<'like' | 'dislike' | null>(null);
 const isCopied = ref(false);
@@ -552,7 +547,7 @@ const handleConvertToPdf = () => {
 
 // 本轮文件
 const roundFiles = computed(() => messageContent.value.round_files || []);
-const { showRoundFilesPanel, showFileListPanel } = useFilePanel();
+const { showFileListPanel } = useFilePanel();
 
 // 处理 Markdown 内容区域的点击事件（图片 Lightbox + 代码块全屏）
 const handleMarkdownClick = (event: MouseEvent) => {
@@ -605,9 +600,7 @@ const formatTokenCount = (count: number): string => {
 };
 
 // For backward compatibility
-const stepContent = computed(() => props.message.content as StepContent);
 const messageContent = computed(() => props.message.content as MessageContent);
-const toolContent = computed(() => props.message.content as ToolContent);
 const attachmentsContent = computed(() => props.message.content as AttachmentsContent);
 const messageFlashClass = computed(() => (props.flashToken ? 'session-search-hit-flash' : ''));
 const messageKeysAttr = computed(() => `|${(props.messageKeys ?? []).join('|')}|`);
@@ -636,8 +629,6 @@ const renderMarkdown = (text: string): string => {
   if (typeof text !== 'string') return '';
 
   const logPrefix = '[Markdown]';
-  const startTime = performance.now();
-
   try {
     // 步骤1：格式化 Markdown
     let formatted = formatMarkdown(text);

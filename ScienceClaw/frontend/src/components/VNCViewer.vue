@@ -28,6 +28,12 @@ const emit = defineEmits<{
 const vncContainer = ref<HTMLDivElement | null>(null);
 let rfb: RFB | null = null;
 
+const toWebSocketUrl = (url: string): string => {
+  const parsed = new URL(url, window.location.origin);
+  parsed.protocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+  return parsed.toString();
+};
+
 const initVNCConnection = async () => {
   if (!vncContainer.value || !props.enabled) return;
 
@@ -42,7 +48,8 @@ const initVNCConnection = async () => {
     if (props.directWsUrl) {
       wsUrl = props.directWsUrl;
     } else {
-      wsUrl = await getVNCUrl(props.sessionId);
+      const signed = await getVNCUrl(props.sessionId);
+      wsUrl = toWebSocketUrl(signed.signed_url);
     }
 
     // Create NoVNC connection

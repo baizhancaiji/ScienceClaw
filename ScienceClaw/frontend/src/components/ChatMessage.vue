@@ -449,7 +449,7 @@ renderer.code = function(token: { text: string; lang?: string } | string, langua
 renderer.link = function(token: { href: string; title?: string | null; text: string } | string, title?: string | null, text?: string) {
   let href: string;
   let linkTitle: string | null | undefined;
-  let linkText: string;
+  let linkText = '';
 
   try {
     if (typeof token === 'object' && token !== null) {

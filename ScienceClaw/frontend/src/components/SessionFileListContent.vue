@@ -126,7 +126,7 @@ const openPreview = (file: FileInfo) => {
 };
 
 const resultFiles = computed(() => files.value.filter(f => f.category === 'result' || !f.category));
-const processFiles = computed(() => files.value.filter(f => f.category === 'process' || f.category === 'system'));
+const processFiles = computed(() => files.value.filter(f => f.category === 'process'));
 
 const getFileColor = (filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase() || '';

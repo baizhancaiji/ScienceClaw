@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -56,6 +57,30 @@ class AgentMCPInjectionTests(unittest.TestCase):
         self.assertEqual("science", tools[0].args_schema(query="science").query)
         with self.assertRaises(NotImplementedError):
             tools[0].invoke({"query": "science"})
+        list_enabled_tools.assert_awaited_once_with("user-1", "")
+
+    def test_collect_user_mcp_tools_handles_fifty_tool_scale(self):
+        runtime_docs = [
+            _tool_item(
+                id=f"tool-{index}",
+                original_name=f"tool_{index}",
+                tool_slug=f"tool-{index}",
+                canonical_name=f"mcp__scale_mcp__tool_{index}",
+                display_name=f"Tool {index}",
+            )
+            for index in range(50)
+        ]
+        list_enabled_tools = AsyncMock(return_value=runtime_docs)
+
+        with patch.object(agent.mcp_service, "list_enabled_tool_runtime_docs", new=list_enabled_tools):
+            started_at = time.perf_counter()
+            tools = asyncio.run(agent._collect_user_mcp_tools("user-1"))
+            duration_ms = int((time.perf_counter() - started_at) * 1000)
+
+        self.assertEqual(50, len(tools))
+        self.assertEqual("mcp__scale_mcp__tool_0", tools[0].name)
+        self.assertEqual("mcp__scale_mcp__tool_49", tools[-1].name)
+        self.assertLess(duration_ms, 1000)
         list_enabled_tools.assert_awaited_once_with("user-1", "")
 
     def test_collect_user_mcp_tools_skips_existing_tool_name(self):

@@ -180,6 +180,29 @@ class MCPToolRouteTests(unittest.TestCase):
         self.assertEqual("mcp__github_mcp__search", response.json()["data"][0]["canonical_name"])
         list_enabled_tools.assert_awaited_once_with("user-1")
 
+    def test_list_enabled_tools_route_returns_fifty_tool_scale(self):
+        tools = [
+            _tool(
+                id=f"tool-{index}",
+                original_name=f"tool_{index}",
+                tool_slug=f"tool-{index}",
+                canonical_name=f"mcp__scale_mcp__tool_{index}",
+                display_name=f"Tool {index}",
+            )
+            for index in range(50)
+        ]
+        list_enabled_tools = AsyncMock(return_value=tools)
+
+        with patch.object(mcp_route.service, "list_enabled_tools", new=list_enabled_tools):
+            response = TestClient(_make_app()).get("/api/v1/mcp/tools")
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()["data"]
+        self.assertEqual(50, len(payload))
+        self.assertEqual("mcp__scale_mcp__tool_0", payload[0]["canonical_name"])
+        self.assertEqual("mcp__scale_mcp__tool_49", payload[-1]["canonical_name"])
+        list_enabled_tools.assert_awaited_once_with("user-1")
+
     def test_toggle_tool_enabled_route_returns_updated_tool(self):
         toggle_tool_enabled = AsyncMock(return_value=_tool(enabled=False))
 

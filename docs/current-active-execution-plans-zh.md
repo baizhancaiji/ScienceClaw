@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 5 批 / 5.3 异常路径联调已按设计文档完成本地收口。已验证连接失败、401/403、500、非法返回的稳定错误合同；本批最小代码调整限定为补充 client/service 异常路径回归测试，既有 verify 状态回写和脱敏实现无需扩大改动。
+- 状态：执行中；第 5 批 / 5.4 规模与性能边界已按设计文档完成本地收口。已验证 50 个 MCP 工具规模下的 route 列表、Agent wrapper 注入、Tools 页浏览、Settings MCP tab 操作和新会话创建耗时；本批生产实现保持不变，仅补充规模 smoke 回归测试和运行态证据。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：5.3 异常路径联调；已用真实 API 验证 `https://127.0.0.1:9/mcp` 连接失败、`https://httpbin.org/status/403`、`https://httpbin.org/status/500` 都回写 `verify_status=error` 和稳定 `verify_error`，且错误摘要不含 secret/token；401/403、500、非法 JSON/JSON-RPC 返回由 client/service 单元测试覆盖。
-- 下一批最小增量：5.4 规模与性能边界；只验证 30-50 工具规模下 Tools 页不卡死、设置页可操作、新会话创建耗时可接受。
+- 当前批次：5.4 规模与性能边界；已用 50 个临时 MCP 工具验证真实 `/api/v1/mcp/tools` 返回 50/50 且耗时 18ms，Tools 页 MCP tab 可浏览 62 个启用工具，Settings MCP tab 可显示临时 server 并完成 Disable 操作，新会话创建 API 返回 200 且耗时 30ms；临时 smoke 数据已清理。
+- 下一批最小增量：第 5 批完成审计；逐条核对 `docs/mcp-https-integration-design-zh.md` 的目标、非目标、批次验收、测试规划和第一阶段范围，确认是否还存在缺口，只做必要的最小补齐。
 - 建议验证：
 
 ```powershell

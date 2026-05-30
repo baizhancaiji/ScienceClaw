@@ -1,6 +1,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
@@ -13,6 +14,7 @@ if str(REPO_ROOT) not in sys.path:
 
 
 from backend.route.mcp import router as mcp_router  # noqa: E402
+from backend.config import settings  # noqa: E402
 from backend.user.dependencies import User, require_user  # noqa: E402
 
 
@@ -65,7 +67,8 @@ class MCPRouteSmokeTests(unittest.TestCase):
         )
 
     def test_mcp_health_route_requires_authenticated_user(self):
-        response = TestClient(_make_app(authenticated=False)).get("/api/v1/mcp/health")
+        with patch.object(settings, "auth_provider", "local"):
+            response = TestClient(_make_app(authenticated=False)).get("/api/v1/mcp/health")
 
         self.assertEqual(401, response.status_code)
 
@@ -83,24 +86,25 @@ class MCPRouteSmokeTests(unittest.TestCase):
             self.assertIn(require_user, dependency_calls, route.path)
 
     def test_all_mcp_route_methods_reject_unauthenticated_requests(self):
-        app = _make_app(authenticated=False)
-        client = TestClient(app)
-        mcp_routes = [
-            route
-            for route in app.routes
-            if isinstance(route, APIRoute) and route.path.startswith("/api/v1/mcp/")
-        ]
+        with patch.object(settings, "auth_provider", "local"):
+            app = _make_app(authenticated=False)
+            client = TestClient(app)
+            mcp_routes = [
+                route
+                for route in app.routes
+                if isinstance(route, APIRoute) and route.path.startswith("/api/v1/mcp/")
+            ]
 
-        self.assertTrue(mcp_routes)
-        for route in mcp_routes:
-            methods = sorted(route.methods - {"HEAD", "OPTIONS"})
-            for method in methods:
-                response = client.request(
-                    method,
-                    _sample_route_path(route.path),
-                    json=_sample_route_json(method, route.path),
-                )
-                self.assertEqual(401, response.status_code, f"{method} {route.path}")
+            self.assertTrue(mcp_routes)
+            for route in mcp_routes:
+                methods = sorted(route.methods - {"HEAD", "OPTIONS"})
+                for method in methods:
+                    response = client.request(
+                        method,
+                        _sample_route_path(route.path),
+                        json=_sample_route_json(method, route.path),
+                    )
+                    self.assertEqual(401, response.status_code, f"{method} {route.path}")
 
     def test_main_registers_mcp_router_under_api_v1(self):
         from backend.main import create_app

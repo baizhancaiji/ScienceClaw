@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 5 批 / 5.1 简单 server 联调已按设计文档完成本地收口。使用 `https://mcp.deepwiki.com/mcp` 完成 `create -> verify -> refresh -> enable -> chat call` 回归；本批最小代码调整限定为 HTTPS MCP client 对 `text/event-stream` JSON-RPC 响应的兼容，以及已启用健康工具的运行期 wrapper 调用链补齐。
+- 状态：执行中；第 5 批 / 5.2 复杂 schema server 联调已按设计文档完成本地收口。使用 `https://mcp.deepwiki.com/mcp` 的 `ask_question` 工具验证 `repoName.anyOf` 复杂 schema 命中 `payload` 回退模式；本批最小代码调整限定为补充 payload 解包回归测试，既有后端映射与前端提示无需扩大改动。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：5.1 简单 server 联调；已验证 DeepWiki server `verify_status=healthy`、`tool_count=3`、刷新插入 3 个工具、启用 `ask_question` 工具后聊天 SSE 能触发 MCP tool event 并收到远端文本，且不再出现 “MCP tool execution is reserved for a later MCP batch”。
-- 下一批最小增量：5.2 复杂 schema server 联调；只验证 `payload` 回退模式，验收点限定为工具可见、UI 有提示、调用不崩溃。
+- 当前批次：5.2 复杂 schema server 联调；已验证 DeepWiki `ask_question` 的 `input_schema_raw` 包含 `anyOf`，Tools 页 MCP tab 中复杂工具可见且卡片/详情抽屉显示 `payload mode`，wrapper 使用 `payload` 调用远端时会解包为 MCP `tools/call` 参数且不崩溃。
+- 下一批最小增量：5.3 异常路径联调；只验证超时、401/403、500、非法返回，验收点限定为前端提示稳定、日志脱敏、状态能回写。
 - 建议验证：
 
 ```powershell

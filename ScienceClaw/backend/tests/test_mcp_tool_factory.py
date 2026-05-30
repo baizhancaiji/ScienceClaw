@@ -172,6 +172,63 @@ class MCPToolFactoryTests(unittest.TestCase):
             headers={"X-Test": "secret"},
         )
 
+    def test_complex_schema_runner_unwraps_payload_arguments(self):
+        call_tool_safely = AsyncMock(
+            return_value={
+                "ok": True,
+                "is_error": False,
+                "result": {"content": [{"type": "text", "text": "complex answer"}]},
+            }
+        )
+        definition = tool_factory.build_tool_definition(
+            {
+                "id": "tool-1",
+                "canonical_name": "mcp__deepwiki__ask_question",
+                "original_name": "ask_question",
+                "server_name": "DeepWiki",
+                "description": "Ask a question",
+                "input_schema_raw": {
+                    "type": "object",
+                    "properties": {
+                        "repoName": {
+                            "anyOf": [
+                                {"type": "string"},
+                                {"type": "array", "items": {"type": "string"}},
+                            ]
+                        },
+                        "question": {"type": "string"},
+                    },
+                    "required": ["repoName", "question"],
+                },
+                "server": {
+                    "id": "server-1",
+                    "name": "DeepWiki",
+                    "endpoint_url": "https://example.com/mcp",
+                    "headers": {},
+                },
+                "call_tool_safely": call_tool_safely,
+            }
+        )
+
+        result = definition.func(
+            payload={
+                "repoName": "modelcontextprotocol/python-sdk",
+                "question": "What is this repository?",
+            }
+        )
+
+        self.assertTrue(definition.input_schema_complex)
+        self.assertEqual("complex answer", result["text"])
+        call_tool_safely.assert_awaited_once_with(
+            "https://example.com/mcp",
+            "ask_question",
+            arguments={
+                "repoName": "modelcontextprotocol/python-sdk",
+                "question": "What is this repository?",
+            },
+            headers={},
+        )
+
     def test_build_tool_definition_prefixes_complex_schema_hint(self):
         definition = tool_factory.build_tool_definition(
             {

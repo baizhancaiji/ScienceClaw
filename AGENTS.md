@@ -20,6 +20,7 @@ The project heavily relies on Docker Compose for local environments. Never run c
 ## 📝 Conventions
 - **DO NOT** edit code directly inside the Docker containers. Edit local files and allow volume mounts or rebuilds to sync changes.
 - **Link, don't embed**: For detailed project initialization, always refer to [README_zh.md](README_zh.md) and [Deployment Guide](docs/deployment-guide-zh.md).
+- **Active plans ledger**: Current execution plans are tracked in [docs/current-active-execution-plans-zh.md](docs/current-active-execution-plans-zh.md). Completed plans are archived under `docs/archive/plans/`; do not execute directly from archived plans without re-registering a new active plan.
 - **Agents/Skills/Tools**:
   - Python-based tools belong in the `Tools/` directory.
   - LLM Skills (e.g., prompt definitions, workflows) belong in the `Skills/` directory.

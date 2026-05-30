@@ -1,7 +1,8 @@
 import json
 import re
+import asyncio
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
@@ -20,9 +21,12 @@ class MCPToolDefinition:
     description: str
     args_schema: type[BaseModel]
     input_schema_complex: bool
+    runner: Callable[..., dict[str, Any]] | None = None
 
-    def func(self, **_kwargs: Any) -> dict[str, Any]:
-        raise NotImplementedError("MCP tool execution is reserved for a later MCP batch")
+    def func(self, **kwargs: Any) -> dict[str, Any]:
+        if self.runner is None:
+            raise NotImplementedError("MCP tool execution is reserved for a later MCP batch")
+        return self.runner(**kwargs)
 
 
 def build_tool_definition(tool_doc: dict[str, Any]) -> MCPToolDefinition:
@@ -42,6 +46,7 @@ def build_tool_definition(tool_doc: dict[str, Any]) -> MCPToolDefinition:
         description=description,
         args_schema=args_schema,
         input_schema_complex=is_complex,
+        runner=_build_runner(tool_doc),
     )
 
 
@@ -115,6 +120,55 @@ def normalize_mcp_tool_result(
         server=server,
         tool=tool,
     )
+
+
+def _build_runner(tool_doc: dict[str, Any]) -> Callable[..., dict[str, Any]] | None:
+    server = tool_doc.get("server")
+    call_tool_safely = tool_doc.get("call_tool_safely")
+    result_normalizer = tool_doc.get("result_normalizer") or normalize_mcp_tool_result
+    if not isinstance(server, dict) or not callable(call_tool_safely):
+        return None
+
+    endpoint_url = str(server.get("endpoint_url") or "")
+    headers = server.get("headers") if isinstance(server.get("headers"), dict) else {}
+    original_tool_name = str(tool_doc.get("original_name") or tool_doc.get("display_name") or "")
+    server_meta = {
+        "id": server.get("id", ""),
+        "name": server.get("name", ""),
+    }
+    tool_meta = {
+        "id": str(tool_doc.get("id", "")),
+        "canonical_name": str(tool_doc.get("canonical_name", "")),
+        "original_name": original_tool_name,
+    }
+
+    def _run(**kwargs: Any) -> dict[str, Any]:
+        arguments = _wrapper_arguments(kwargs)
+        raw_result = _run_async(
+            lambda: call_tool_safely(
+                endpoint_url,
+                original_tool_name,
+                arguments=arguments,
+                headers=headers,
+            )
+        )
+        return result_normalizer(raw_result, server=server_meta, tool=tool_meta)
+
+    return _run
+
+
+def _wrapper_arguments(kwargs: dict[str, Any]) -> dict[str, Any]:
+    if set(kwargs) == {"payload"} and isinstance(kwargs.get("payload"), dict):
+        return kwargs["payload"]
+    return kwargs
+
+
+def _run_async(awaitable_factory: Callable[[], Any]) -> Any:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(awaitable_factory())
+    raise RuntimeError("MCP tool wrapper cannot run inside an active event loop")
 
 
 def _schema_to_annotation(schema: dict[str, Any], model_name: str) -> Any:

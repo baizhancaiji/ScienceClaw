@@ -59,6 +59,27 @@ async def list_enabled_tools_by_user(user_id: str) -> list[dict[str, Any]]:
     return await cursor.to_list(length=None)
 
 
+async def list_enabled_tool_runtime_docs_by_user(user_id: str) -> list[dict[str, Any]]:
+    tools = await list_enabled_tools_by_user(user_id)
+    runtime_docs: list[dict[str, Any]] = []
+    servers_collection = db.get_collection(MCP_SERVERS_COLLECTION)
+    for tool in tools:
+        server = await servers_collection.find_one(
+            {
+                "_id": tool.get("server_id"),
+                "user_id": user_id,
+                "enabled": True,
+                "verify_status": "healthy",
+            }
+        )
+        if server is None:
+            continue
+        runtime_doc = dict(tool)
+        runtime_doc["server"] = server
+        runtime_docs.append(runtime_doc)
+    return runtime_docs
+
+
 async def upsert_tools_from_remote(
     server_id: str,
     user_id: str,

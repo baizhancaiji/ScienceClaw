@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import json
 from typing import Any
 from urllib.parse import urlparse
 import uuid
@@ -181,14 +182,7 @@ async def request(
             status_code=response.status_code,
         )
 
-    try:
-        body = response.json()
-    except ValueError as exc:
-        raise MCPClientError(
-            code="remote_mcp_invalid_response",
-            message="Remote MCP returned invalid JSON",
-            retryable=False,
-        ) from exc
+    body = _parse_response_body(response)
 
     return _parse_jsonrpc_response(body)
 
@@ -205,13 +199,69 @@ def _validate_https_endpoint(endpoint_url: str) -> None:
 
 def _build_headers(headers: dict[str, str] | None) -> dict[str, str]:
     merged = {
-        "Accept": "application/json",
+        "Accept": "application/json, text/event-stream",
         "Content-Type": "application/json",
     }
     for key, value in (headers or {}).items():
         if key and value:
             merged[key] = value
     return merged
+
+
+def _parse_response_body(response: httpx.Response) -> Any:
+    content_type = response.headers.get("content-type", "").lower()
+    if "text/event-stream" in content_type:
+        return _parse_event_stream_json(response.text)
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise MCPClientError(
+            code="remote_mcp_invalid_response",
+            message="Remote MCP returned invalid JSON",
+            retryable=False,
+        ) from exc
+
+
+def _parse_event_stream_json(text: str) -> Any:
+    event_data_lines: list[str] = []
+
+    def parse_event_data() -> Any | None:
+        if not event_data_lines:
+            return None
+        event_data = "\n".join(event_data_lines)
+        event_data_lines.clear()
+        if event_data == "[DONE]":
+            return None
+        try:
+            return json.loads(event_data)
+        except json.JSONDecodeError as exc:
+            raise MCPClientError(
+                code="remote_mcp_invalid_response",
+                message="Remote MCP returned invalid event stream JSON",
+                retryable=False,
+            ) from exc
+
+    for line in text.splitlines():
+        if not line.strip():
+            parsed = parse_event_data()
+            if parsed is not None:
+                return parsed
+            continue
+        if not line.startswith("data:"):
+            continue
+        data = line.removeprefix("data:").strip()
+        if not data:
+            continue
+        event_data_lines.append(data)
+
+    parsed = parse_event_data()
+    if parsed is not None:
+        return parsed
+    raise MCPClientError(
+        code="remote_mcp_invalid_response",
+        message="Remote MCP returned an empty event stream",
+        retryable=False,
+    )
 
 
 def _parse_jsonrpc_response(body: Any) -> dict[str, Any]:

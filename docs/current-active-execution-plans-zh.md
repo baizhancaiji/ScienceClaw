@@ -1,6 +1,6 @@
 # 当前活跃执行计划台账
 
-更新时间：2026-05-30
+更新时间：2026-05-31
 
 本文档是 ScienceClaw 当前执行计划的唯一滚动入口。新任务进入执行态前先登记到这里；计划完成后从本台账移除，并移动到 `docs/archive/plans/`。
 
@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 4 批 / 4.4 国际化与状态文案已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护；本次复审已追加枚举所有 `/api/v1/mcp/*` 路由的默认鉴权结构护栏、未认证请求行为护栏，并固定 route smoke 的认证模式以降低本地/CI 环境漂移风险。
+- 状态：执行中；第 5 批 / 5.1 简单 server 联调已按设计文档完成本地收口。使用 `https://mcp.deepwiki.com/mcp` 完成 `create -> verify -> refresh -> enable -> chat call` 回归；本批最小代码调整限定为 HTTPS MCP client 对 `text/event-stream` JSON-RPC 响应的兼容，以及已启用健康工具的运行期 wrapper 调用链补齐。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：4.4 国际化与状态文案；只触碰 `ScienceClaw/frontend/src/locales/zh.ts` 与 `ScienceClaw/frontend/src/locales/en.ts`，收口状态文案、表单文案、错误提示和 payload 模式提示。
-- 下一批最小增量：5.1 简单 server 联调；按文档验收 `create -> verify -> refresh -> enable -> chat call`，使用 schema 简单、工具数少的 HTTPS MCP Server 做全链路回归。
+- 当前批次：5.1 简单 server 联调；已验证 DeepWiki server `verify_status=healthy`、`tool_count=3`、刷新插入 3 个工具、启用 `ask_question` 工具后聊天 SSE 能触发 MCP tool event 并收到远端文本，且不再出现 “MCP tool execution is reserved for a later MCP batch”。
+- 下一批最小增量：5.2 复杂 schema server 联调；只验证 `payload` 回退模式，验收点限定为工具可见、UI 有提示、调用不崩溃。
 - 建议验证：
 
 ```powershell

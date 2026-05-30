@@ -6,6 +6,7 @@ from typing import Any
 from backend.mcp import client
 from backend.mcp.crypto import decrypt_secret, encrypt_secret
 from backend.mcp import repository
+from backend.mcp import tool_factory
 from backend.mcp.schemas import (
     CreateMCPServerRequest,
     MCPMaskedHeader,
@@ -199,6 +200,14 @@ async def list_enabled_tools(user_id: str) -> list[MCPToolListItem]:
     return [_to_tool_item(doc) for doc in docs]
 
 
+async def list_enabled_tool_runtime_docs(
+    user_id: str,
+    encryption_key: str | bytes | None,
+) -> list[dict[str, Any]]:
+    docs = await repository.list_enabled_tool_runtime_docs_by_user(user_id)
+    return [_to_tool_runtime_doc(doc, encryption_key) for doc in docs]
+
+
 async def toggle_tool_enabled(
     tool_id: str,
     user_id: str,
@@ -359,6 +368,37 @@ def _to_tool_item(doc: dict[str, Any]) -> MCPToolListItem:
         created_at=doc.get("created_at"),
         updated_at=doc.get("updated_at"),
     )
+
+
+def _to_tool_runtime_doc(
+    doc: dict[str, Any],
+    encryption_key: str | bytes | None,
+) -> dict[str, Any]:
+    server_doc = doc.get("server") if isinstance(doc.get("server"), dict) else {}
+    server = {
+        "id": str(server_doc.get("_id", "")),
+        "name": server_doc.get("name", ""),
+        "slug": server_doc.get("slug", ""),
+        "endpoint_url": server_doc.get("endpoint_url", ""),
+        "headers": _build_request_headers(server_doc, encryption_key),
+    }
+    tool = _to_tool_item(doc)
+    runtime_doc = tool.model_dump()
+    runtime_doc.update(
+        {
+            "server_name": server["name"],
+            "server_slug": server["slug"],
+            "server": server,
+            "tool": {
+                "id": tool.id,
+                "canonical_name": tool.canonical_name,
+                "original_name": tool.original_name,
+            },
+            "result_normalizer": tool_factory.normalize_mcp_tool_result,
+            "call_tool_safely": client.call_tool_safely,
+        }
+    )
+    return runtime_doc
 
 
 def _masked_headers(auth_config: dict[str, Any]) -> list[MCPMaskedHeader]:

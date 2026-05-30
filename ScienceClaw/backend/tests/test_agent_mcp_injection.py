@@ -48,7 +48,7 @@ class AgentMCPInjectionTests(unittest.TestCase):
     def test_collect_user_mcp_tools_wraps_enabled_tools(self):
         list_enabled_tools = AsyncMock(return_value=[_tool_item()])
 
-        with patch.object(agent.mcp_service, "list_enabled_tools", new=list_enabled_tools):
+        with patch.object(agent.mcp_service, "list_enabled_tool_runtime_docs", new=list_enabled_tools):
             tools = asyncio.run(agent._collect_user_mcp_tools("user-1"))
 
         self.assertEqual(["mcp__github_mcp__search"], [tool.name for tool in tools])
@@ -56,12 +56,12 @@ class AgentMCPInjectionTests(unittest.TestCase):
         self.assertEqual("science", tools[0].args_schema(query="science").query)
         with self.assertRaises(NotImplementedError):
             tools[0].invoke({"query": "science"})
-        list_enabled_tools.assert_awaited_once_with("user-1")
+        list_enabled_tools.assert_awaited_once_with("user-1", "")
 
     def test_collect_user_mcp_tools_skips_existing_tool_name(self):
         list_enabled_tools = AsyncMock(return_value=[_tool_item()])
 
-        with patch.object(agent.mcp_service, "list_enabled_tools", new=list_enabled_tools):
+        with patch.object(agent.mcp_service, "list_enabled_tool_runtime_docs", new=list_enabled_tools):
             tools = asyncio.run(
                 agent._collect_user_mcp_tools(
                     "user-1",
@@ -75,7 +75,7 @@ class AgentMCPInjectionTests(unittest.TestCase):
         existing_tool = type("Tool", (), {"name": "web_search"})()
         list_enabled_tools = AsyncMock(return_value=[_tool_item()])
 
-        with patch.object(agent.mcp_service, "list_enabled_tools", new=list_enabled_tools):
+        with patch.object(agent.mcp_service, "list_enabled_tool_runtime_docs", new=list_enabled_tools):
             tools = asyncio.run(agent._append_user_mcp_tools([existing_tool], "user-1"))
 
         self.assertEqual(["web_search", "mcp__github_mcp__search"], [tool.name for tool in tools])

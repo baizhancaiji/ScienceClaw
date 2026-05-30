@@ -2,6 +2,7 @@ import sys
 import unittest
 from pathlib import Path
 from typing import get_args, get_origin
+from unittest.mock import AsyncMock
 
 from pydantic import ValidationError
 
@@ -127,6 +128,49 @@ class MCPToolFactoryTests(unittest.TestCase):
         self.assertFalse(definition.input_schema_complex)
         with self.assertRaises(NotImplementedError):
             definition.func(query="science")
+
+    def test_tool_definition_runner_calls_remote_tool_and_normalizes_result(self):
+        call_tool_safely = AsyncMock(
+            return_value={
+                "ok": True,
+                "is_error": False,
+                "result": {"content": [{"type": "text", "text": "remote answer"}]},
+            }
+        )
+        definition = tool_factory.build_tool_definition(
+            {
+                "id": "tool-1",
+                "canonical_name": "mcp__deepwiki__ask_question",
+                "original_name": "ask_question",
+                "server_name": "DeepWiki",
+                "description": "Ask a question",
+                "input_schema_raw": {
+                    "type": "object",
+                    "properties": {"question": {"type": "string"}},
+                    "required": ["question"],
+                },
+                "server": {
+                    "id": "server-1",
+                    "name": "DeepWiki",
+                    "endpoint_url": "https://example.com/mcp",
+                    "headers": {"X-Test": "secret"},
+                },
+                "call_tool_safely": call_tool_safely,
+            }
+        )
+
+        result = definition.func(question="What is it?")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual("remote answer", result["text"])
+        self.assertEqual("server-1", result["server"]["id"])
+        self.assertEqual("mcp__deepwiki__ask_question", result["tool"]["canonical_name"])
+        call_tool_safely.assert_awaited_once_with(
+            "https://example.com/mcp",
+            "ask_question",
+            arguments={"question": "What is it?"},
+            headers={"X-Test": "secret"},
+        )
 
     def test_build_tool_definition_prefixes_complex_schema_hint(self):
         definition = tool_factory.build_tool_definition(

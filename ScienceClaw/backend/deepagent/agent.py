@@ -295,7 +295,10 @@ async def _collect_user_mcp_tools(
         return []
     existing = existing_tool_names or set()
     try:
-        tool_items = await mcp_service.list_enabled_tools(user_id)
+        tool_items = await mcp_service.list_enabled_tool_runtime_docs(
+            user_id,
+            os.environ.get("MCP_CONFIG_ENCRYPTION_KEY", ""),
+        )
     except Exception:
         logger.warning("[MCP] 查询用户启用工具失败", exc_info=True)
         return []
@@ -337,7 +340,7 @@ def _mcp_definition_to_langchain_tool(
 
 
 def _mcp_tool_item_to_factory_doc(item: Any) -> dict[str, Any]:
-    doc = item.model_dump()
+    doc = item.model_dump() if hasattr(item, "model_dump") else dict(item)
     if not doc.get("server_slug"):
         parts = str(doc.get("canonical_name") or "").split("__")
         if len(parts) >= 3 and parts[0] == "mcp":

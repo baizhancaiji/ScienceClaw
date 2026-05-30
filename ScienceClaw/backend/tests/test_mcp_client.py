@@ -41,6 +41,14 @@ def _response(status_code=200, body=None):
     return httpx.Response(status_code, json=body or {"jsonrpc": "2.0", "result": {}})
 
 
+def _sse_response(status_code=200, text=""):
+    return httpx.Response(
+        status_code,
+        content=text.encode("utf-8"),
+        headers={"Content-Type": "text/event-stream"},
+    )
+
+
 class MCPClientTests(unittest.TestCase):
     def test_initialize_posts_jsonrpc_payload_with_default_headers_and_tls_verify(self):
         response = _response(
@@ -78,7 +86,7 @@ class MCPClientTests(unittest.TestCase):
         self.assertEqual("initialize", kwargs["json"]["method"])
         self.assertEqual(client.MCP_PROTOCOL_VERSION, kwargs["json"]["params"]["protocolVersion"])
         self.assertEqual("ScienceClaw", kwargs["json"]["params"]["clientInfo"]["name"])
-        self.assertEqual("application/json", kwargs["headers"]["Accept"])
+        self.assertEqual("application/json, text/event-stream", kwargs["headers"]["Accept"])
         self.assertEqual("application/json", kwargs["headers"]["Content-Type"])
         self.assertEqual("Bearer token", kwargs["headers"]["Authorization"])
 
@@ -235,6 +243,29 @@ class MCPClientTests(unittest.TestCase):
         _, kwargs = FakeAsyncClient.last_instance.post.await_args
         self.assertEqual("tools/list", kwargs["json"]["method"])
         self.assertEqual({}, kwargs["json"]["params"])
+
+    def test_list_tools_accepts_jsonrpc_event_stream_response(self):
+        response = _sse_response(
+            text=(
+                'event: message\n'
+                'data: {"jsonrpc":"2.0","id":"rpc-id","result":{"tools":[{"name":"ask_question","description":"Ask","inputSchema":{"type":"object","properties":{"question":{"type":"string"}}}}]}}\n\n'
+            )
+        )
+
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(response=response, **kwargs),
+        ):
+            tools = asyncio.run(client.list_tools("https://example.com/mcp"))
+
+        self.assertEqual(1, len(tools))
+        self.assertEqual("ask_question", tools[0].name)
+        self.assertEqual("Ask", tools[0].description)
+        self.assertEqual(
+            {"type": "object", "properties": {"question": {"type": "string"}}},
+            tools[0].input_schema_raw,
+        )
 
     def test_list_tools_rejects_missing_tools_array(self):
         with patch.object(

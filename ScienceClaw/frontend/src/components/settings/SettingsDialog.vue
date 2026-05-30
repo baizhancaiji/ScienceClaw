@@ -49,6 +49,10 @@
           <NotificationSettings />
         </template>
 
+        <template #mcp>
+          <McpSettings />
+        </template>
+
         <template #im>
           <IMSystemSettings :is-admin="isAdmin" @navigate-to-binding="navigateToBinding" />
         </template>
@@ -61,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { UserRound, Settings2, Box, ListTodo, Brain, Bell, BarChart3, Bot } from 'lucide-vue-next'
+import { UserRound, Settings2, Box, ListTodo, Brain, Bell, BarChart3, Bot, Cable } from 'lucide-vue-next'
 import {
   Dialog,
   DialogContent,
@@ -80,6 +84,7 @@ import NotificationSettings from './NotificationSettings.vue'
 import TokenStatistics from './TokenStatistics.vue'
 import LarkBindingSettings from './LarkBindingSettings.vue'
 import IMSystemSettings from './IMSystemSettings.vue'
+import McpSettings from './McpSettings.vue'
 import type { TabItem, SubPageConfig } from './SettingsTabs.vue'
 import { useAuth } from '@/composables/useAuth'
 
@@ -127,6 +132,11 @@ const tabs = computed<TabItem[]>(() => {
       id: 'notifications',
       label: 'Notifications',
       icon: Bell
+    },
+    {
+      id: 'mcp',
+      label: 'MCP',
+      icon: Cable
     },
     {
       id: 'im',

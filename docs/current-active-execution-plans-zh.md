@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 1 批 / 1.4 Server route 层已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛。
+- 状态：执行中；第 1 批 / 1.5 Settings 基础页接入已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：1.4 Server route 层；只在 `ScienceClaw/backend/route/mcp.py` 接入 `GET/POST/PUT/DELETE /servers` 与 `PUT /servers/{id}/enabled`，全部走当前用户鉴权。
-- 下一批最小增量：1.5 Settings 基础页接入；只触碰 `ScienceClaw/frontend/src/api/mcp.ts`、`ScienceClaw/frontend/src/components/settings/SettingsDialog.vue`、`ScienceClaw/frontend/src/components/settings/McpSettings.vue`，新增 MCP tab 并支持 server 列表、新增、编辑、删除、启停。
+- 当前批次：1.5 Settings 基础页接入；只触碰 `ScienceClaw/frontend/src/api/mcp.ts`、`ScienceClaw/frontend/src/components/settings/SettingsDialog.vue`、`ScienceClaw/frontend/src/components/settings/McpSettings.vue`，新增 MCP tab 并支持 server 列表、新增、编辑、删除、启停。
+- 下一批最小增量：2.1 HTTPS MCP client: `initialize`；只触碰 `ScienceClaw/backend/mcp/client.py` 与 `ScienceClaw/backend/tests/test_mcp_client.py`，实现 JSON-RPC 基础请求、`initialize`、超时/TLS/错误映射。
 - 建议验证：
 
 ```powershell
@@ -30,10 +30,11 @@ $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unit
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_service_servers
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_servers
 npm --prefix ScienceClaw/frontend run type-check
+npm --prefix ScienceClaw/frontend run build
 gitnexus detect-changes -r ScienceClaw
 ```
 
-Docker Compose 仍是主运行方式；本地第 0 批验证优先使用仓库指定的 `D:\conda\envs\scienceclaw` 环境。
+Docker Compose 仍是主运行方式；本地分批验证优先使用仓库指定的 `D:\conda\envs\scienceclaw` 环境。
 
 ### VNC signed URL 接口闭环
 

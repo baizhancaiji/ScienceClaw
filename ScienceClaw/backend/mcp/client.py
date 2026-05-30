@@ -31,6 +31,20 @@ class MCPClientError(Exception):
         return data
 
 
+@dataclass
+class MCPRemoteTool:
+    name: str
+    description: str
+    input_schema_raw: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "input_schema_raw": self.input_schema_raw,
+        }
+
+
 async def initialize(
     endpoint_url: str,
     headers: dict[str, str] | None = None,
@@ -50,6 +64,21 @@ async def initialize(
         headers=headers,
         timeout_seconds=timeout_seconds,
     )
+
+
+async def list_tools(
+    endpoint_url: str,
+    headers: dict[str, str] | None = None,
+    timeout_seconds: float = DEFAULT_MCP_TIMEOUT_SECONDS,
+) -> list[MCPRemoteTool]:
+    result = await request(
+        endpoint_url,
+        "tools/list",
+        params={},
+        headers=headers,
+        timeout_seconds=timeout_seconds,
+    )
+    return _parse_tools_list_result(result)
 
 
 async def request(
@@ -159,3 +188,45 @@ def _parse_jsonrpc_response(body: Any) -> dict[str, Any]:
             retryable=False,
         )
     return result
+
+
+def _parse_tools_list_result(result: dict[str, Any]) -> list[MCPRemoteTool]:
+    tools = result.get("tools")
+    if not isinstance(tools, list):
+        raise MCPClientError(
+            code="remote_mcp_invalid_tools",
+            message="Remote MCP tools/list returned an invalid tools list",
+            retryable=False,
+        )
+    return [_parse_remote_tool(tool) for tool in tools]
+
+
+def _parse_remote_tool(tool: Any) -> MCPRemoteTool:
+    if not isinstance(tool, dict):
+        raise MCPClientError(
+            code="remote_mcp_invalid_tools",
+            message="Remote MCP tool entry is invalid",
+            retryable=False,
+        )
+    name = tool.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise MCPClientError(
+            code="remote_mcp_invalid_tools",
+            message="Remote MCP tool entry is missing name",
+            retryable=False,
+        )
+    description = tool.get("description")
+    input_schema = tool.get("inputSchema")
+    if input_schema is None:
+        input_schema = {"type": "object", "properties": {}}
+    if not isinstance(input_schema, dict):
+        raise MCPClientError(
+            code="remote_mcp_invalid_tools",
+            message="Remote MCP tool entry has invalid inputSchema",
+            retryable=False,
+        )
+    return MCPRemoteTool(
+        name=name.strip(),
+        description=description.strip() if isinstance(description, str) else "",
+        input_schema_raw=dict(input_schema),
+    )

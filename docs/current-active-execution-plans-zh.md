@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 2 批 / 2.1 HTTPS MCP client `initialize` 已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛。
+- 状态：执行中；第 2 批 / 2.2 HTTPS MCP client `tools/list` 已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：2.1 HTTPS MCP client: `initialize`；只触碰 `ScienceClaw/backend/mcp/client.py` 与 `ScienceClaw/backend/tests/test_mcp_client.py`，实现 JSON-RPC 基础请求、`initialize`、超时/TLS/错误映射。
-- 下一批最小增量：2.2 HTTPS MCP client: `tools/list`；继续只触碰 `ScienceClaw/backend/mcp/client.py` 与 `ScienceClaw/backend/tests/test_mcp_client.py`，新增 `tools/list` 请求与远端返回结构校验。
+- 当前批次：2.2 HTTPS MCP client: `tools/list`；继续只触碰 `ScienceClaw/backend/mcp/client.py` 与 `ScienceClaw/backend/tests/test_mcp_client.py`，新增 `tools/list` 请求与远端返回结构校验。
+- 下一批最小增量：2.3 Verify service；只触碰 `ScienceClaw/backend/mcp/service.py` 与 `ScienceClaw/backend/tests/test_mcp_service_sync.py`，新增 `verify_server()`、`verify_status` 状态流转和 `verify_error` 摘要写回。
 - 建议验证：
 
 ```powershell

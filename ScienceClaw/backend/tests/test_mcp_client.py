@@ -186,6 +186,109 @@ class MCPClientTests(unittest.TestCase):
         self.assertEqual("remote_mcp_error", captured.exception.code)
         self.assertEqual("Method not found", captured.exception.message)
 
+    def test_list_tools_posts_tools_list_and_returns_standardized_tools(self):
+        response = _response(
+            body={
+                "jsonrpc": "2.0",
+                "id": "rpc-id",
+                "result": {
+                    "tools": [
+                        {
+                            "name": " search_repositories ",
+                            "description": " Search repositories by query ",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {"query": {"type": "string"}},
+                                "required": ["query"],
+                            },
+                        },
+                        {
+                            "name": "ping",
+                        },
+                    ]
+                },
+            }
+        )
+
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(response=response, **kwargs),
+        ):
+            tools = asyncio.run(client.list_tools("https://example.com/mcp"))
+
+        self.assertEqual("search_repositories", tools[0].name)
+        self.assertEqual("Search repositories by query", tools[0].description)
+        self.assertEqual(
+            {
+                "name": "search_repositories",
+                "description": "Search repositories by query",
+                "input_schema_raw": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                },
+            },
+            tools[0].to_dict(),
+        )
+        self.assertEqual({"type": "object", "properties": {}}, tools[1].input_schema_raw)
+        _, kwargs = FakeAsyncClient.last_instance.post.await_args
+        self.assertEqual("tools/list", kwargs["json"]["method"])
+        self.assertEqual({}, kwargs["json"]["params"])
+
+    def test_list_tools_rejects_missing_tools_array(self):
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(
+                response=_response(body={"jsonrpc": "2.0", "result": {"tools": {}}}),
+                **kwargs,
+            ),
+        ):
+            with self.assertRaises(client.MCPClientError) as captured:
+                asyncio.run(client.list_tools("https://example.com/mcp"))
+
+        self.assertEqual("remote_mcp_invalid_tools", captured.exception.code)
+
+    def test_list_tools_rejects_tool_without_name(self):
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(
+                response=_response(
+                    body={"jsonrpc": "2.0", "result": {"tools": [{"description": "missing"}]}}
+                ),
+                **kwargs,
+            ),
+        ):
+            with self.assertRaises(client.MCPClientError) as captured:
+                asyncio.run(client.list_tools("https://example.com/mcp"))
+
+        self.assertEqual("remote_mcp_invalid_tools", captured.exception.code)
+
+    def test_list_tools_rejects_non_object_input_schema(self):
+        with patch.object(
+            client.httpx,
+            "AsyncClient",
+            lambda **kwargs: FakeAsyncClient(
+                response=_response(
+                    body={
+                        "jsonrpc": "2.0",
+                        "result": {
+                            "tools": [
+                                {"name": "bad_schema", "inputSchema": []},
+                            ]
+                        },
+                    }
+                ),
+                **kwargs,
+            ),
+        ):
+            with self.assertRaises(client.MCPClientError) as captured:
+                asyncio.run(client.list_tools("https://example.com/mcp"))
+
+        self.assertEqual("remote_mcp_invalid_tools", captured.exception.code)
+
 
 if __name__ == "__main__":
     unittest.main()

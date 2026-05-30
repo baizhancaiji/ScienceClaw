@@ -15,7 +15,7 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 3 批 / 3.2 `tools/call` client 已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护。
+- 状态：执行中；第 3 批 / 3.2 `tools/call` client 已按最小增量完成并进入本地验证收口；0.1 路由骨架已按 MCP 鉴权原则完成复审收敛，并将 `/mcp` router 调整为默认 `require_user` 保护；本次复审已追加枚举所有 `/api/v1/mcp/*` 路由的默认鉴权回归护栏。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
 - 当前批次：3.2 `tools/call` client；只触碰 `ScienceClaw/backend/mcp/client.py` 与 `ScienceClaw/backend/tests/test_mcp_client.py`，支持 JSON-RPC `tools/call` 并完成标准化错误对象。

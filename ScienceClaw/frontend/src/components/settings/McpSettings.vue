@@ -56,7 +56,7 @@
               </span>
               <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase" :class="statusClass(server.verify_status)">
                 <Circle class="size-2 fill-current" />
-                {{ server.verify_status }}
+                {{ statusLabel(server.verify_status) }}
               </span>
             </div>
             <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
@@ -132,128 +132,26 @@
       />
     </div>
 
-    <Dialog v-model:open="editorOpen">
-      <DialogContent class="sm:max-w-[680px] p-0 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-2xl dark:border-gray-700/40 dark:bg-gray-900">
-        <DialogHeader class="border-b border-gray-100 bg-gray-50/70 px-6 py-4 dark:border-gray-800 dark:bg-gray-800/30">
-          <DialogTitle class="flex items-center gap-2 text-lg font-bold text-gray-800 dark:text-gray-100">
-            <Server class="size-5 text-blue-500" />
-            {{ editingServer ? 'Edit MCP Server' : 'Add MCP Server' }}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div class="flex max-h-[65vh] flex-col gap-4 overflow-y-auto px-6 py-5">
-          <div class="grid gap-2">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Name <span class="text-red-500">*</span></label>
-            <input
-              v-model.trim="form.name"
-              class="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-              placeholder="GitHub MCP"
-            />
-          </div>
-
-          <div class="grid gap-2">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Endpoint URL <span class="text-red-500">*</span></label>
-            <input
-              v-model.trim="form.endpoint_url"
-              class="h-10 rounded-lg border border-gray-200 bg-white px-3 font-mono text-sm text-gray-800 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-              placeholder="https://example.com/mcp"
-            />
-          </div>
-
-          <div class="grid gap-2">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Auth Mode</label>
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                v-for="mode in authModes"
-                :key="mode"
-                type="button"
-                class="h-9 rounded-lg border text-xs font-semibold transition-colors"
-                :class="form.auth_mode === mode ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800'"
-                @click="selectAuthMode(mode)"
-              >
-                {{ authModeTitle(mode) }}
-              </button>
-            </div>
-          </div>
-
-          <div v-if="form.auth_mode === 'bearer'" class="grid gap-2">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">
-              Bearer Token <span v-if="!editingServer || !editingServer.has_bearer_token" class="text-red-500">*</span>
-            </label>
-            <input
-              v-model="form.bearer_token"
-              type="password"
-              class="h-10 rounded-lg border border-gray-200 bg-white px-3 font-mono text-sm text-gray-800 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-              :placeholder="editingServer?.has_bearer_token ? 'Leave empty to keep existing token' : 'Token'"
-            />
-          </div>
-
-          <McpHeaderEditor
-            v-if="form.auth_mode === 'headers'"
-            :headers="form.headers"
-            @add="addHeader"
-            @remove="removeHeader"
-            @update="updateHeader"
-          />
-
-          <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
-            <input
-              v-model="form.enabled"
-              type="checkbox"
-              class="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            Enabled
-          </label>
-
-          <div class="grid gap-2 rounded-xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-800 dark:bg-gray-800/40">
-            <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
-              <input
-                v-model="form.verify_now"
-                type="checkbox"
-                class="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              Verify after save
-            </label>
-            <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
-              <input
-                v-model="form.refresh_after_save"
-                type="checkbox"
-                class="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              Refresh tools after save
-            </label>
-          </div>
-        </div>
-
-        <DialogFooter class="border-t border-gray-100 bg-gray-50/70 px-6 py-4 dark:border-gray-800 dark:bg-gray-800/30">
-          <div class="flex w-full justify-end gap-3">
-            <button
-              type="button"
-              class="h-10 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              @click="editorOpen = false"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="saving"
-              @click="saveServer"
-            >
-              <Loader2 v-if="saving" class="size-4 animate-spin" />
-              <span>{{ editingServer ? 'Save' : 'Create' }}</span>
-            </button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <McpServerDrawer
+      :open="editorOpen"
+      :editing="isEditing"
+      :saving="saving"
+      :has-bearer-token="Boolean(editingServer?.has_bearer_token)"
+      :form="form"
+      @close="editorOpen = false"
+      @save="saveServer"
+      @select-auth-mode="selectAuthMode"
+      @add-header="addHeader"
+      @remove-header="removeHeader"
+      @update-header="updateHeader"
+      @update-field="updateFormField"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { Circle, Loader2, Pencil, Plus, Power, RefreshCw, Server, ShieldCheck, Trash2 } from 'lucide-vue-next';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   createMCPServer,
   deleteMCPServer,
@@ -272,16 +170,8 @@ import {
   type UpdateMCPServerRequest,
 } from '@/api/mcp';
 import { showErrorToast, showSuccessToast } from '@/utils/toast';
-import McpHeaderEditor from './McpHeaderEditor.vue';
+import McpServerDrawer, { type MCPServerForm } from './McpServerDrawer.vue';
 import McpToolList from './McpToolList.vue';
-
-type HeaderForm = {
-  name: string;
-  value: string;
-  existing: boolean;
-};
-
-const authModes: MCPAuthMode[] = ['none', 'bearer', 'headers'];
 
 const servers = ref<MCPServer[]>([]);
 const tools = ref<MCPTool[]>([]);
@@ -296,12 +186,12 @@ const editorOpen = ref(false);
 const editingServer = ref<MCPServer | null>(null);
 const selectedServerId = ref<string | null>(null);
 
-const form = reactive({
+const form = reactive<MCPServerForm>({
   name: '',
   endpoint_url: '',
   auth_mode: 'none' as MCPAuthMode,
   bearer_token: '',
-  headers: [] as HeaderForm[],
+  headers: [],
   enabled: true,
   verify_now: false,
   refresh_after_save: false,
@@ -323,6 +213,26 @@ const summaryMetrics = computed(() => {
   ];
 });
 
+const errorMessage = (error: unknown, fallback: string): string => {
+  const maybeError = error as {
+    message?: string;
+    response?: { data?: { detail?: unknown } };
+  };
+  const detail = maybeError?.response?.data?.detail;
+  if (Array.isArray(detail)) {
+    return detail.map((item) => {
+      if (item && typeof item === 'object' && 'msg' in item) {
+        return String(item.msg);
+      }
+      return String(item);
+    }).join('; ');
+  }
+  if (typeof detail === 'string') {
+    return detail;
+  }
+  return maybeError?.message || fallback;
+};
+
 const loadServers = async () => {
   loading.value = true;
   try {
@@ -339,8 +249,8 @@ const loadServers = async () => {
     } else {
       tools.value = [];
     }
-  } catch (error: any) {
-    showErrorToast(error?.message || 'Failed to load MCP servers');
+  } catch (error: unknown) {
+    showErrorToast(errorMessage(error, 'Failed to load MCP servers'));
   } finally {
     loading.value = false;
   }
@@ -400,10 +310,15 @@ const updateHeader = (index: number, field: 'name' | 'value', value: string) => 
   header[field] = value;
 };
 
-const authModeTitle = (mode: MCPAuthMode): string => {
-  if (mode === 'bearer') return 'Bearer';
-  if (mode === 'headers') return 'Headers';
-  return 'None';
+const updateFormField = (field: keyof MCPServerForm, value: string | boolean) => {
+  if (field === 'headers') {
+    return;
+  }
+  if (typeof form[field] === 'boolean') {
+    (form[field] as boolean) = Boolean(value);
+    return;
+  }
+  (form[field] as string | MCPAuthMode) = String(value) as MCPAuthMode;
 };
 
 const authModeLabel = (server: MCPServer): string => {
@@ -426,6 +341,12 @@ const statusClass = (status: MCPServer['verify_status']): string => {
   return 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400';
 };
 
+const statusLabel = (status: MCPServer['verify_status']): string => {
+  if (status === 'healthy') return 'Healthy';
+  if (status === 'error') return 'Error';
+  return 'Unknown';
+};
+
 const selectServer = async (server: MCPServer) => {
   if (selectedServerId.value === server.id) {
     return;
@@ -445,25 +366,25 @@ const loadTools = async (serverId: string) => {
   toolsLoading.value = true;
   try {
     tools.value = await listMCPServerTools(serverId);
-  } catch (error: any) {
+  } catch (error: unknown) {
     tools.value = [];
-    showErrorToast(error?.message || 'Failed to load MCP tools');
+    showErrorToast(errorMessage(error, 'Failed to load MCP tools'));
   } finally {
     toolsLoading.value = false;
   }
 };
 
 const buildCreatePayload = (): CreateMCPServerRequest => ({
-  name: form.name,
-  endpoint_url: form.endpoint_url,
+  name: form.name.trim(),
+  endpoint_url: form.endpoint_url.trim(),
   auth_mode: form.auth_mode,
   enabled: form.enabled,
   ...authPayload(),
 });
 
 const buildUpdatePayload = (): UpdateMCPServerRequest => ({
-  name: form.name,
-  endpoint_url: form.endpoint_url,
+  name: form.name.trim(),
+  endpoint_url: form.endpoint_url.trim(),
   auth_mode: form.auth_mode,
   enabled: form.enabled,
   ...authPayload(),
@@ -555,8 +476,8 @@ const saveServer = async () => {
       await refreshTools(saved, false);
     }
     await loadServers();
-  } catch (error: any) {
-    showErrorToast(error?.message || 'Failed to save MCP server');
+  } catch (error: unknown) {
+    showErrorToast(errorMessage(error, 'Failed to save MCP server'));
   } finally {
     saving.value = false;
   }
@@ -567,8 +488,8 @@ const toggleServer = async (server: MCPServer) => {
   try {
     const updated = await setMCPServerEnabled(server.id, !server.enabled);
     replaceServer(updated);
-  } catch (error: any) {
-    showErrorToast(error?.message || 'Failed to update MCP server');
+  } catch (error: unknown) {
+    showErrorToast(errorMessage(error, 'Failed to update MCP server'));
   } finally {
     saving.value = false;
   }
@@ -582,8 +503,8 @@ const verifyServer = async (server: MCPServer, toast = true) => {
     if (toast) {
       showSuccessToast(result.verify_status === 'healthy' ? 'MCP server verified' : 'MCP verification finished');
     }
-  } catch (error: any) {
-    showErrorToast(error?.message || 'Failed to verify MCP server');
+  } catch (error: unknown) {
+    showErrorToast(errorMessage(error, 'Failed to verify MCP server'));
   } finally {
     verifyingServerId.value = null;
   }
@@ -599,8 +520,8 @@ const refreshTools = async (server: MCPServer, toast = true) => {
     if (toast) {
       showSuccessToast(`MCP tools refreshed: ${result.inserted} added, ${result.updated} updated, ${result.removed} removed`);
     }
-  } catch (error: any) {
-    showErrorToast(error?.message || 'Failed to refresh MCP tools');
+  } catch (error: unknown) {
+    showErrorToast(errorMessage(error, 'Failed to refresh MCP tools'));
   } finally {
     refreshingServerId.value = null;
   }
@@ -616,9 +537,9 @@ const toggleTool = async (tool: MCPTool) => {
     if (index >= 0) {
       tools.value[index] = updated;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     tool.enabled = previous;
-    showErrorToast(error?.message || 'Failed to update MCP tool');
+    showErrorToast(errorMessage(error, 'Failed to update MCP tool'));
   } finally {
     togglingToolId.value = null;
   }
@@ -633,8 +554,8 @@ const confirmDelete = async (server: MCPServer) => {
     await deleteMCPServer(server.id);
     showSuccessToast('MCP server deleted');
     await loadServers();
-  } catch (error: any) {
-    showErrorToast(error?.message || 'Failed to delete MCP server');
+  } catch (error: unknown) {
+    showErrorToast(errorMessage(error, 'Failed to delete MCP server'));
   } finally {
     saving.value = false;
   }

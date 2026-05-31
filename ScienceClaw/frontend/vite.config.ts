@@ -3,10 +3,29 @@ import vue from '@vitejs/plugin-vue';
 import monacoEditorPlugin from 'vite-plugin-monaco-editor';
 import { resolve } from 'path';
 
+const monacoMultiDiffStylePath = '/monaco-editor/esm/vs/editor/browser/widget/multiDiffEditor/style.css';
+
+function fixMonacoMultiDiffNestedCss() {
+  return {
+    name: 'fix-monaco-multidiff-nested-css',
+    enforce: 'pre' as const,
+    transform(code: string, id: string) {
+      const normalizedId = id.replace(/\\/g, '/');
+
+      if (!normalizedId.endsWith(monacoMultiDiffStylePath)) {
+        return null;
+      }
+
+      return code.replace(/\n(\s*)a \{/g, '\n$1:is(a) {');
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     vue(),
+    fixMonacoMultiDiffNestedCss(),
     (monacoEditorPlugin as any).default({})
   ],
   resolve: {
@@ -33,4 +52,4 @@ export default defineConfig({
       },
     },
   },
-}); 
+});

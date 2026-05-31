@@ -13,37 +13,6 @@
 
 ## 活跃计划
 
-### 第三方 HTTPS MCP 接入
-
-- 状态：执行中；第 5 批 / 完成审计补齐中。`verify_now=true` 创建合同、Agent 注入“未屏蔽”过滤、已启用 MCP 工具数超过 50 个时的前端提醒均已补齐并本地提交；当前最小增量正在补齐 MCP 前端国际化与无裸文案审计缺口。
-- 权威文档：`docs/mcp-https-integration-design-zh.md`
-- 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：第 5 批完成审计 / 第 4.4 国际化与状态文案补齐；对齐 `docs/mcp-https-integration-design-zh.md` 中“国际化文案完整，不出现裸 key”。
-- 下一批最小增量：继续第 5 批完成审计；逐条复核目标、非目标、批次验收和测试规划证据，确认是否还存在未满足要求，并仅在有证据缺口时做最小补齐。
-- 建议验证：
-
-```powershell
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_smoke
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_client
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_repository
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_crypto
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_schemas
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_service_servers
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_servers
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_service_sync
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_repository
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_tools
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_tool_factory
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_result_normalization
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_agent_mcp_injection
-$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_sse_protocol
-npm --prefix ScienceClaw/frontend run type-check
-npm --prefix ScienceClaw/frontend run build
-gitnexus detect-changes -r ScienceClaw
-```
-
-Docker Compose 仍是主运行方式；本地分批验证优先使用仓库指定的 `D:\conda\envs\scienceclaw` 环境。
-
 ### VNC signed URL 接口闭环
 
 - 状态：待确认/待补齐。
@@ -66,4 +35,11 @@ npm --prefix .\ScienceClaw\frontend run build
 
 | 计划文档 | 归档原因 | 后续事项 |
 | --- | --- | --- |
+| `docs/archive/plans/mcp-https-integration-completion-audit-zh.md` | 第三方 HTTPS MCP 接入第 0-5 批已完成；第 5 批联调和完成审计均已有提交证据。 | 残余未测项和累积警告已记录；后续若加强 live LLM chat/SSE 或前端自动化测试，应新建独立计划。 |
 | `docs/archive/plans/frontend-typescript-remediation-plan-zh.md` | 已完成主要目标：`vue-tsc` 从 63 条错误收敛到 0，生产构建通过。 | VNC 后端 signed URL 路由仍需单独闭环，已登记为活跃计划。 |
+
+## 已归档计划残余事项
+
+| 归档计划 | 残余未测项 | 累积警告 |
+| --- | --- | --- |
+| 第三方 HTTPS MCP 接入 | live LLM chat/SSE 长链路、live 非法 JSON HTTPS MCP server、50 工具规模下长时间真实聊天调用、前端自动化测试基座未覆盖；详见 `docs/archive/plans/mcp-https-integration-completion-audit-zh.md`。 | Browserslist 数据陈旧、Vite CSS minify、chunk size、`lark_oapi` deprecation、unclosed event loop ResourceWarning、GitNexus 生成文件未纳入提交；详见归档审计文档。 |

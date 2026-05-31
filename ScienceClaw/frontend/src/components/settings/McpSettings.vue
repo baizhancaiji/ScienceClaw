@@ -33,6 +33,13 @@
       </div>
 
       <div
+        v-if="enabledToolCount > 50"
+        class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-300"
+      >
+        {{ enabledToolCount }} enabled MCP tools may make tool selection less reliable. Keep only the tools you need enabled.
+      </div>
+
+      <div
         v-if="servers.length === 0"
         class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/80 py-12 dark:border-gray-700 dark:bg-gray-800/30"
       >

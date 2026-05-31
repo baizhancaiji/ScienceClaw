@@ -1,12 +1,6 @@
 ---
 name: nature-figure
-description: >-
-  Submission-grade Nature/high-impact journal figure workflow, using Python (matplotlib/seaborn) by default.
-  Use whenever the user asks to create, revise, audit, or polish manuscript figures, multi-panel scientific
-  plots, figures4papers-style matplotlib plots, or journal-ready SVG/PDF/TIFF outputs. Before plotting,
-  define the figure's conclusion, evidence logic, export needs, and review risks.
-  Triggers: "Nature figure", "publication plot", "scientific figure", "SCI figure", "论文配图", "期刊图表".
-  Not for dashboards or Illustrator/Figma-first infographics.
+description: "面向 Nature 或高影响力期刊投稿级科研图表工作流，默认使用 Python、matplotlib 和 seaborn。适用于创建、修改、审查或润色论文配图、多面板科学图、figures4papers 风格图表以及期刊就绪的 SVG/PDF/TIFF 输出。"
 ---
 
 # Nature Figure Making Skill (Linux/ScienceClaw 适配版)

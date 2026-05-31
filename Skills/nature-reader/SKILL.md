@@ -1,11 +1,6 @@
 ---
 name: nature-reader
-description: >-
-  Build full-paper Chinese-English side-by-side, figure/table-aware, source-grounded
-  Markdown readers for journal or conference papers from PDF, DOI, arXiv, publisher HTML,
-  or pasted text. Use whenever the user asks to translate or read a paper, make
-  中英文对照/原文对照/全文翻译解读, or keep exact source anchors for every block.
-  Triggers: "全文翻译", "中英文对照", "nature-reader", "论文解读", "原文对照", "全篇翻译".
+description: "构建带有中英文对照、图表感知和来源锚点的完整论文 Markdown 阅读材料，适用于 PDF、DOI、arXiv、出版社 HTML 或粘贴文本。触发词：全文翻译、中英文对照、nature-reader、论文解读、原文对照、全篇翻译。"
 ---
 
 ## 执行架构（ScienceClaw 适配版）

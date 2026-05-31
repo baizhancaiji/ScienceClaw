@@ -80,14 +80,10 @@
                 </button>
               </div>
             </div>
-            <!-- File list preview -->
-            <div class="space-y-0.5 text-[10px] font-mono text-[var(--text-tertiary)] min-h-[2.5rem]">
-              <div v-for="file in (skill.files || []).slice(0, 3)" :key="file" class="flex items-center gap-1.5 truncate">
-                <span class="opacity-40">{{ file.endsWith('/') ? '📁' : '📄' }}</span>
-                <span>{{ file }}</span>
-              </div>
-              <div v-if="(skill.files || []).length > 3" class="opacity-40">{{ t('+{count} more', { count: skill.files.length - 3 }) }}</div>
-            </div>
+            <!-- Skill description preview -->
+            <p class="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2 min-h-[2.5rem]">
+              {{ getSkillDescription(skill) }}
+            </p>
             <div class="mt-3 flex items-center justify-between">
               <span v-if="skill.builtin" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium">{{ t('Built-in') }}</span>
               <span v-else-if="skill.blocked" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-medium">{{ t('Blocked') }}</span>
@@ -143,11 +139,18 @@ import { ExternalSkillItem } from '../types/response';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const router = useRouter();
 const searchQuery = ref('');
 const skills = ref<ExternalSkillItem[]>([]);
 const loading = ref(false);
+
+const getSkillDescription = (skill: ExternalSkillItem) => {
+  if (locale.value === 'zh' && skill.description_zh?.trim()) {
+    return skill.description_zh.trim();
+  }
+  return skill.description?.trim() || t('No description available');
+};
 
 const gradientPalette = [
   'linear-gradient(135deg, #8b5cf6, #a855f7)',

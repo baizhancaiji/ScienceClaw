@@ -82,6 +82,7 @@ export interface SkillItem {
 export interface ExternalSkillItem {
     name: string;
     description: string;
+    description_zh?: string;
     files: string[];
     blocked: boolean;
     builtin?: boolean;

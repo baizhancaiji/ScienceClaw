@@ -18,6 +18,7 @@ Sessions 路由。
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -49,8 +50,9 @@ from backend.deepagent.sessions import (
     async_get_science_session,
     async_list_science_sessions,
 )
+from backend.config import settings
+from backend.models import get_model_config, list_user_models
 from backend.user.dependencies import get_current_user, require_user, User
-from backend.models import get_model_config
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -744,28 +746,255 @@ from backend.mongodb.db import db as _db
 _EXTERNAL_SKILLS_DIR = os.environ.get("EXTERNAL_SKILLS_DIR", "/app/Skills")
 _BUILTIN_SKILLS_DIR = os.environ.get("BUILTIN_SKILLS_DIR", "/app/builtin_skills")
 _WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", "/home/scienceclaw")
+_SKILL_DESCRIPTION_TRANSLATION_COLLECTION = "skill_description_translations"
+_SKILL_DESCRIPTION_TRANSLATION_TIMEOUT = 20
+_SKILL_METADATA_KEYS = (
+    "name",
+    "description",
+    "description_zh",
+    "zh_description",
+    "description_i18n",
+)
 
 
+def _is_chinese_description(text: str) -> bool:
+    normalized = _normalize_skill_description(text)
+    if not normalized:
+        return False
+    chinese_chars = len(re.findall(r"[\u3400-\u9fff]", normalized))
+    ascii_letters = len(re.findall(r"[A-Za-z]", normalized))
+    return chinese_chars > 0 and chinese_chars >= ascii_letters
+
+
+def _normalize_skill_description(value: Any) -> str:
+    if isinstance(value, str):
+        return re.sub(r"\s+", " ", value).strip()
+    return ""
+
+
+def _extract_skill_description_zh(fm: Dict[str, Any]) -> str:
+    for key in ("description_zh", "zh_description"):
+        value = _normalize_skill_description(fm.get(key))
+        if value:
+            return value
+
+    description_i18n = fm.get("description_i18n")
+    if isinstance(description_i18n, dict):
+        for key in ("zh", "zh-CN", "zh_cn"):
+            value = _normalize_skill_description(description_i18n.get(key))
+            if value:
+                return value
+
+    return ""
+
+
+def _skill_description_cache_key(description: str) -> str:
+    normalized = _normalize_skill_description(description)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _extract_skill_metadata_text(text: str) -> str:
+    match = re.match(r"^---\s*\r?\n(.*?)\r?\n---\s*(?:\r?\n|$)", text, re.DOTALL)
+    if match:
+        return match.group(1)
+
+    if not any(re.match(rf"^{re.escape(key)}\s*:", text) for key in _SKILL_METADATA_KEYS):
+        return ""
+
+    lines = text.splitlines()
+    metadata_lines: List[str] = []
+    for line in lines:
+        if metadata_lines and not line.strip():
+            break
+        metadata_lines.append(line)
+    return "\n".join(metadata_lines)
+
+
+def _strip_skill_metadata_text(text: str) -> str:
+    match = re.match(r"^---\s*\r?\n.*?\r?\n---\s*(?:\r?\n|$)", text, re.DOTALL)
+    if match:
+        return text[match.end():].lstrip("\r\n")
+
+    if not any(re.match(rf"^{re.escape(key)}\s*:", text) for key in _SKILL_METADATA_KEYS):
+        return text
+
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if index > 0 and not line.strip():
+            return "".join(lines[index + 1:]).lstrip("\r\n")
+    return ""
+
+
+def _resolve_skill_dir(skill_name: str, include_builtin: bool = True) -> Optional[_Path]:
+    if not skill_name or "/" in skill_name or "\\" in skill_name:
+        return None
+
+    for base_dir in (_EXTERNAL_SKILLS_DIR, _BUILTIN_SKILLS_DIR):
+        if base_dir == _BUILTIN_SKILLS_DIR and not include_builtin:
+            continue
+        base = _Path(base_dir)
+        skill_path = (base / skill_name).resolve()
+        try:
+            skill_path.relative_to(base.resolve())
+        except ValueError:
+            continue
+        if skill_path.is_dir() and (skill_path / "SKILL.md").is_file():
+            return skill_path
+    return None
+
+
+async def _resolve_skill_translation_model_config(user_id: str) -> Optional[Dict[str, Any]]:
+    if (getattr(settings, "model_ds_api_key", None) or "").strip():
+        return None
+
+    models = await list_user_models(user_id)
+    for model in models:
+        if model.is_active and (model.api_key or "").strip():
+            return model.model_dump()
+    return None
+
+
+async def _populate_skill_description_zh(
+    skills: List[Dict[str, Any]],
+    user_id: str,
+) -> None:
+    """Populate Chinese descriptions in-place using frontmatter, cache, then one batch LLM call."""
+    pending_by_cache_key: Dict[str, List[Dict[str, Any]]] = {}
+
+    for skill in skills:
+        description = _normalize_skill_description(skill.get("description"))
+        if not description:
+            continue
+        if _normalize_skill_description(skill.get("description_zh")):
+            continue
+        if _is_chinese_description(description):
+            skill["description_zh"] = description
+            continue
+        pending_by_cache_key.setdefault(_skill_description_cache_key(description), []).append(skill)
+
+    if not pending_by_cache_key:
+        return
+
+    col = _db.get_collection(_SKILL_DESCRIPTION_TRANSLATION_COLLECTION)
+    cursor = col.find(
+        {"_id": {"$in": list(pending_by_cache_key.keys())}},
+        {"description_zh": 1},
+    )
+    async for doc in cursor:
+        cached = _normalize_skill_description(doc.get("description_zh"))
+        if not cached:
+            continue
+        for skill in pending_by_cache_key.pop(str(doc.get("_id")), []):
+            skill["description_zh"] = cached
+
+    if not pending_by_cache_key:
+        return
+
+    model_config = await _resolve_skill_translation_model_config(user_id)
+    if model_config is None and not (getattr(settings, "model_ds_api_key", None) or "").strip():
+        for skills_for_description in pending_by_cache_key.values():
+            for skill in skills_for_description:
+                skill["description_zh"] = _normalize_skill_description(skill.get("description"))
+        return
+
+    items = []
+    for cache_key, skills_for_description in pending_by_cache_key.items():
+        skill = skills_for_description[0]
+        name = str(skill.get("name") or "").strip()
+        description = _normalize_skill_description(skill.get("description"))[:1200]
+        if not name or not description:
+            continue
+        items.append({"id": cache_key, "name": name, "description": description})
+
+    if not items:
+        return
+
+    prompt = (
+        "Translate these AI skill descriptions into concise Simplified Chinese for UI cards. "
+        "Preserve product names, file extensions, API names, and quoted trigger phrases when useful. "
+        "Return ONLY a JSON object where each key is the given id and each value is one or two short Chinese sentences.\n\n"
+        f"{json.dumps(items, ensure_ascii=False)}"
+    )
+
+    try:
+        llm = get_llm_model(
+            config=model_config,
+            max_tokens_override=2000,
+            streaming=False,
+        )
+        result = await asyncio.wait_for(
+            llm.ainvoke([
+                SystemMessage(content="You translate UI skill descriptions into Simplified Chinese."),
+                HumanMessage(content=prompt),
+            ]),
+            timeout=_SKILL_DESCRIPTION_TRANSLATION_TIMEOUT,
+        )
+        content = _normalize_skill_description(getattr(result, "content", ""))
+        if content.startswith("```"):
+            content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content, flags=re.IGNORECASE).strip()
+        translations = json.loads(content)
+        if not isinstance(translations, dict):
+            raise ValueError("translation response is not a JSON object")
+    except Exception:
+        logger.exception("populate_skill_description_zh batch translation failed")
+        for skills_for_description in pending_by_cache_key.values():
+            for skill in skills_for_description:
+                skill["description_zh"] = _normalize_skill_description(skill.get("description"))
+        return
+
+    now = int(time.time())
+    for cache_key, translated_value in translations.items():
+        translated = _normalize_skill_description(translated_value)
+        skills_for_description = pending_by_cache_key.get(str(cache_key))
+        if not skills_for_description or not translated:
+            continue
+        skill = skills_for_description[0]
+        description = _normalize_skill_description(skill.get("description"))
+        name = str(skill.get("name") or "").strip()
+        for skill_with_same_description in skills_for_description:
+            skill_with_same_description["description_zh"] = translated
+        await col.update_one(
+            {"_id": cache_key},
+            {
+                "$set": {
+                    "description": description,
+                    "description_zh": translated,
+                    "skill_name": name,
+                    "updated_at": now,
+                },
+                "$setOnInsert": {"created_at": now},
+            },
+            upsert=True,
+        )
+
+    for skills_for_description in pending_by_cache_key.values():
+        for skill in skills_for_description:
+            if not _normalize_skill_description(skill.get("description_zh")):
+                skill["description_zh"] = _normalize_skill_description(skill.get("description"))
 def _parse_skill_frontmatter(skill_dir: _Path) -> Dict[str, Any]:
     """从 SKILL.md 中解析 YAML front-matter 元数据。"""
     skill_md = skill_dir / "SKILL.md"
-    result: Dict[str, Any] = {"name": skill_dir.name, "description": ""}
+    result: Dict[str, Any] = {"name": skill_dir.name, "description": "", "description_zh": ""}
     if not skill_md.is_file():
         return result
     try:
         text = skill_md.read_text(encoding="utf-8", errors="replace")
-        match = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
-        if match:
-            fm = _yaml.safe_load(match.group(1))
+        metadata_text = _extract_skill_metadata_text(text)
+        if metadata_text:
+            fm = _yaml.safe_load(metadata_text)
             if isinstance(fm, dict):
                 result["name"] = fm.get("name", skill_dir.name)
-                result["description"] = fm.get("description", "")
+                result["description"] = _normalize_skill_description(fm.get("description"))
+                result["description_zh"] = _extract_skill_description_zh(fm)
     except Exception:
         pass
     return result
 
 
-def _list_skill_dirs(base_dir: str, builtin: bool = False) -> List[Dict[str, Any]]:
+def _list_skill_dirs(
+    base_dir: str,
+    builtin: bool = False,
+) -> List[Dict[str, Any]]:
     """列出指定目录中所有合法的 skill。"""
     base = _Path(base_dir)
     if not base.is_dir():
@@ -792,6 +1021,8 @@ async def list_skills(current_user: User = Depends(require_user)) -> ApiResponse
     try:
         builtin = _list_skill_dirs(_BUILTIN_SKILLS_DIR, builtin=True)
         external = _list_skill_dirs(_EXTERNAL_SKILLS_DIR, builtin=False)
+        all_skills = builtin + external
+        await _populate_skill_description_zh(all_skills, current_user.id)
 
         col = _db.get_collection("blocked_skills")
         blocked_docs = col.find({"user_id": current_user.id}, {"skill_name": 1})
@@ -806,7 +1037,7 @@ async def list_skills(current_user: User = Depends(require_user)) -> ApiResponse
         for s in external:
             s["blocked"] = s["name"] in blocked_names
 
-        return ApiResponse(data=builtin + external)
+        return ApiResponse(data=all_skills)
     except Exception as exc:
         logger.exception("list_skills failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -926,10 +1157,10 @@ async def list_skill_files(
     path: str = "",
     current_user: User = Depends(require_user),
 ) -> ApiResponse:
-    """列出某个外置 skill 内部的文件结构。"""
+    """列出某个 skill 内部的文件结构。"""
     try:
-        skill_path = _Path(_EXTERNAL_SKILLS_DIR) / skill_name
-        if not skill_path.is_dir():
+        skill_path = _resolve_skill_dir(skill_name)
+        if skill_path is None:
             raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
         target = skill_path / path if path else skill_path
         target_resolved = target.resolve()
@@ -965,10 +1196,10 @@ async def read_skill_file(
     body: ReadSkillFileRequest,
     current_user: User = Depends(require_user),
 ) -> ApiResponse:
-    """读取某个外置 skill 内的文件内容。"""
+    """读取某个 skill 内的文件内容。"""
     try:
-        skill_path = _Path(_EXTERNAL_SKILLS_DIR) / skill_name
-        if not skill_path.is_dir():
+        skill_path = _resolve_skill_dir(skill_name)
+        if skill_path is None:
             raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
         file_path = (skill_path / body.file).resolve()
         if not str(file_path).startswith(str(skill_path.resolve())):
@@ -976,6 +1207,8 @@ async def read_skill_file(
         if not file_path.is_file():
             raise HTTPException(status_code=404, detail="File not found")
         content = file_path.read_text(encoding="utf-8", errors="replace")
+        if file_path.name == "SKILL.md":
+            content = _strip_skill_metadata_text(content)
         return ApiResponse(data={"file": body.file, "content": content})
     except HTTPException:
         raise

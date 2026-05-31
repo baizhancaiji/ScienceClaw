@@ -1,13 +1,6 @@
 ---
 name: nature-citation
-description: >-
-  Add strict Nature/CNS citations to manuscript text by splitting long passages into citable
-  segments, searching only accepted flagship and subjournal titles from Nature Portfolio, the
-  AAAS Science family, and Cell Press, filtering by publication time range, and exporting one
-  reference-manager-ready output by default. Use this skill whenever the user asks to input text and
-  automatically get references, add citations to a paragraph/manuscript, find Nature-series or CNS
-  support for statements, create text-to-reference correspondence, "分段引用", "自动给出引用",
-  "Nature系列引用", "CNS及子刊", "支撑文献", "补引用", "找引用", or export EndNote/RIS/ENW/Zotero RDF.
+description: "为稿件文本补充严格的 Nature/CNS 引用，将长段落拆成可引用片段，只检索 Nature Portfolio、Science 系列和 Cell Press 等认可期刊，并导出可导入文献管理器的结果。适用于自动给出引用、补引用、找引用、分段引用、Nature 系列引用、CNS 及子刊、支撑文献和 EndNote/RIS/ENW/Zotero RDF 导出。"
 ---
 
 # Nature Citation

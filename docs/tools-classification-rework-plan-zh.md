@@ -746,3 +746,31 @@ npm --prefix ScienceClaw/frontend run build
 
 1. 继续处理 MCP Tools tab、MCP card、MCP settings、MCP schema drawer 和 server drawer 的普通英文文案。
 2. 继续保持 MCP、HTTPS MCP、JSON Schema、server/tool 名称等专有名词原文。
+
+## 阶段 3 实施记录（子增量 2：MCP 工具浏览与设置面）
+
+完成时间：2026-05-31
+
+本子增量验证并记录 MCP 工具浏览与 MCP server 设置面的阶段 3 对齐状态，不改变 MCP API、MCP server 管理流程、工具启停逻辑或 Agent 工具暴露面。
+
+已完成：
+
+1. `McpToolsTab.vue` 的加载失败、重试、空态、搜索无结果提示和已启用工具浏览提示均已接入 i18n。
+2. `McpToolCard.vue` 的 description fallback、schema 字段数、payload mode、启用/停用状态均已接入 i18n。
+3. `McpSettings.vue`、`McpToolList.vue`、`McpToolSchemaDrawer.vue`、`McpServerDrawer.vue`、`McpHeaderEditor.vue` 的 server 管理、验证、刷新、启停、认证、headers、schema、空态、toast 和确认文案均已接入 i18n。
+4. `McpToolView.vue` 的 MCP 工具事件展示标题、参数、结果、执行中和等待结果文案已接入 i18n。
+5. 保留原文范围符合计划边界：`MCP`、`HTTPS MCP`、`JSON Schema`、`payload`、URL 示例、header 名示例、server/tool 真实名称不翻译。
+
+验证：
+
+```bash
+rg -n ">[^<{]*[A-Za-z][^<{]*<|placeholder=\"[^\"]*[A-Za-z][^\"]*\"|title=\"[^\"]*[A-Za-z][^\"]*\"|\\|\\| '[A-Za-z][^']*'|\\? '[A-Za-z][^']*'|: '[A-Za-z][^']*'" ScienceClaw/frontend/src/components/tools/McpToolsTab.vue ScienceClaw/frontend/src/components/tools/McpToolCard.vue ScienceClaw/frontend/src/components/settings/Mcp*.vue ScienceClaw/frontend/src/components/toolViews/McpToolView.vue
+rg -n "MCP|Servers|Enabled|Healthy|Errors|Tool Preview|payload mode|No tools cached|No named schema fields|Endpoint URL|Bearer|Headers|Verify after save|Refresh tools after save|No auth|removed|seen" ScienceClaw/frontend/src/locales/zh.ts ScienceClaw/frontend/src/locales/en.ts
+```
+
+结果：第一条漏网扫描未发现未包 `t()` 的普通可见英文；剩余命中均为 `t()` key、代码标识、技术示例或计划允许保留的专有名词。第二条确认 MCP 相关 key 在 `zh.ts` / `en.ts` 中均有落点。
+
+阶段 3 后续子增量：
+
+1. 继续核对 `ToolDetailPage.vue`、`constants/tool.ts`、`useTool.ts` 和工具事件展示剩余普通文案。
+2. 完成阶段 3 总体验收后，再进入阶段 4 后端 discovery 包。

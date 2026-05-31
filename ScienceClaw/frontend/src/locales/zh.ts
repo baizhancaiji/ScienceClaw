@@ -54,6 +54,13 @@ export default {
   'ScienceClaw is using': 'ScienceClaw 正在使用',
   'Jump to live': '跳到实时',
   'Failed to load file content': '加载文件内容失败',
+  'Root': '根目录',
+  'Up': '上一级',
+  'Empty directory': '空目录',
+  'Error loading file': '文件加载失败',
+  'Select a file to view content': '请选择一个文件查看内容',
+  'Browse the file tree on the left': '可从左侧文件树浏览其他文件',
+  'Failed to load content': '加载内容失败',
   'Give ScienceClaw a task to work on...': '给 ScienceClaw 下达一个研究任务...',
   // Shell tools
   'Executing command': '正在执行命令',

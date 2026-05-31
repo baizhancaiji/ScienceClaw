@@ -41,6 +41,13 @@ export default {
   'ScienceClaw is using': 'ScienceClaw is using',
   'Jump to live': 'Jump to live',
   'Failed to load file content': 'Failed to load file content',
+  'Root': 'Root',
+  'Up': 'Up',
+  'Empty directory': 'Empty directory',
+  'Error loading file': 'Error loading file',
+  'Select a file to view content': 'Select a file to view content',
+  'Browse the file tree on the left': 'Browse the file tree on the left',
+  'Failed to load content': 'Failed to load content',
   'Give ScienceClaw a task to work on...': 'Give ScienceClaw a research task...',
   // Shell tools
   'Executing command': 'Executing command',

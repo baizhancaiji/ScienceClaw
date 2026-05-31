@@ -14,7 +14,7 @@
         <div class="min-w-0">
           <h1 class="text-base font-bold text-white truncate">{{ skillName }}</h1>
           <div class="flex items-center gap-1 text-white/50 text-xs">
-            <span class="cursor-pointer hover:text-white/80 transition-colors" @click="navigateToRoot">root</span>
+            <span class="cursor-pointer hover:text-white/80 transition-colors" @click="navigateToRoot">{{ t('Root') }}</span>
             <template v-for="(part, index) in pathParts" :key="index">
               <span>/</span>
               <span class="cursor-pointer hover:text-white/80 transition-colors" @click="navigateToPart(index)">{{ part }}</span>
@@ -30,11 +30,11 @@
       <div class="w-64 border-r border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm flex flex-col overflow-hidden">
         <div class="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <span class="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider truncate">
-            {{ currentPath || 'Root' }}
+            {{ currentPath || t('Root') }}
           </span>
           <button v-if="currentPath" @click="navigateUp"
             class="text-[10px] text-violet-600 dark:text-violet-400 hover:text-violet-700 flex items-center gap-0.5 transition-colors">
-            <ArrowLeft class="size-3" /> Up
+            <ArrowLeft class="size-3" /> {{ t('Up') }}
           </button>
         </div>
         <div class="flex-1 overflow-y-auto p-2">
@@ -44,7 +44,7 @@
               <div class="absolute inset-0 rounded-full border-2 border-violet-500 border-t-transparent animate-spin"></div>
             </div>
           </div>
-          <div v-else-if="fileTree.length === 0" class="text-center py-8 text-xs text-[var(--text-tertiary)]">Empty directory</div>
+          <div v-else-if="fileTree.length === 0" class="text-center py-8 text-xs text-[var(--text-tertiary)]">{{ t('Empty directory') }}</div>
           <template v-else>
             <div v-if="currentPath"
               class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-xs transition-all duration-200 text-[var(--text-tertiary)] hover:bg-gray-50 dark:hover:bg-white/5 mb-1"
@@ -72,7 +72,7 @@
         <div v-if="selectedFile" class="flex-1 flex flex-col overflow-hidden">
           <div v-if="error" class="flex-1 flex items-center justify-center p-6">
             <div class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-xl p-5 max-w-lg w-full text-center">
-              <p class="text-sm font-medium text-red-600 dark:text-red-400">Error loading file</p>
+              <p class="text-sm font-medium text-red-600 dark:text-red-400">{{ t('Error loading file') }}</p>
               <p class="text-xs text-red-500/70 mt-1">{{ error }}</p>
             </div>
           </div>
@@ -83,8 +83,8 @@
             <div class="size-20 rounded-2xl bg-gray-50 dark:bg-gray-900 flex items-center justify-center mx-auto mb-3">
               <FileSearch class="size-8 opacity-20" />
             </div>
-            <p class="text-sm text-[var(--text-tertiary)]">Select a file to view content</p>
-            <p class="text-xs text-[var(--text-tertiary)] opacity-50 mt-1">Browse the file tree on the left</p>
+            <p class="text-sm text-[var(--text-tertiary)]">{{ t('Select a file to view content') }}</p>
+            <p class="text-xs text-[var(--text-tertiary)] opacity-50 mt-1">{{ t('Browse the file tree on the left') }}</p>
           </div>
         </div>
       </div>
@@ -95,12 +95,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { ArrowLeft, Folder, FileText, FileSearch } from 'lucide-vue-next';
 import { getSkillFiles, readSkillFile } from '../api/agent';
 import FileViewer from '../components/FileViewer.vue';
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 const skillName = route.params.skillName as string;
 
 const gradients = [
@@ -131,9 +133,17 @@ const isTextFile = (filename: string) => {
   return ['md','markdown','txt','log','csv','ini','conf','cfg','env','js','ts','jsx','tsx','py','java','c','cpp','h','hpp','go','rs','php','rb','swift','kt','scala','cs','html','css','scss','less','json','xml','yaml','yml','sh','bash','zsh','bat','ps1','dockerfile','makefile','sql'].includes(ext);
 };
 
-const loadFiles = async () => {
+const loadFiles = async (options: { openSkillFile?: boolean } = {}) => {
   loading.value = true;
-  try { fileTree.value = await getSkillFiles(skillName, currentPath.value); }
+  try {
+    fileTree.value = await getSkillFiles(skillName, currentPath.value);
+    if (options.openSkillFile) {
+      const skillFile = fileTree.value.find((item) => item.type === 'file' && item.name === 'SKILL.md');
+      if (skillFile) {
+        await selectFile(skillFile);
+      }
+    }
+  }
   catch (e) { console.error(e); }
   finally { loading.value = false; }
 };
@@ -151,7 +161,7 @@ const selectFile = async (item: any) => {
   if (isTextFile(item.name)) {
     contentLoading.value = true;
     try { fileContent.value = (await readSkillFile(skillName, item.path)).content; }
-    catch (e: any) { error.value = e.message || "Failed to load content"; }
+    catch (e: any) { error.value = e.message || t('Failed to load content'); }
     finally { contentLoading.value = false; }
   }
 };
@@ -172,7 +182,7 @@ const navigateToRoot = async () => {
 };
 const goBack = () => router.back();
 
-onMounted(loadFiles);
+onMounted(() => loadFiles({ openSkillFile: true }));
 </script>
 
 <style scoped>

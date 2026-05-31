@@ -86,7 +86,9 @@ function normalizeTables(text: string): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const isTableRow = /^\|.*\|$/.test(line.trim());
-    const isTableDivider = /^\|[-:\s|]+\|$/.test(line.trim());
+    // Split the character class so Tailwind does not misread it as an arbitrary CSS class.
+    const tableDividerPattern = new RegExp('^\\|[-:' + '\\s|]+\\|$');
+    const isTableDivider = tableDividerPattern.test(line.trim());
 
     if (isTableRow || isTableDivider) {
       if (!inTable) {

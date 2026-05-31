@@ -123,6 +123,13 @@ watch(() => props.file?.file_id, async (fileId) => {
     white-space: break-spaces;
 }
 
+.markdown-preview :deep(code:not(pre code)::before),
+.markdown-preview :deep(code:not(pre code)::after),
+.markdown-preview :deep(.markdown-inline-code::before),
+.markdown-preview :deep(.markdown-inline-code::after) {
+    content: none;
+}
+
 .dark .markdown-preview :deep(code:not(pre code)),
 .dark .markdown-preview :deep(.markdown-inline-code) {
     border-color: rgba(100, 116, 139, 0.42);

@@ -13,6 +13,17 @@
 
 ## 活跃计划
 
+### Tools 分类探查与重新分类规划
+
+- 状态：规划已收敛为确定路线，待按阶段执行。
+- 权威文档：`docs/tools-classification-rework-plan-zh.md`
+- 来源：当前优先级是 Tools / MCP / ToolUniverse 页面中文国际化、中文工具分类、Agent 工具暴露面控制，以及非 embedding 的工具快速检索定位。
+- 下一批最小增量：
+  - 盘点 Tools / MCP / ToolUniverse 相关前端页面硬编码英文与中英文混杂分类名。
+  - 落定中文分类表、别名词典和专有名词保留清单。
+  - 先完成前端 i18n 最小改造；后续再落非 embedding 混合检索和通用 `tool_search/info/run`。
+- 验收要求：ToolUniverse 1,900+ catalog 不进入 Agent tool list；扩展工具源走“检索 -> 获取信息 -> 运行”；检索方案不引入 embedding。
+
 ### VNC signed URL 接口闭环
 
 - 状态：待确认/待补齐。

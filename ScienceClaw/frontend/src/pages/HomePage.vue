@@ -153,8 +153,8 @@ const fullGreeting = computed(() => {
 // 打字机效果循环显示的副标题
 const subtitleTemplates = computed(() => [
   t('What are you researching today?'),
-  t('Any questions about proteins or genes?'),
-  t('Need help analyzing drug data?'),
+  t('Need help comparing material properties?'),
+  t('Ready to analyze synthesis and characterization data?'),
   t('Ready to explore scientific insights?'),
 ]);
 
@@ -201,37 +201,37 @@ function startErasing() {
 
 const quickPrompts = computed(() => [
   {
-    icon: '🧬',
-    title: t('Protein & Disease'),
-    desc: t('Multi-step target analysis pipeline'),
-    query: t('I am studying Alzheimer\'s disease (EFO_0000249). Please: 1) Find the top 5 drug targets associated with this disease 2) Query the protein function of the top-ranked target 3) Compile the findings into a comprehensive PDF research report'),
+    icon: '💎',
+    title: t('Crystal Structure'),
+    desc: t('Structure-property analysis workflow'),
+    query: t('I am studying the perovskite material CsPbBr3. Please: 1) Summarize its crystal structure and key lattice parameters 2) Compare which information can be verified by XRD, SEM, and EDS 3) Compile the findings into a concise materials characterization report'),
     glow: 'bg-gradient-to-r from-blue-400/20 via-indigo-400/20 to-purple-400/20',
     textGradient: 'group-hover:from-blue-600 group-hover:to-indigo-600',
     gradient: 'from-blue-500 to-indigo-600',
   },
   {
-    icon: '💊',
-    title: t('Drug Safety Profile'),
-    desc: t('FDA adverse event analysis with data visualization'),
-    query: t('Analyze the drug safety profile of aspirin: 1) Query the top 10 most common adverse reactions from the FDA FAERS database 2) Analyze the results and generate a detailed Excel spreadsheet of adverse reactions sorted by report count'),
+    icon: '🔋',
+    title: t('Battery Materials'),
+    desc: t('Electrode performance and literature synthesis'),
+    query: t('Compare LiFePO4 and NMC cathode materials for lithium-ion batteries: 1) Summarize energy density, cycle life, safety, and cost tradeoffs 2) Find representative literature data 3) Generate a comparison table and recommendation report'),
     glow: 'bg-gradient-to-r from-emerald-400/20 via-teal-400/20 to-cyan-400/20',
     textGradient: 'group-hover:from-emerald-600 group-hover:to-teal-600',
     gradient: 'from-emerald-500 to-teal-600',
   },
   {
     icon: '🧪',
-    title: t('Compound ADMET'),
-    desc: t('Multi-dimensional drug property prediction'),
-    query: t('Evaluate the drug-likeness of compound CC(=O)Oc1ccccc1C(=O)O (aspirin SMILES): predict its BBB penetrance, toxicity, and bioavailability using ADMET tools, then produce a detailed Word document with the comprehensive assessment'),
+    title: t('Polymer Formulation'),
+    desc: t('Mechanical and thermal property screening'),
+    query: t('Design a polymer composite formulation for high thermal conductivity and electrical insulation: 1) Compare alumina, boron nitride, and silica fillers 2) Analyze filler loading effects on viscosity and mechanical strength 3) Produce an experimental screening plan'),
     glow: 'bg-gradient-to-r from-violet-400/20 via-fuchsia-400/20 to-pink-400/20',
     textGradient: 'group-hover:from-violet-600 group-hover:to-fuchsia-600',
     gradient: 'from-violet-500 to-fuchsia-600',
   },
   {
     icon: '📊',
-    title: t('Literature & Data'),
-    desc: t('Cross-database research synthesis'),
-    query: t('Conduct a research overview on BRCA1 gene and breast cancer: 1) Search for relevant publications about BRCA1 mutations 2) Query BRCA1 protein (P38398) function from UniProt 3) Find top drug targets for breast cancer (EFO_0000305) 4) Synthesize all findings into a comprehensive PDF research report'),
+    title: t('Materials Literature & Data'),
+    desc: t('Cross-source materials research synthesis'),
+    query: t('Conduct a research overview on solid-state electrolyte materials: 1) Compare sulfide, oxide, and polymer electrolyte systems 2) Extract ionic conductivity and stability data from representative papers 3) Synthesize the findings into a PDF research brief'),
     glow: 'bg-gradient-to-r from-amber-400/20 via-orange-400/20 to-red-400/20',
     textGradient: 'group-hover:from-amber-600 group-hover:to-orange-600',
     gradient: 'from-amber-500 to-orange-600',

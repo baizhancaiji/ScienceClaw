@@ -320,11 +320,10 @@
 
 <script setup lang="ts">
 import SimpleBar from '../components/SimpleBar.vue';
-import { ref, onMounted, watch, nextTick, onUnmounted, reactive, toRefs, computed } from 'vue';
+import { ref, onMounted, watch, nextTick, onUnmounted, reactive, toRefs, computed, defineAsyncComponent } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import ChatBox from '../components/ChatBox.vue';
-import ChatMessage from '../components/ChatMessage.vue';
 import * as agentApi from '../api/agent';
 import { Message, MessageContent, ToolContent, StepContent, AttachmentsContent } from '../types/message';
 import {
@@ -357,8 +356,10 @@ import { consumePendingChat } from '../composables/usePendingChat';
 
 import { useMessageGrouper } from '../composables/useMessageGrouper';
 import { getSessionSearchMessageKey, useSessionSearch } from '../composables/useSessionSearch';
-import ActivityPanel from '../components/ActivityPanel.vue';
 import type { ActivityItem } from '../components/ActivityPanel.vue';
+
+const ChatMessage = defineAsyncComponent(() => import('../components/ChatMessage.vue'));
+const ActivityPanel = defineAsyncComponent(() => import('../components/ActivityPanel.vue'));
 
 const router = useRouter()
 const { t, locale } = useI18n()
@@ -497,7 +498,11 @@ const lastTurnHadError = ref(false);
 
 // Non-state refs that don't need reset
 const toolPanel = ref<InstanceType<typeof ToolPanel>>()
-const activityPanelRef = ref<InstanceType<typeof ActivityPanel>>()
+const activityPanelRef = ref<{
+  show: () => void;
+  hide: () => void;
+  isShow: boolean;
+} | null>(null)
 const simpleBarRef = ref<InstanceType<typeof SimpleBar>>();
 const observerRef = ref<HTMLDivElement>();
 const chatContainerRef = ref<HTMLDivElement>();

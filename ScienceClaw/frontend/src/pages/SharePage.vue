@@ -138,10 +138,9 @@
 
 <script setup lang="ts">
 import SimpleBar from '../components/SimpleBar.vue';
-import { ref, onMounted, watch, nextTick, reactive, toRefs, computed } from 'vue';
+import { ref, onMounted, watch, nextTick, reactive, toRefs, computed, defineAsyncComponent } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import ChatMessage from '../components/ChatMessage.vue';
 import * as agentApi from '../api/agent';
 import { Message, MessageContent, ToolContent, StepContent, AttachmentsContent } from '../types/message';
 import {
@@ -165,9 +164,11 @@ import { useSessionFileList } from '../composables/useSessionFileList'
 import { useFilePanel } from '../composables/useFilePanel'
 import { copyToClipboard } from '../utils/dom'
 import { useMessageGrouper } from '../composables/useMessageGrouper';
-import ActivityPanel from '../components/ActivityPanel.vue';
 import type { ActivityItem } from '../components/ActivityPanel.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
+
+const ChatMessage = defineAsyncComponent(() => import('../components/ChatMessage.vue'));
+const ActivityPanel = defineAsyncComponent(() => import('../components/ActivityPanel.vue'));
 
 const router = useRouter()
 const { t } = useI18n()
@@ -243,7 +244,11 @@ const displayActivityPlan = computed(() => {
 });
 
 const toolPanel = ref<InstanceType<typeof ToolPanel>>()
-const activityPanelRef = ref<InstanceType<typeof ActivityPanel>>()
+const activityPanelRef = ref<{
+  show: () => void;
+  hide: () => void;
+  isShow: boolean;
+} | null>(null)
 const simpleBarRef = ref<InstanceType<typeof SimpleBar>>();
 const observerRef = ref<HTMLDivElement>();
 const chatContainerRef = ref<HTMLDivElement>();

@@ -151,9 +151,21 @@
 import { Message, MessageContent, AttachmentsContent } from '../types/message';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import hljs from 'highlight.js';
+import hljs from 'highlight.js/lib/core';
+import bash from 'highlight.js/lib/languages/bash';
+import css from 'highlight.js/lib/languages/css';
+import go from 'highlight.js/lib/languages/go';
+import java from 'highlight.js/lib/languages/java';
+import javascript from 'highlight.js/lib/languages/javascript';
+import json from 'highlight.js/lib/languages/json';
+import markdown from 'highlight.js/lib/languages/markdown';
+import plaintext from 'highlight.js/lib/languages/plaintext';
+import python from 'highlight.js/lib/languages/python';
+import shell from 'highlight.js/lib/languages/shell';
+import typescript from 'highlight.js/lib/languages/typescript';
+import xml from 'highlight.js/lib/languages/xml';
 import katex from 'katex';
-import mermaid from 'mermaid';
+import type mermaidType from 'mermaid';
 import { CheckIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, ClockIcon, WrenchIcon, ArrowDownIcon, ArrowUpIcon, FolderOpen } from 'lucide-vue-next';
 import PdfIcon from './icons/PdfIcon.vue';
 import { computed, ref, onMounted, nextTick, watch } from 'vue';
@@ -171,26 +183,58 @@ import { useFilePanel } from '../composables/useFilePanel';
 
 import RobotAvatar from './icons/RobotAvatar.vue';
 
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('go', go);
+hljs.registerLanguage('html', xml);
+hljs.registerLanguage('java', java);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('js', javascript);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('md', markdown);
+hljs.registerLanguage('plaintext', plaintext);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('py', python);
+hljs.registerLanguage('shell', shell);
+hljs.registerLanguage('sh', shell);
+hljs.registerLanguage('ts', typescript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('xml', xml);
+
 // Markdown 增强组件引用
 const markdownEnhancementsRef = ref<InstanceType<typeof MarkdownEnhancements> | null>(null);
 const markdownRef = ref<HTMLElement | null>(null);
 
 // Mermaid 是否已初始化
 let mermaidInitialized = false;
+let mermaidModule: typeof mermaidType | null = null;
+let mermaidModulePromise: Promise<typeof mermaidType> | null = null;
 // Mermaid 图表缓存（避免重复渲染）
 const mermaidCache = new Map<string, string>();
 let mermaidCounter = 0;
 
+async function loadMermaid() {
+  if (!mermaidModulePromise) {
+    mermaidModulePromise = import('mermaid').then(module => module.default);
+  }
+
+  mermaidModule = await mermaidModulePromise;
+  return mermaidModule;
+}
+
 /**
  * 初始化 Mermaid（延迟初始化，只在需要时执行）
  */
-function initMermaid() {
+async function initMermaid() {
   if (mermaidInitialized) {
     console.log('[Mermaid] Already initialized');
-    return;
+    return loadMermaid();
   }
 
   console.log('[Mermaid] Initializing...');
+  const mermaid = await loadMermaid();
+
   try {
     mermaid.initialize({
       startOnLoad: false,
@@ -216,6 +260,8 @@ function initMermaid() {
   } catch (e) {
     console.error('[Mermaid] Initialization failed:', e);
   }
+
+  return mermaid;
 }
 
 /**
@@ -676,9 +722,6 @@ const renderMermaidDiagrams = async () => {
     return;
   }
 
-  // 确保 Mermaid 已初始化
-  initMermaid();
-
   const mermaidWrappers = markdownRef.value.querySelectorAll('.mermaid-wrapper');
   if (mermaidWrappers.length === 0) {
     console.log(logPrefix, 'No mermaid diagrams found');
@@ -686,6 +729,7 @@ const renderMermaidDiagrams = async () => {
   }
 
   console.log(logPrefix, 'Found', mermaidWrappers.length, 'mermaid diagrams');
+  const mermaid = await initMermaid();
 
   for (let i = 0; i < mermaidWrappers.length; i++) {
     const wrapper = mermaidWrappers[i];

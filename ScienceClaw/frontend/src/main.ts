@@ -8,21 +8,7 @@ import 'katex/dist/katex.min.css'  // KaTeX 数学公式样式
 import './utils/toast'
 import i18n from './composables/useI18n'
 import { getStoredToken, getCachedAuthProvider } from './api/auth'
-
-// Import page components
-import HomePage from './pages/HomePage.vue'
-import ChatPage from './pages/ChatPage.vue'
-import SkillsPage from './pages/SkillsPage.vue'
-import SkillDetailPage from '@/pages/SkillDetailPage.vue'
-import ToolsPage from './pages/ToolsPage.vue'
-import ToolDetailPage from './pages/ToolDetailPage.vue'
-import ScienceToolDetail from './pages/ScienceToolDetail.vue'
-import TasksPage from './pages/TasksPage.vue'
-import LoginPage from './pages/LoginPage.vue'
-import MainLayout from './pages/MainLayout.vue'
 import { configure } from "vue-gtag";
-import SharePage from './pages/SharePage.vue';
-import ShareLayout from './pages/ShareLayout.vue';
 
 configure({
   tagId: 'G-XCRZ3HH31S' // Replace with your own Google Analytics tag ID
@@ -32,67 +18,67 @@ configure({
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { 
-      path: '/chat', 
-      component: MainLayout,
+    {
+      path: '/chat',
+      component: () => import('./pages/MainLayout.vue'),
       meta: { requiresAuth: true },
       children: [
-        { 
-          path: '', 
-          component: HomePage, 
+        {
+          path: '',
+          component: () => import('./pages/HomePage.vue'),
           alias: ['/', '/home'],
           meta: { requiresAuth: true }
         },
-        { 
-          path: ':sessionId', 
-          component: ChatPage,
+        {
+          path: ':sessionId',
+          component: () => import('./pages/ChatPage.vue'),
           meta: { requiresAuth: true }
         },
-        { 
-          path: 'skills', 
-          component: SkillsPage,
+        {
+          path: 'skills',
+          component: () => import('./pages/SkillsPage.vue'),
           meta: { requiresAuth: true }
         },
-        { 
-          path: 'skills/:skillName', 
-          component: SkillDetailPage,
+        {
+          path: 'skills/:skillName',
+          component: () => import('@/pages/SkillDetailPage.vue'),
           meta: { requiresAuth: true }
         },
-        { 
-          path: 'tools', 
-          component: ToolsPage,
+        {
+          path: 'tools',
+          component: () => import('./pages/ToolsPage.vue'),
           meta: { requiresAuth: true }
         },
-        { 
-          path: 'tools/:toolName', 
-          component: ToolDetailPage,
+        {
+          path: 'tools/:toolName',
+          component: () => import('./pages/ToolDetailPage.vue'),
           meta: { requiresAuth: true }
         },
         {
           path: 'science-tools/:toolName',
-          component: ScienceToolDetail,
+          component: () => import('./pages/ScienceToolDetail.vue'),
           meta: { requiresAuth: true }
         },
         {
           path: 'tasks',
-          component: TasksPage,
+          component: () => import('./pages/TasksPage.vue'),
           meta: { requiresAuth: true }
         }
       ]
     },
     {
       path: '/share',
-      component: ShareLayout,
+      component: () => import('./pages/ShareLayout.vue'),
       children: [
         {
           path: ':sessionId',
-          component: SharePage,
+          component: () => import('./pages/SharePage.vue'),
         }
       ]
     },
-    { 
-      path: '/login', 
-      component: LoginPage
+    {
+      path: '/login',
+      component: () => import('./pages/LoginPage.vue')
     }
   ]
 })
@@ -126,11 +112,7 @@ router.beforeEach(async (to, _, next) => {
   }
 })
 
-import MoleculeViewer from './components/MoleculeViewer.vue'
-
 const app = createApp(App)
-
-app.component('molecule-viewer', MoleculeViewer) // Register globally
 
 app.use(router)
 app.use(i18n)

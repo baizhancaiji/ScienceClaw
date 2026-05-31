@@ -58,6 +58,7 @@ const moleculeInfo = ref<{formula?: string, weight?: string, atoms?: number, bon
 
 const viewer = shallowRef<any>(null);
 let currentStyleIndex = 0;
+let moleculeLibsPromise: Promise<void> | null = null;
 const styles = [
     { name: 'Stick', style: { stick: {} } },
     { name: 'Sphere', style: { sphere: {} } },
@@ -86,6 +87,38 @@ const toggleStyle = () => {
     viewer.value.render();
 };
 
+const loadScriptOnce = (src: string, globalKey: string) => {
+  if ((window as any)[globalKey]) return Promise.resolve();
+
+  return new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[data-scienceclaw-lib="${globalKey}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.dataset.scienceclawLib = globalKey;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
+  });
+};
+
+const loadMoleculeLibraries = async () => {
+  if (!moleculeLibsPromise) {
+    moleculeLibsPromise = Promise.all([
+      loadScriptOnce('/libs/3Dmol-min.js', '$3Dmol'),
+      loadScriptOnce('/libs/openchemlib-full.js?v=8.21.0-browser-global', 'OCL'),
+    ]).then(() => undefined);
+  }
+
+  return moleculeLibsPromise;
+};
+
 // Initialize 3Dmol viewer
 const initViewer = async () => {
   console.log('MoleculeViewer: initializing with src:', props.src);
@@ -93,18 +126,10 @@ const initViewer = async () => {
       console.warn('MoleculeViewer: viewerContainer is null');
       return;
   }
-  
-  // Wait for 3Dmol to be available globally
-  if (!(window as any).$3Dmol) {
-    console.log('MoleculeViewer: $3Dmol not ready, retrying...');
-    // If not loaded yet, try again in 500ms
-    setTimeout(initViewer, 500);
-    return;
-  }
-
   try {
     loading.value = true;
     error.value = null;
+    await loadMoleculeLibraries();
 
     // Create viewer
     const $3Dmol = (window as any).$3Dmol;

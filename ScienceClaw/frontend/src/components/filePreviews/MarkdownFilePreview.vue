@@ -7,9 +7,34 @@ import { ref, watch, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import hljs from 'highlight.js/lib/core';
+import bash from 'highlight.js/lib/languages/bash';
+import css from 'highlight.js/lib/languages/css';
+import javascript from 'highlight.js/lib/languages/javascript';
+import json from 'highlight.js/lib/languages/json';
+import markdown from 'highlight.js/lib/languages/markdown';
+import plaintext from 'highlight.js/lib/languages/plaintext';
+import python from 'highlight.js/lib/languages/python';
+import typescript from 'highlight.js/lib/languages/typescript';
+import xml from 'highlight.js/lib/languages/xml';
 import type { FileInfo } from '../../api/file';
 import { downloadFile } from '../../api/file';
 import { downloadSandboxFile } from '../../api/agent';
+
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('html', xml);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('js', javascript);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('md', markdown);
+hljs.registerLanguage('plaintext', plaintext);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('py', python);
+hljs.registerLanguage('ts', typescript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('xml', xml);
 
 const content = ref('');
 const route = useRoute();
@@ -22,16 +47,14 @@ const props = defineProps<{
 // Configure marked options
 const renderer = new marked.Renderer();
 renderer.code = ({ text, lang }: { text: string, lang?: string }) => {
-    // @ts-ignore
-    const hljs = window.hljs;
     const validLang = !!(lang && hljs && hljs.getLanguage(lang));
-    const highlighted = validLang 
-        ? hljs.highlight(text, { language: lang, ignoreIllegals: true }).value 
+    const highlighted = validLang
+        ? hljs.highlight(text, { language: lang, ignoreIllegals: true }).value
         : text;
     return `<pre><code class="hljs language-${lang || 'plaintext'}">${highlighted}</code></pre>`;
 };
 
-marked.use({ 
+marked.use({
     renderer,
     breaks: true,
     gfm: true

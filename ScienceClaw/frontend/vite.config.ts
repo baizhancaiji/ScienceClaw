@@ -36,6 +36,29 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-vue-next'],
   },
+  build: {
+    chunkSizeWarningLimit: 1400,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalizedId = id.replace(/\\/g, '/');
+
+          if (normalizedId.includes('/node_modules/monaco-editor/')) {
+            if (normalizedId.includes('/vs/basic-languages/')) return 'monaco-languages';
+            if (normalizedId.includes('/vs/language/')) return 'monaco-language-services';
+            if (normalizedId.includes('/vs/editor/')) return 'monaco-editor-core';
+            if (normalizedId.includes('/vs/base/')) return 'monaco-base';
+            return 'monaco-runtime';
+          }
+
+          if (normalizedId.includes('/node_modules/katex/')) return 'katex';
+          if (normalizedId.includes('/node_modules/highlight.js/')) return 'highlight';
+          if (normalizedId.includes('/node_modules/marked/')) return 'markdown';
+          if (normalizedId.includes('/node_modules/dompurify/')) return 'markdown-sanitize';
+        },
+      },
+    },
+  },
   server: {
     host: true,
     port: 5173,

@@ -51,14 +51,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed, watch, onUnmounted } from "vue";
+import { defineAsyncComponent, onMounted, ref, computed, watch, onUnmounted } from "vue";
 import { ToolContent } from "@/types/message";
 import { viewFile } from "@/api/agent";
-import MonacoEditor from "@/components/ui/MonacoEditor.vue";
 //import { showErrorToast } from "../utils/toast";
 //import { useI18n } from "vue-i18n";
 
 //const { t } = useI18n();
+
+const MonacoEditor = defineAsyncComponent(() => import("@/components/ui/MonacoEditor.vue"));
 
 const props = defineProps<{
   sessionId: string;

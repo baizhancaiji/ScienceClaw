@@ -60,11 +60,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, defineAsyncComponent } from 'vue';
 import { FileText as FileIcon, Download } from 'lucide-vue-next';
-import MonacoEditor from './ui/MonacoEditor.vue';
 import MarkdownFilePreview from './filePreviews/MarkdownFilePreview.vue';
 import { getSkillFileDownloadUrl } from '../api/agent';
+
+const MonacoEditor = defineAsyncComponent(() => import('./ui/MonacoEditor.vue'));
 
 const props = defineProps<{
   fileName: string;

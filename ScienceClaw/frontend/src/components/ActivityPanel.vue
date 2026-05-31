@@ -223,6 +223,7 @@
 
         <!-- ═══ Sandbox Preview Section ═══ -->
         <SandboxPreview
+          v-if="activeSandboxMode !== 'none' || sandboxHistory.length > 0"
           ref="sandboxPreviewRef"
           :mode="activeSandboxMode"
           :isLive="isSandboxLive"
@@ -236,13 +237,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import { X as XIcon, ChevronRight as ChevronRightIcon, Zap as ZapIcon, Lightbulb, ListChecks, Wrench as WrenchIcon } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 import LoadingSpinnerIcon from './icons/LoadingSpinnerIcon.vue';
-import SandboxPreview from './SandboxPreview.vue';
 import type { ToolContent } from '../types/message';
 import type { PlanEventData } from '../types/event';
 import type { SandboxPreviewMode } from '../utils/sandbox';
@@ -250,6 +250,8 @@ import { getPreviewMode } from '../utils/sandbox';
 import { useResizeObserver } from '../composables/useResizeObserver';
 import { eventBus } from '../utils/eventBus';
 import { EVENT_SHOW_FILE_PANEL, EVENT_SHOW_TOOL_PANEL, EVENT_SHOW_ACTIVITY_PANEL } from '../constants/event';
+
+const SandboxPreview = defineAsyncComponent(() => import('./SandboxPreview.vue'));
 
 export interface ActivityItem {
   id: string;

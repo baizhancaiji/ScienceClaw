@@ -19,12 +19,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { defineAsyncComponent, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import MonacoEditor from '@/components/ui/MonacoEditor.vue';
 import type { FileInfo } from '../../api/file';
 import { downloadFile } from '../../api/file';
 import { downloadSandboxFile } from '../../api/agent';
+
+const MonacoEditor = defineAsyncComponent(() => import('@/components/ui/MonacoEditor.vue'));
 
 const content = ref('');
 const route = useRoute();

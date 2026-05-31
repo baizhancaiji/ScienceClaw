@@ -28,7 +28,7 @@
       </div>
       <div v-else-if="error" class="flex flex-col items-center justify-center flex-1 text-red-500">
         <div class="bg-red-50 p-4 rounded-lg border border-red-100 max-w-lg w-full text-center">
-          <p class="font-medium">Error loading file</p>
+          <p class="font-medium">{{ t('Error loading file') }}</p>
           <p class="text-sm mt-1 opacity-80">{{ error }}</p>
         </div>
       </div>
@@ -42,11 +42,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { ArrowLeft } from 'lucide-vue-next';
 import { readToolFile } from '../api/agent';
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 const toolName = route.params.toolName as string;
 
 const loading = ref(true);
@@ -62,7 +64,7 @@ onMounted(async () => {
     const res = await readToolFile(toolName);
     fileContent.value = res.content;
   } catch (e: any) {
-    error.value = e.message || "Failed to load tool source";
+    error.value = e.message || t('Failed to load tool source');
   } finally {
     loading.value = false;
   }

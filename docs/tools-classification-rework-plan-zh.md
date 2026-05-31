@@ -774,3 +774,37 @@ rg -n "MCP|Servers|Enabled|Healthy|Errors|Tool Preview|payload mode|No tools cac
 
 1. 继续核对 `ToolDetailPage.vue`、`constants/tool.ts`、`useTool.ts` 和工具事件展示剩余普通文案。
 2. 完成阶段 3 总体验收后，再进入阶段 4 后端 discovery 包。
+
+## 阶段 3 实施记录（子增量 3：外置工具详情与工具事件显示）
+
+完成时间：2026-05-31
+
+本子增量只处理外置工具源码详情页的普通错误文案，以及工具事件显示映射缺失的 i18n key，不改变工具事件结构、图标映射、组件映射、外置工具读取 API 或 Agent 工具暴露面。
+
+已完成：
+
+1. `ToolDetailPage.vue` 的错误标题已改为 `t('Error loading file')`，源码加载 fallback 已改为 `t('Failed to load tool source')`。
+2. `zh.ts` / `en.ts` 已补齐 `TOOL_FUNCTION_MAP` 中此前缺失的工具事件显示 key，包括 sandbox、browser、document 和 Python 相关事件。
+3. `constants/tool.ts` 的工具识别、参数提取、图标映射和组件映射保持不变；本子增量只补翻译落点。
+
+验证：
+
+```bash
+npm --prefix ScienceClaw/frontend run type-check
+npm --prefix ScienceClaw/frontend run build
+rg -n "Error loading file|Failed to load tool source|Browser action|Terminal session|Executing bash command|Running Python script|Finding files|Listing files|Searching files|Replacing in file|Crawling webpage|Getting downloads" ScienceClaw/frontend/src/pages/ToolDetailPage.vue ScienceClaw/frontend/src/locales/zh.ts ScienceClaw/frontend/src/locales/en.ts ScienceClaw/frontend/src/constants/tool.ts
+```
+
+结果：type-check 和 build 均通过；build 仅提示 `caniuse-lite` 数据过期。`rg` 确认外置工具详情页已调用 i18n，新增工具事件 key 在中英文 locale 中均有落点。
+
+真实浏览器验证：
+
+1. 使用本地已运行的前端 `http://127.0.0.1:5173`，访问 `/chat/tools/__codex_missing_tool__`。
+2. 页面进入外置工具详情错误态，标题显示“文件加载失败”；后端返回的具体错误 `Tool '__codex_missing_tool__' not found` 作为动态错误内容保留原文。
+
+阶段 3 退出结论：
+
+1. Tools / MCP / ToolUniverse 相关页面普通可见文案已完成 i18n 治理。
+2. ToolUniverse 分类展示已走中文分类合同，普通 category 不直接以英文 fallback 展示。
+3. 工具事件显示映射已有中英文 locale 落点；专有名词、真实工具名、URL、JSON/JSON Schema、MCP/HTTPS MCP 保留原文。
+4. 后续按计划进入阶段 4：后端 `tool_discovery` 非 embedding 索引最小实现。

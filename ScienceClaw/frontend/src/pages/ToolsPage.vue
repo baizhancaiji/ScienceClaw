@@ -11,7 +11,7 @@
               <span class="inline-flex items-center justify-center size-8 rounded-lg bg-white/15 backdrop-blur-sm">
                 <svg class="size-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
               </span>
-              Tools Library
+              {{ t('Tools Library') }}
             </h1>
             <p class="text-white/60 text-xs mt-1">{{ headerSubtitle }}</p>
           </div>
@@ -58,7 +58,7 @@
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <div class="size-1.5 rounded-full bg-blue-500"></div>
-                <span>All Tools</span>
+                <span>{{ t('All tools') }}</span>
               </div>
               <span class="text-[10px] tabular-nums font-mono opacity-50">{{ scienceToolsTotal }}</span>
             </div>
@@ -117,18 +117,18 @@
                 </div>
               </div>
               <p class="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2 min-h-[2.5rem]">
-                {{ tool.description || 'No description available' }}
+                {{ tool.description || t('No description available') }}
               </p>
               <div class="mt-3 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <span v-if="paramCount(tool) > 0" class="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
                     <svg class="size-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                    {{ paramCount(tool) }} params
+                    {{ t('Tool params count', { count: paramCount(tool) }) }}
                   </span>
-                  <span v-if="tool.has_examples" class="size-1.5 rounded-full bg-green-400" title="Has examples"></span>
+                  <span v-if="tool.has_examples" class="size-1.5 rounded-full bg-green-400" :title="t('Has examples')"></span>
                 </div>
                 <div class="text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-1 group-hover:translate-x-0 flex items-center gap-0.5">
-                  Open <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  {{ t('Open') }} <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </div>
               </div>
             </div>
@@ -140,8 +140,8 @@
           <button @click="displayLimit += 100"
             class="group px-6 py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-[#1e1e1e] rounded-xl border border-blue-200 dark:border-blue-800 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300">
             <span class="flex items-center gap-2">
-              Show more
-              <span class="text-xs opacity-50">({{ filteredScienceTools.length - displayLimit }} remaining)</span>
+              {{ t('Show more') }}
+              <span class="text-xs opacity-50">{{ t('Remaining count', { count: filteredScienceTools.length - displayLimit }) }}</span>
               <svg class="size-4 opacity-50 group-hover:translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </span>
           </button>
@@ -152,7 +152,7 @@
           <div class="size-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
             <Search :size="28" class="text-gray-300 dark:text-gray-600" />
           </div>
-          <p class="text-sm text-[var(--text-tertiary)]">No tools match "{{ searchQuery }}"</p>
+          <p class="text-sm text-[var(--text-tertiary)]">{{ t('No tools match "{query}"', { query: searchQuery }) }}</p>
         </div>
       </div>
     </div>
@@ -164,7 +164,7 @@
           <Box :size="28" class="text-gray-300 dark:text-gray-600" />
         </div>
         <span class="text-sm">{{ t('No external tools installed') }}</span>
-        <p class="text-xs opacity-60">Install tools via Skills or the sandbox CLI</p>
+        <p class="text-xs opacity-60">{{ t('External tools install hint') }}</p>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 max-w-[1800px] mx-auto">
         <div v-for="(tool, idx) in filteredExtTools" :key="tool.name"
@@ -195,12 +195,12 @@
                 </button>
               </div>
             </div>
-            <p class="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2 min-h-[2.5rem]">{{ tool.description || 'No description' }}</p>
+            <p class="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2 min-h-[2.5rem]">{{ tool.description || t('No description available') }}</p>
             <div class="mt-3 flex items-center justify-between">
-              <span v-if="tool.blocked" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-medium">Blocked</span>
-              <span v-else class="text-[10px] text-[var(--text-tertiary)]">Custom tool</span>
+              <span v-if="tool.blocked" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-medium">{{ t('Blocked') }}</span>
+              <span v-else class="text-[10px] text-[var(--text-tertiary)]">{{ t('Custom tool') }}</span>
               <div class="text-[10px] text-emerald-500 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-1 group-hover:translate-x-0 flex items-center gap-0.5">
-                Open <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                {{ t('Open') }} <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
               </div>
             </div>
           </div>
@@ -225,12 +225,12 @@
               <div class="size-10 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
                 <Trash2 :size="20" class="text-red-500" />
               </div>
-              <div><h3 class="text-sm font-semibold">Delete "{{ deleteTarget.name }}"?</h3><p class="text-xs text-[var(--text-tertiary)]">This action cannot be undone</p></div>
+              <div><h3 class="text-sm font-semibold">{{ t('Delete tool "{name}"?', { name: deleteTarget.name }) }}</h3><p class="text-xs text-[var(--text-tertiary)]">{{ t('This action cannot be undone') }}</p></div>
             </div>
             <div class="flex justify-end gap-2">
-              <button @click="cancelDelete" class="px-4 py-2 text-sm rounded-lg border border-[var(--border-light)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button>
+              <button @click="cancelDelete" class="px-4 py-2 text-sm rounded-lg border border-[var(--border-light)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{{ t('Cancel') }}</button>
               <button @click="executeDelete" :disabled="deleting" class="px-4 py-2 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-all">
-                {{ deleting ? 'Deleting...' : 'Delete' }}
+                {{ deleting ? t('Deleting...') : t('Delete') }}
               </button>
             </div>
           </div>
@@ -260,8 +260,8 @@ const { t, locale } = useI18n();
 const router = useRouter();
 
 const tabs = computed(() => [
-  { id: 'science', label: 'Science', count: scienceToolsTotal.value },
-  { id: 'external', label: 'External', count: externalTools.value.length },
+  { id: 'science', label: t('Science tools'), count: scienceToolsTotal.value },
+  { id: 'external', label: t('External tools'), count: externalTools.value.length },
   { id: 'mcp', label: 'MCP', count: mcpToolsTotal.value },
 ]);
 const activeTab = ref('science');
@@ -279,22 +279,22 @@ const mcpToolsTotal = ref(0);
 
 const headerSubtitle = computed(() => {
   if (activeTab.value === 'science') {
-    return `${scienceToolsTotal.value} scientific tools across ${scienceCategories.value.length} categories`;
+    return t('Science tools subtitle', { tools: scienceToolsTotal.value, categories: scienceCategories.value.length });
   }
   if (activeTab.value === 'mcp') {
     return t('MCP enabled tools subtitle', { count: mcpToolsTotal.value });
   }
-  return `${externalTools.value.length} external tools installed`;
+  return t('External tools subtitle', { count: externalTools.value.length });
 });
 
 const searchPlaceholder = computed(() => {
   if (activeTab.value === 'science') {
-    return 'Search scientific tools...';
+    return t('Search scientific tools...');
   }
   if (activeTab.value === 'mcp') {
     return t('Search MCP tools...');
   }
-  return 'Search tools...';
+  return t('Search tools...');
 });
 
 const gradientPalette = [

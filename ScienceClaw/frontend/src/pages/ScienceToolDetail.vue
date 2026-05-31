@@ -13,7 +13,7 @@
         </div>
         <div class="min-w-0">
           <h1 class="text-base font-bold text-white truncate">{{ toolName }}</h1>
-          <p class="text-white/50 text-xs">ToolUniverse Scientific Tool</p>
+          <p class="text-white/50 text-xs">{{ t('ToolUniverse scientific tool') }}</p>
         </div>
       </div>
     </div>
@@ -47,14 +47,14 @@
                 <div class="size-6 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
                   <svg class="size-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
-                <h2 class="text-sm font-semibold text-[var(--text-primary)]">Description</h2>
+                <h2 class="text-sm font-semibold text-[var(--text-primary)]">{{ t('Description') }}</h2>
               </div>
               <p class="text-sm text-[var(--text-secondary)] leading-relaxed mb-3">{{ spec.description }}</p>
               <div class="flex flex-wrap gap-2">
-                <span v-if="spec.category" class="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium">{{ spec.category }}</span>
+                <span v-if="spec.category" class="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium">{{ specCategoryLabel }}</span>
                 <span v-if="spec.source_file" class="text-[10px] px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 text-[var(--text-tertiary)] font-mono" :title="spec.source_file">{{ spec.source_file.split('/').pop() }}</span>
-                <span v-if="spec.test_examples?.length" class="text-[10px] px-2 py-1 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400">{{ spec.test_examples.length }} example{{ spec.test_examples.length > 1 ? 's' : '' }}</span>
-                <span v-if="spec.return_schema" class="text-[10px] px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">has return schema</span>
+                <span v-if="spec.test_examples?.length" class="text-[10px] px-2 py-1 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400">{{ t('Examples count', { count: spec.test_examples.length }) }}</span>
+                <span v-if="spec.return_schema" class="text-[10px] px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">{{ t('Has return schema') }}</span>
               </div>
             </div>
 
@@ -65,7 +65,7 @@
                   <div class="size-6 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
                     <svg class="size-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                   </div>
-                  <h2 class="text-sm font-semibold text-[var(--text-primary)]">Examples</h2>
+                  <h2 class="text-sm font-semibold text-[var(--text-primary)]">{{ t('Examples') }}</h2>
                 </div>
               </div>
               <div class="p-4 space-y-2">
@@ -73,7 +73,7 @@
                   class="group flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer"
                   @click="applyExample(ex)">
                   <pre class="text-xs font-mono text-[var(--text-secondary)] flex-1 truncate">{{ JSON.stringify(ex) }}</pre>
-                  <span class="text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Click to use</span>
+                  <span class="text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{{ t('Click to use') }}</span>
                 </div>
               </div>
             </div>
@@ -85,7 +85,7 @@
                   <div class="size-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
                     <svg class="size-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                   </div>
-                  <h2 class="text-sm font-semibold text-[var(--text-primary)]">Parameters</h2>
+                  <h2 class="text-sm font-semibold text-[var(--text-primary)]">{{ t('Parameters') }}</h2>
                 </div>
                 <span class="text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[var(--text-tertiary)] tabular-nums">{{ paramEntries.length }}</span>
               </div>
@@ -94,13 +94,13 @@
                 <div v-for="[name, info] in paramEntries" :key="name" class="group/field">
                   <label class="flex items-center gap-2 mb-1.5">
                     <span class="text-sm font-medium text-[var(--text-primary)]">{{ name }}</span>
-                    <span v-if="isRequired(name)" class="text-[10px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 text-red-500 dark:text-red-400 font-semibold">required</span>
+                    <span v-if="isRequired(name)" class="text-[10px] px-1.5 py-0.5 rounded-md bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 text-red-500 dark:text-red-400 font-semibold">{{ t('Required') }}</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-gray-50 dark:bg-gray-800/50 text-[var(--text-tertiary)] font-mono">{{ info.type }}</span>
                   </label>
                   <p v-if="info.description" class="text-xs text-[var(--text-tertiary)] mb-2 leading-relaxed">{{ info.description }}</p>
                   
                   <select v-if="info.enum" v-model="formValues[name]" class="form-input">
-                    <option value="">Select...</option>
+                    <option value="">{{ t('Select...') }}</option>
                     <option v-for="opt in info.enum" :key="opt" :value="opt">{{ opt }}</option>
                   </select>
 
@@ -115,12 +115,12 @@
                   </div>
 
                   <input v-else-if="info.type === 'integer' || info.type === 'number'" 
-                    v-model.number="formValues[name]" type="number" class="form-input" :placeholder="`Enter ${name}...`">
+                    v-model.number="formValues[name]" type="number" class="form-input" :placeholder="t('Enter field', { name })">
 
                   <textarea v-else-if="info.type === 'array'" v-model="formValues[name]"
                     class="form-input font-mono" rows="2" :placeholder='`["value1", "value2"]`'></textarea>
 
-                  <input v-else v-model="formValues[name]" type="text" class="form-input" :placeholder="`Enter ${name}...`">
+                  <input v-else v-model="formValues[name]" type="text" class="form-input" :placeholder="t('Enter field', { name })">
                 </div>
               </div>
 
@@ -131,17 +131,17 @@
                   :class="running ? 'bg-gray-400 shadow-none cursor-not-allowed' : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 hover:shadow-xl hover:shadow-indigo-500/25 active:scale-[0.97]'">
                   <div v-if="running" class="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
                   <Play v-else :size="16" />
-                  {{ running ? 'Running...' : 'Run Tool' }}
+                  {{ running ? t('Running...') : t('Run Tool') }}
                 </button>
                 <button @click="fillExample" 
                   class="group/fill flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-[var(--text-secondary)] border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2a2a2a] hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all duration-200"
                   :disabled="!spec?.test_examples?.length">
                   <svg class="size-3.5 opacity-50 group-hover/fill:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  Example
+                  {{ t('Example') }}
                   <span v-if="spec?.test_examples?.length > 1" class="text-[10px] opacity-50 tabular-nums">{{ (_exampleIdx % spec.test_examples.length) + 1 }}/{{ spec.test_examples.length }}</span>
                 </button>
                 <button @click="clearForm" class="px-4 py-2.5 rounded-xl text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">
-                  Clear
+                  {{ t('Clear') }}
                 </button>
                 <div v-if="execTime !== null" class="ml-auto flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
                   <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -167,11 +167,11 @@
               <svg v-else-if="resultData !== null" class="size-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
               <Terminal v-else :size="14" class="text-gray-400" />
             </div>
-            <h3 class="text-sm font-semibold text-[var(--text-primary)]">Result</h3>
+            <h3 class="text-sm font-semibold text-[var(--text-primary)]">{{ t('Result') }}</h3>
           </div>
           <button v-if="resultData !== null" @click="copyResult" 
             class="text-xs px-2.5 py-1 rounded-lg border border-transparent hover:border-gray-200 dark:hover:border-gray-700 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-all duration-200">
-            {{ copied ? 'Copied!' : 'Copy JSON' }}
+            {{ copied ? t('Copied!') : t('Copy JSON') }}
           </button>
         </div>
         <div class="flex-1 overflow-auto">
@@ -181,8 +181,8 @@
               <Terminal :size="32" class="opacity-20" />
             </div>
             <div class="text-center">
-              <p class="text-sm font-medium">No results yet</p>
-              <p class="text-xs opacity-60 mt-1">Fill in parameters and click "Run Tool"</p>
+              <p class="text-sm font-medium">{{ t('No results yet') }}</p>
+              <p class="text-xs opacity-60 mt-1">{{ t('Fill in parameters and click Run Tool') }}</p>
             </div>
           </div>
 
@@ -192,7 +192,7 @@
               <div class="absolute inset-0 rounded-full border-2 border-indigo-100 dark:border-indigo-900"></div>
               <div class="absolute inset-0 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
             </div>
-            <p class="text-sm text-[var(--text-tertiary)]">Executing tool...</p>
+            <p class="text-sm text-[var(--text-tertiary)]">{{ t('Executing tool...') }}</p>
           </div>
 
           <!-- Error -->
@@ -207,9 +207,9 @@
             <!-- Array → Table -->
             <div v-if="isArrayResult" class="p-4">
               <div class="flex items-center justify-between mb-2">
-                <span class="text-xs text-[var(--text-tertiary)]">{{ resultArray.length }} items</span>
+                <span class="text-xs text-[var(--text-tertiary)]">{{ t('Items count', { count: resultArray.length }) }}</span>
                 <button @click="resultView = resultView === 'table' ? 'json' : 'table'" class="text-[10px] px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">
-                  {{ resultView === 'table' ? 'JSON' : 'Table' }}
+                  {{ resultView === 'table' ? 'JSON' : t('Table') }}
                 </button>
               </div>
               <!-- Table view -->
@@ -228,7 +228,7 @@
                     </tr>
                   </tbody>
                 </table>
-                <div v-if="resultArray.length > 200" class="text-center py-2 text-[10px] text-[var(--text-tertiary)]">Showing 200 of {{ resultArray.length }}</div>
+                <div v-if="resultArray.length > 200" class="text-center py-2 text-[10px] text-[var(--text-tertiary)]">{{ t('Showing limited items', { shown: 200, total: resultArray.length }) }}</div>
               </div>
               <!-- JSON fallback -->
               <pre v-else class="text-xs font-mono text-[var(--text-primary)] whitespace-pre-wrap break-all leading-relaxed bg-gray-50 dark:bg-[#111] rounded-xl p-4 border border-gray-100 dark:border-gray-800 max-h-[calc(100vh-280px)] overflow-auto">{{ formattedResult }}</pre>
@@ -242,7 +242,7 @@
           <!-- Return Schema -->
           <div v-if="spec?.return_schema && !running" class="border-t border-gray-100 dark:border-gray-800">
             <button @click="showSchema = !showSchema" class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors">
-              <span class="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">Return Schema</span>
+              <span class="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">{{ t('Return Schema') }}</span>
               <svg class="size-3.5 text-[var(--text-tertiary)] transition-transform duration-200" :class="showSchema && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
             <div v-if="showSchema" class="px-4 pb-4">
@@ -261,8 +261,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ArrowLeft, Play, Terminal } from 'lucide-vue-next';
 import { getTUToolSpec, runTUTool, TUToolSpec } from '../api/tooluniverse';
+import { mapToolCategoryToZh } from '../constants/toolCategories';
 
-const { locale } = useI18n();
+const { t, locale } = useI18n();
 
 const route = useRoute();
 const router = useRouter();
@@ -279,6 +280,7 @@ const execTime = ref<number | null>(null);
 const copied = ref(false);
 const resultView = ref<'table' | 'json'>('table');
 const showSchema = ref(false);
+const specCategoryLabel = computed(() => mapToolCategoryToZh(spec.value?.category, spec.value?.category_zh));
 
 const isArrayResult = computed(() => Array.isArray(resultData.value) && resultData.value.length > 0 && typeof resultData.value[0] === 'object');
 const resultArray = computed(() => isArrayResult.value ? resultData.value as Record<string, any>[] : []);
@@ -326,7 +328,7 @@ const loadSpec = async () => {
         formValues[name] = info.type === 'boolean' ? false : info.type === 'integer' || info.type === 'number' ? undefined : '';
       }
     }
-  } catch (e: any) { error.value = e.message || 'Failed to load tool specification'; }
+  } catch (e: any) { error.value = e.message || t('Failed to load tool specification'); }
   finally { loading.value = false; }
 };
 
@@ -353,7 +355,7 @@ const runTool = async () => {
     execTime.value = Date.now() - start;
     if (res.success) resultData.value = res.result;
     else resultError.value = JSON.stringify(res.result, null, 2);
-  } catch (e: any) { execTime.value = Date.now() - start; resultError.value = e.message || 'Execution failed'; }
+  } catch (e: any) { execTime.value = Date.now() - start; resultError.value = e.message || t('Execution failed'); }
   finally { running.value = false; }
 };
 

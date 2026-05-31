@@ -713,3 +713,36 @@ rg -n "医学论文|药物毒性|PDF|论文|pubmed|clinical_trials|cod_crystal|o
 1. Tools 页面普通分类展示已收敛到中文分类合同。
 2. 专有名词保留表已落地到前端常量，后续阶段不得生硬翻译这些名词。
 3. 阶段 4 后端 `aliases.py` 必须与 `toolCategories.ts` 的分类名、别名和保留词保持一致。
+
+## 阶段 3 实施记录（子增量 1：Tools 主页面与 ToolUniverse 详情）
+
+完成时间：2026-05-31
+
+本子增量只处理 `ToolsPage.vue` 和 `ScienceToolDetail.vue` 的普通 UI 文案国际化，不改变 ToolUniverse API、后端目录数据、Agent 工具暴露面或工具运行协议。
+
+已完成：
+
+1. `ToolsPage.vue` 中 Tools 主页面标题、tab、搜索 placeholder、Science tab 统计、卡片状态、展开按钮、空态、External tab 空态、工具状态和删除弹窗已接入 i18n。
+2. Science tab 的分类 badge 和详情页 category badge 均通过阶段 2 的中文分类合同兜底展示，原始英文 category 只作为映射输入。
+3. `ScienceToolDetail.vue` 中 ToolUniverse 详情页副标题、Description、Examples、Parameters、Required、Select、Run Tool、Result、Copy JSON、执行中、空结果、Return Schema 和错误 fallback 已接入 i18n。
+4. `zh.ts` / `en.ts` 已补齐本子增量新增 key，`ToolUniverse`、`MCP`、`JSON`、`JSON Schema` 等专有名词继续保留原文。
+
+验证：
+
+```bash
+npm --prefix ScienceClaw/frontend run type-check
+npm --prefix ScienceClaw/frontend run build
+```
+
+结果：type-check 和 build 均通过；build 仅提示 `caniuse-lite` 数据过期，属于既有依赖数据提醒。
+
+真实浏览器验证：
+
+1. 使用本地已运行的前端 `http://127.0.0.1:5173` 和后端 `/api/v1/auth/login`。
+2. 通过默认本地账号登录后访问 `/chat/tools`，页面可见“工具库”“科学工具”“外置工具”“搜索科学工具”“全部工具”“包含示例”“参数”等中文文案。
+3. 本验证不启动或关闭现有 dev server，不改变用户正在运行的本地进程。
+
+阶段 3 后续子增量：
+
+1. 继续处理 MCP Tools tab、MCP card、MCP settings、MCP schema drawer 和 server drawer 的普通英文文案。
+2. 继续保持 MCP、HTTPS MCP、JSON Schema、server/tool 名称等专有名词原文。

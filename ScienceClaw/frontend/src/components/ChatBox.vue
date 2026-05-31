@@ -72,7 +72,7 @@
                         <Paperclip :size="16" />
                     </button>
 
-                    <!-- ScienceClaw + Skills Selection Popover -->
+                    <!-- Skills Selection Popover -->
                     <Popover v-model:open="isPanelOpen">
                     <PopoverTrigger as-child>
                             <button
@@ -81,11 +81,11 @@
                                 :class="selectedSkills.length
                                     ? 'border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-950/20'
                                     : 'border-[var(--border-light)] hover:border-[var(--border-main)]'"
-                                :title="selectedSkills.length ? selectedSkills.map((skill) => skill.name).join(', ') : 'ScienceClaw'"
-                                aria-label="ScienceClaw skills"
+                                :title="selectedSkills.length ? selectedSkills.map((skill) => skill.name).join(', ') : t('Skills')"
+                                :aria-label="t('Skills')"
                             >
-                                <RobotAvatar class="w-4 h-4" />
-                                <span class="text-xs font-medium text-[var(--text-secondary)]">ScienceClaw</span>
+                                <Blocks :size="15" class="text-[var(--text-secondary)]" />
+                                <span class="text-xs font-medium text-[var(--text-secondary)]">{{ t('Skills') }}</span>
                                 <span
                                     v-if="selectedSkills.length"
                                     class="inline-flex min-w-[16px] h-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-semibold text-white"
@@ -97,27 +97,10 @@
                         <PopoverContent class="w-[320px] p-0 overflow-hidden bg-[var(--background-white-main)] border border-[var(--border-light)] shadow-xl rounded-xl" align="start" :side-offset="8">
                             
                             <div class="flex flex-col max-h-[420px] overflow-y-auto p-1.5">
-                                <!-- DEFAULT Section -->
-                                <div class="mb-2">
-                                    <div class="px-2 py-1.5 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Default</div>
-                                    <div class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[var(--fill-tsp-gray-main)] border border-[var(--border-light)]">
-                                        <div class="flex items-center justify-center w-9 h-9 rounded-full bg-[var(--background-gray-main)] border border-[var(--border-light)] flex-shrink-0 shadow-sm">
-                                            <RobotAvatar class="w-5 h-5" :interactive="false" />
-                                        </div>
-                                        <div class="flex flex-col overflow-hidden flex-1">
-                                            <span class="text-sm font-semibold text-[var(--text-primary)]">ScienceClaw</span>
-                                            <span class="text-[11px] text-[var(--text-tertiary)]">General Purpose Assistant</span>
-                                        </div>
-                                        <div class="w-5 h-5 rounded-full bg-[var(--text-primary)] flex items-center justify-center shadow-sm">
-                                            <Check :size="12" class="text-[var(--text-onblack)]" />
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <!-- SKILLS Selection Section -->
                                 <div>
                                     <div class="px-2 py-1.5 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider flex justify-between items-center">
-                                        <span>Skills</span>
+                                        <span>{{ t('Skills') }}</span>
                                         <span class="text-[9px] font-normal bg-[var(--background-gray-main)] px-1.5 py-0.5 rounded text-[var(--text-tertiary)]">{{ externalSkills.length }}</span>
                                     </div>
 
@@ -312,9 +295,8 @@ import { ref, watch, computed, onMounted } from 'vue';
 import SendIcon from './icons/SendIcon.vue';
 import { useI18n } from 'vue-i18n';
 import ChatBoxFiles from './ChatBoxFiles.vue';
-import { Paperclip, Wrench, Check, Box, Eye, EyeOff, Trash2, Sparkles, X, Check as CheckIcon, RefreshCw } from 'lucide-vue-next';
+import { Paperclip, Wrench, Check, Box, Eye, EyeOff, Trash2, Sparkles, X, Check as CheckIcon, RefreshCw, Blocks } from 'lucide-vue-next';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import RobotAvatar from './icons/RobotAvatar.vue';
 import ProviderIcon from './icons/ProviderIcon.vue';
 import type { FileInfo } from '../api/file';
 import type { ModelConfig } from '../api/models';

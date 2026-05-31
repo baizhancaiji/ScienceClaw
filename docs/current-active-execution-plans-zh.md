@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 5 批 / 完成审计补齐中。已确认 `verify_now=true` 创建合同存在缺口，当前最小增量补齐创建接口的后端验证与工具缓存回写，并让前端创建 payload 交给后端执行，避免创建后双 verify。
+- 状态：执行中；第 5 批 / 完成审计补齐中。`verify_now=true` 创建合同已补齐并本地提交；当前最小增量补齐 Agent 注入的“未屏蔽”过滤条件，确保 MCP 工具与既有 `blocked_tools` 用户偏好一致。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：第 5 批完成审计 / `verify_now` 创建合同补齐；对齐 `docs/mcp-https-integration-design-zh.md` 中“请求携带 `verify_now=true` 时后端立即执行 `initialize -> tools/list`，并回写验证结果和工具目录缓存”的要求。
-- 下一批最小增量：继续第 5 批完成审计；优先核对“只暴露已验证、已启用、未屏蔽的 MCP 工具”和“已启用 MCP 工具超过 50 个时前端提示”是否仍有缺口。
+- 当前批次：第 5 批完成审计 / MCP Agent 注入 blocked-tools 过滤补齐；对齐核心原则“只暴露已验证、已启用、未屏蔽的 MCP 工具”。
+- 下一批最小增量：继续第 5 批完成审计；核对“已启用 MCP 工具超过 50 个时前端提示”是否仍有缺口，只做必要最小补齐。
 - 建议验证：
 
 ```powershell

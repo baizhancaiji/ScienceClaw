@@ -290,10 +290,12 @@ def _collect_tools(blocked_tools: Set[str] | None = None) -> List:
 async def _collect_user_mcp_tools(
     user_id: Optional[str],
     existing_tool_names: Set[str] | None = None,
+    blocked_tool_names: Set[str] | None = None,
 ) -> List[StructuredTool]:
     if not user_id:
         return []
     existing = existing_tool_names or set()
+    blocked = blocked_tool_names or set()
     try:
         tool_items = await mcp_service.list_enabled_tool_runtime_docs(
             user_id,
@@ -306,6 +308,9 @@ async def _collect_user_mcp_tools(
     tools: List[StructuredTool] = []
     for item in tool_items:
         definition = mcp_tool_factory.build_tool_definition(_mcp_tool_item_to_factory_doc(item))
+        if definition.name in blocked:
+            logger.info(f"[MCP] 工具已屏蔽，跳过: {definition.name}")
+            continue
         if definition.name in existing:
             logger.warning(f"[MCP] 工具名称重复，跳过: {definition.name}")
             continue
@@ -316,10 +321,15 @@ async def _collect_user_mcp_tools(
     return tools
 
 
-async def _append_user_mcp_tools(tools: List, user_id: Optional[str]) -> List:
+async def _append_user_mcp_tools(
+    tools: List,
+    user_id: Optional[str],
+    blocked_tool_names: Set[str] | None = None,
+) -> List:
     mcp_tools = await _collect_user_mcp_tools(
         user_id,
         existing_tool_names={getattr(tool, "name", "") for tool in tools},
+        blocked_tool_names=blocked_tool_names,
     )
     tools.extend(mcp_tools)
     return tools
@@ -424,7 +434,11 @@ async def deep_agent(
     _dir_watcher.has_changed(_EXTERNAL_SKILLS_DIR)
 
     tools = _collect_tools(blocked_tools=blocked_tools)
-    tools = await _append_user_mcp_tools(tools, user_id)
+    tools = await _append_user_mcp_tools(
+        tools,
+        user_id,
+        blocked_tool_names=blocked_tools,
+    )
 
     sse_middleware = SSEMonitoringMiddleware(
         agent_name="DeepAgent",

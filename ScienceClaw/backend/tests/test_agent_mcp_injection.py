@@ -96,6 +96,19 @@ class AgentMCPInjectionTests(unittest.TestCase):
 
         self.assertEqual([], tools)
 
+    def test_collect_user_mcp_tools_skips_blocked_tool_name(self):
+        list_enabled_tools = AsyncMock(return_value=[_tool_item()])
+
+        with patch.object(agent.mcp_service, "list_enabled_tool_runtime_docs", new=list_enabled_tools):
+            tools = asyncio.run(
+                agent._collect_user_mcp_tools(
+                    "user-1",
+                    blocked_tool_names={"mcp__github_mcp__search"},
+                )
+            )
+
+        self.assertEqual([], tools)
+
     def test_append_user_mcp_tools_keeps_existing_order_and_appends_mcp_tools(self):
         existing_tool = type("Tool", (), {"name": "web_search"})()
         list_enabled_tools = AsyncMock(return_value=[_tool_item()])
@@ -104,6 +117,21 @@ class AgentMCPInjectionTests(unittest.TestCase):
             tools = asyncio.run(agent._append_user_mcp_tools([existing_tool], "user-1"))
 
         self.assertEqual(["web_search", "mcp__github_mcp__search"], [tool.name for tool in tools])
+
+    def test_append_user_mcp_tools_skips_blocked_tool_name(self):
+        existing_tool = type("Tool", (), {"name": "web_search"})()
+        list_enabled_tools = AsyncMock(return_value=[_tool_item()])
+
+        with patch.object(agent.mcp_service, "list_enabled_tool_runtime_docs", new=list_enabled_tools):
+            tools = asyncio.run(
+                agent._append_user_mcp_tools(
+                    [existing_tool],
+                    "user-1",
+                    blocked_tool_names={"mcp__github_mcp__search"},
+                )
+            )
+
+        self.assertEqual(["web_search"], [tool.name for tool in tools])
 
     def test_deep_agent_passes_appended_mcp_tools_to_agent_factory(self):
         existing_tool = type("Tool", (), {"name": "web_search"})()
@@ -123,14 +151,15 @@ class AgentMCPInjectionTests(unittest.TestCase):
             created_kwargs.update(kwargs)
             return object()
 
-        async def append_mcp_tools(tools, user_id):
+        async def append_mcp_tools(tools, user_id, blocked_tool_names=None):
+            created_kwargs["blocked_tool_names"] = blocked_tool_names
             tools.extend([mcp_tool])
             return tools
 
         with (
             patch.object(agent, "get_llm_model", return_value=type("Model", (), {"profile": {}})()),
             patch.object(agent, "get_blocked_skills", new=AsyncMock(return_value=set())),
-            patch.object(agent, "get_blocked_tools", new=AsyncMock(return_value=set())),
+            patch.object(agent, "get_blocked_tools", new=AsyncMock(return_value={"mcp__blocked__tool"})),
             patch.object(agent._dir_watcher, "has_changed", return_value=False),
             patch.object(agent, "_collect_tools", return_value=[existing_tool]),
             patch.object(agent, "_append_user_mcp_tools", new=append_mcp_tools),
@@ -146,6 +175,7 @@ class AgentMCPInjectionTests(unittest.TestCase):
             ["web_search", "mcp__github_mcp__search"],
             [tool.name for tool in created_kwargs["tools"]],
         )
+        self.assertEqual({"mcp__blocked__tool"}, created_kwargs["blocked_tool_names"])
 
 
 if __name__ == "__main__":

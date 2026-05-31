@@ -1,5 +1,5 @@
 <template>
-    <div class="prose prose-slate max-w-none dark:prose-invert w-full" v-html="renderedContent"></div>
+    <div class="markdown-preview prose prose-slate max-w-none dark:prose-invert w-full" v-html="renderedContent"></div>
 </template>
 
 <script setup lang="ts">
@@ -44,14 +44,24 @@ const props = defineProps<{
     content?: string;
 }>();
 
+const escapeHtml = (value: string) => value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 // Configure marked options
 const renderer = new marked.Renderer();
 renderer.code = ({ text, lang }: { text: string, lang?: string }) => {
     const validLang = !!(lang && hljs && hljs.getLanguage(lang));
     const highlighted = validLang
         ? hljs.highlight(text, { language: lang, ignoreIllegals: true }).value
-        : text;
+        : escapeHtml(text);
     return `<pre><code class="hljs language-${lang || 'plaintext'}">${highlighted}</code></pre>`;
+};
+renderer.codespan = ({ text }: { text: string }) => {
+    return `<code class="markdown-inline-code">${escapeHtml(text)}</code>`;
 };
 
 marked.use({
@@ -98,3 +108,34 @@ watch(() => props.file?.file_id, async (fileId) => {
     }
 }, { immediate: true });
 </script>
+
+<style scoped>
+.markdown-preview :deep(code:not(pre code)),
+.markdown-preview :deep(.markdown-inline-code) {
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 0.375rem;
+    background: rgba(148, 163, 184, 0.14);
+    color: #334155;
+    padding: 0.125rem 0.375rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.875em;
+    font-weight: 600;
+    white-space: break-spaces;
+}
+
+.dark .markdown-preview :deep(code:not(pre code)),
+.dark .markdown-preview :deep(.markdown-inline-code) {
+    border-color: rgba(100, 116, 139, 0.42);
+    background: rgba(51, 65, 85, 0.72);
+    color: #e2e8f0;
+}
+
+.markdown-preview :deep(pre code) {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    font-weight: inherit;
+    white-space: pre;
+}
+</style>

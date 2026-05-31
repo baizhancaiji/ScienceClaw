@@ -7,16 +7,16 @@
           <header class="border-b border-gray-100 bg-gray-50/70 px-6 py-4 dark:border-gray-800 dark:bg-gray-800/30">
             <div class="flex items-start justify-between gap-3">
               <div>
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-blue-500">HTTPS MCP server</p>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-blue-500">{{ t('HTTPS MCP server') }}</p>
                 <h3 class="mt-1 flex items-center gap-2 text-lg font-bold text-gray-800 dark:text-gray-100">
                   <Server class="size-5 text-blue-500" />
-                  {{ editing ? 'Edit MCP Server' : 'Add MCP Server' }}
+                  {{ editing ? t('Edit MCP Server') : t('Add MCP Server') }}
                 </h3>
               </div>
               <button
                 type="button"
                 class="inline-flex size-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-                title="Close"
+                :title="t('Close')"
                 @click="$emit('close')"
               >
                 <X class="size-4" />
@@ -27,7 +27,7 @@
           <div class="flex-1 overflow-y-auto px-6 py-5">
             <div class="flex flex-col gap-4">
               <div class="grid gap-2">
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Name <span class="text-red-500">*</span></label>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('Name') }} <span class="text-red-500">*</span></label>
                 <input
                   :value="form.name"
                   class="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
@@ -37,7 +37,7 @@
               </div>
 
               <div class="grid gap-2">
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Endpoint URL <span class="text-red-500">*</span></label>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('Endpoint URL') }} <span class="text-red-500">*</span></label>
                 <input
                   :value="form.endpoint_url"
                   class="h-10 rounded-lg border border-gray-200 bg-white px-3 font-mono text-sm text-gray-800 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
@@ -47,7 +47,7 @@
               </div>
 
               <div class="grid gap-2">
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Auth Mode</label>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('Auth Mode') }}</label>
                 <div class="grid grid-cols-3 gap-2">
                   <button
                     v-for="mode in authModes"
@@ -64,13 +64,13 @@
 
               <div v-if="form.auth_mode === 'bearer'" class="grid gap-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Bearer Token <span v-if="bearerRequired" class="text-red-500">*</span>
+                  {{ t('Bearer Token') }} <span v-if="bearerRequired" class="text-red-500">*</span>
                 </label>
                 <input
                   :value="form.bearer_token"
                   type="password"
                   class="h-10 rounded-lg border border-gray-200 bg-white px-3 font-mono text-sm text-gray-800 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                  :placeholder="hasBearerToken ? 'Leave empty to keep existing token' : 'Token'"
+                  :placeholder="hasBearerToken ? t('Leave empty to keep existing token') : t('Token')"
                   @input="updateField('bearer_token', $event)"
                 />
               </div>
@@ -90,7 +90,7 @@
                   class="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   @change="updateCheckedField('enabled', $event)"
                 />
-                Enabled
+                {{ t('Enabled') }}
               </label>
 
               <div class="grid gap-2 rounded-xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-800 dark:bg-gray-800/40">
@@ -101,7 +101,7 @@
                     class="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     @change="updateCheckedField('verify_now', $event)"
                   />
-                  Verify after save
+                  {{ t('Verify after save') }}
                 </label>
                 <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
                   <input
@@ -110,7 +110,7 @@
                     class="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     @change="updateCheckedField('refresh_after_save', $event)"
                   />
-                  Refresh tools after save
+                  {{ t('Refresh tools after save') }}
                 </label>
               </div>
             </div>
@@ -123,7 +123,7 @@
                 class="h-10 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 @click="$emit('close')"
               >
-                Cancel
+                {{ t('Cancel') }}
               </button>
               <button
                 type="button"
@@ -132,7 +132,7 @@
                 @click="$emit('save')"
               >
                 <Loader2 v-if="saving" class="size-4 animate-spin" />
-                <span>{{ editing ? 'Save' : 'Create' }}</span>
+                <span>{{ editing ? t('Save') : t('Create') }}</span>
               </button>
             </div>
           </footer>
@@ -144,9 +144,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Loader2, Server, X } from 'lucide-vue-next';
 import type { MCPAuthMode } from '@/api/mcp';
 import McpHeaderEditor, { type MCPHeaderForm } from './McpHeaderEditor.vue';
+
+const { t } = useI18n();
 
 export type MCPServerForm = {
   name: string;
@@ -184,9 +187,9 @@ const bearerRequired = computed(() => {
 });
 
 const authModeTitle = (mode: MCPAuthMode): string => {
-  if (mode === 'bearer') return 'Bearer';
-  if (mode === 'headers') return 'Headers';
-  return 'None';
+  if (mode === 'bearer') return t('Bearer');
+  if (mode === 'headers') return t('Headers');
+  return t('None');
 };
 
 const updateField = (field: keyof MCPServerForm, event: Event) => {

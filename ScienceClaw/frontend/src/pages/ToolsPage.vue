@@ -276,7 +276,7 @@ const headerSubtitle = computed(() => {
     return `${scienceToolsTotal.value} scientific tools across ${scienceCategories.value.length} categories`;
   }
   if (activeTab.value === 'mcp') {
-    return `${mcpToolsTotal.value} enabled MCP tools`;
+    return t('MCP enabled tools subtitle', { count: mcpToolsTotal.value });
   }
   return `${externalTools.value.length} external tools installed`;
 });
@@ -286,7 +286,7 @@ const searchPlaceholder = computed(() => {
     return 'Search scientific tools...';
   }
   if (activeTab.value === 'mcp') {
-    return 'Search MCP tools...';
+    return t('Search MCP tools...');
   }
   return 'Search tools...';
 });

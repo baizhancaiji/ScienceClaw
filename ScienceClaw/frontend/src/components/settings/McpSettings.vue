@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-5 py-2 px-1 w-full">
     <div class="flex items-center justify-between gap-3 px-1">
       <h3 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2 flex-1">
-        MCP Servers
+        {{ t('MCP Servers') }}
         <span class="h-px flex-1 bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent"></span>
       </h3>
       <button
@@ -12,7 +12,7 @@
         @click="openEditor(null)"
       >
         <Plus class="size-3.5" />
-        Add Server
+        {{ t('Add Server') }}
       </button>
     </div>
 
@@ -27,7 +27,7 @@
           :key="metric.label"
           class="rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-sm dark:border-gray-700/50 dark:bg-gray-800/50"
         >
-          <p class="text-[10px] font-semibold uppercase text-gray-400 dark:text-gray-500">{{ metric.label }}</p>
+          <p class="text-[10px] font-semibold uppercase text-gray-400 dark:text-gray-500">{{ t(metric.label) }}</p>
           <p class="mt-1 text-lg font-bold text-gray-800 dark:text-gray-100">{{ metric.value }}</p>
         </div>
       </div>
@@ -36,7 +36,7 @@
         v-if="enabledToolCount > 50"
         class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-300"
       >
-        {{ enabledToolCount }} enabled MCP tools may make tool selection less reliable. Keep only the tools you need enabled.
+        {{ t('MCP enabled tools warning', { count: enabledToolCount }) }}
       </div>
 
       <div
@@ -44,7 +44,7 @@
         class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/80 py-12 dark:border-gray-700 dark:bg-gray-800/30"
       >
         <Server class="mb-3 size-8 text-gray-300 dark:text-gray-500" />
-        <p class="text-sm font-semibold text-gray-400 dark:text-gray-500">No MCP servers configured</p>
+        <p class="text-sm font-semibold text-gray-400 dark:text-gray-500">{{ t('No MCP servers configured') }}</p>
       </div>
 
       <div v-else class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700/50 dark:bg-gray-800/50">
@@ -69,7 +69,7 @@
             <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
               <span class="max-w-full truncate font-mono">{{ server.endpoint_url }}</span>
               <span>{{ authModeLabel(server) }}</span>
-              <span>{{ server.tool_count }} tools</span>
+              <span>{{ t('MCP tools count', { count: server.tool_count }) }}</span>
             </div>
             <p v-if="server.verify_error" class="mt-2 text-xs text-red-500">{{ server.verify_error }}</p>
           </div>
@@ -78,7 +78,7 @@
             <button
               type="button"
               class="inline-flex size-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-              title="Verify"
+              :title="t('Verify')"
               :disabled="saving || verifyingServerId === server.id"
               @click.stop="verifyServer(server)"
             >
@@ -88,7 +88,7 @@
             <button
               type="button"
               class="inline-flex size-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-              title="Refresh tools"
+              :title="t('Refresh tools')"
               :disabled="saving || refreshingServerId === server.id"
               @click.stop="refreshTools(server)"
             >
@@ -99,7 +99,7 @@
               type="button"
               class="inline-flex size-8 items-center justify-center rounded-lg border transition-colors"
               :class="server.enabled ? 'border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400' : 'border-gray-200 bg-white text-gray-400 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'"
-              :title="server.enabled ? 'Disable' : 'Enable'"
+              :title="server.enabled ? t('Disable') : t('Enable')"
               :disabled="saving"
               @click.stop="toggleServer(server)"
             >
@@ -108,7 +108,7 @@
             <button
               type="button"
               class="inline-flex size-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-              title="Edit"
+              :title="t('Edit')"
               :disabled="saving"
               @click.stop="openEditor(server)"
             >
@@ -117,7 +117,7 @@
             <button
               type="button"
               class="inline-flex size-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-              title="Delete"
+              :title="t('Delete')"
               :disabled="saving"
               @click.stop="confirmDelete(server)"
             >
@@ -158,6 +158,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Circle, Loader2, Pencil, Plus, Power, RefreshCw, Server, ShieldCheck, Trash2 } from 'lucide-vue-next';
 import {
   createMCPServer,
@@ -179,6 +180,8 @@ import {
 import { showErrorToast, showSuccessToast } from '@/utils/toast';
 import McpServerDrawer, { type MCPServerForm } from './McpServerDrawer.vue';
 import McpToolList from './McpToolList.vue';
+
+const { t } = useI18n();
 
 const servers = ref<MCPServer[]>([]);
 const tools = ref<MCPTool[]>([]);
@@ -257,7 +260,7 @@ const loadServers = async () => {
       tools.value = [];
     }
   } catch (error: unknown) {
-    showErrorToast(errorMessage(error, 'Failed to load MCP servers'));
+    showErrorToast(errorMessage(error, t('Failed to load MCP servers')));
   } finally {
     loading.value = false;
   }
@@ -330,12 +333,12 @@ const updateFormField = (field: keyof MCPServerForm, value: string | boolean) =>
 
 const authModeLabel = (server: MCPServer): string => {
   if (server.auth_mode === 'bearer') {
-    return server.has_bearer_token ? 'Bearer token' : 'Bearer';
+    return server.has_bearer_token ? t('Bearer token') : t('Bearer');
   }
   if (server.auth_mode === 'headers') {
-    return `${server.masked_headers.length} headers`;
+    return t('MCP headers count', { count: server.masked_headers.length });
   }
-  return 'No auth';
+  return t('No auth');
 };
 
 const statusClass = (status: MCPServer['verify_status']): string => {
@@ -349,9 +352,9 @@ const statusClass = (status: MCPServer['verify_status']): string => {
 };
 
 const statusLabel = (status: MCPServer['verify_status']): string => {
-  if (status === 'healthy') return 'Healthy';
-  if (status === 'error') return 'Error';
-  return 'Unknown';
+  if (status === 'healthy') return t('Healthy');
+  if (status === 'error') return t('Error');
+  return t('Unknown');
 };
 
 const selectServer = async (server: MCPServer) => {
@@ -375,7 +378,7 @@ const loadTools = async (serverId: string) => {
     tools.value = await listMCPServerTools(serverId);
   } catch (error: unknown) {
     tools.value = [];
-    showErrorToast(errorMessage(error, 'Failed to load MCP tools'));
+    showErrorToast(errorMessage(error, t('Failed to load MCP tools')));
   } finally {
     toolsLoading.value = false;
   }
@@ -420,15 +423,15 @@ const authPayload = () => {
 
 const validateForm = (): boolean => {
   if (form.name.trim().length < 2 || !form.endpoint_url.trim()) {
-    showErrorToast('Name and endpoint URL are required');
+    showErrorToast(t('Name and endpoint URL are required'));
     return false;
   }
   if (!form.endpoint_url.trim().startsWith('https://')) {
-    showErrorToast('Endpoint URL must start with https://');
+    showErrorToast(t('Endpoint URL must start with https://'));
     return false;
   }
   if (form.auth_mode === 'bearer' && !form.bearer_token.trim() && (!isEditing.value || !editingServer.value?.has_bearer_token)) {
-    showErrorToast('Bearer token is required');
+    showErrorToast(t('Bearer token is required'));
     return false;
   }
   if (form.auth_mode === 'headers') {
@@ -438,13 +441,13 @@ const validateForm = (): boolean => {
     if (isEditing.value && editingServer.value?.auth_mode === 'headers') {
       const hasBlankExisting = form.headers.some((header) => header.existing && !header.value.trim());
       if (hasBlankExisting) {
-        showErrorToast('Re-enter all header values when changing headers');
+        showErrorToast(t('Re-enter all header values when changing headers'));
         return false;
       }
     }
     const validHeaders = form.headers.filter((header) => header.name.trim() && header.value.trim());
     if (validHeaders.length === 0) {
-      showErrorToast('At least one header is required');
+      showErrorToast(t('At least one header is required'));
       return false;
     }
   }
@@ -470,10 +473,10 @@ const saveServer = async () => {
     let saved: MCPServer;
     if (editingServer.value) {
       saved = await updateMCPServer(editingServer.value.id, buildUpdatePayload());
-      showSuccessToast('MCP server updated');
+      showSuccessToast(t('MCP server updated'));
     } else {
       saved = await createMCPServer(buildCreatePayload());
-      showSuccessToast('MCP server created');
+      showSuccessToast(t('MCP server created'));
     }
     editorOpen.value = false;
     selectedServerId.value = saved.id;
@@ -485,7 +488,7 @@ const saveServer = async () => {
     }
     await loadServers();
   } catch (error: unknown) {
-    showErrorToast(errorMessage(error, 'Failed to save MCP server'));
+    showErrorToast(errorMessage(error, t('Failed to save MCP server')));
   } finally {
     saving.value = false;
   }
@@ -497,7 +500,7 @@ const toggleServer = async (server: MCPServer) => {
     const updated = await setMCPServerEnabled(server.id, !server.enabled);
     replaceServer(updated);
   } catch (error: unknown) {
-    showErrorToast(errorMessage(error, 'Failed to update MCP server'));
+    showErrorToast(errorMessage(error, t('Failed to update MCP server')));
   } finally {
     saving.value = false;
   }
@@ -509,10 +512,10 @@ const verifyServer = async (server: MCPServer, toast = true) => {
     const result = await verifyMCPServer(server.id);
     replaceServer(result);
     if (toast) {
-      showSuccessToast(result.verify_status === 'healthy' ? 'MCP server verified' : 'MCP verification finished');
+      showSuccessToast(result.verify_status === 'healthy' ? t('MCP server verified') : t('MCP verification finished'));
     }
   } catch (error: unknown) {
-    showErrorToast(errorMessage(error, 'Failed to verify MCP server'));
+    showErrorToast(errorMessage(error, t('Failed to verify MCP server')));
   } finally {
     verifyingServerId.value = null;
   }
@@ -526,10 +529,14 @@ const refreshTools = async (server: MCPServer, toast = true) => {
     selectedServerId.value = server.id;
     await loadTools(server.id);
     if (toast) {
-      showSuccessToast(`MCP tools refreshed: ${result.inserted} added, ${result.updated} updated, ${result.removed} removed`);
+      showSuccessToast(t('MCP tools refreshed: {inserted} added, {updated} updated, {removed} removed', {
+        inserted: result.inserted,
+        updated: result.updated,
+        removed: result.removed,
+      }));
     }
   } catch (error: unknown) {
-    showErrorToast(errorMessage(error, 'Failed to refresh MCP tools'));
+    showErrorToast(errorMessage(error, t('Failed to refresh MCP tools')));
   } finally {
     refreshingServerId.value = null;
   }
@@ -547,23 +554,23 @@ const toggleTool = async (tool: MCPTool) => {
     }
   } catch (error: unknown) {
     tool.enabled = previous;
-    showErrorToast(errorMessage(error, 'Failed to update MCP tool'));
+    showErrorToast(errorMessage(error, t('Failed to update MCP tool')));
   } finally {
     togglingToolId.value = null;
   }
 };
 
 const confirmDelete = async (server: MCPServer) => {
-  if (!window.confirm(`Delete MCP server "${server.name}"?`)) {
+  if (!window.confirm(t('Delete MCP server "{name}"?', { name: server.name }))) {
     return;
   }
   saving.value = true;
   try {
     await deleteMCPServer(server.id);
-    showSuccessToast('MCP server deleted');
+    showSuccessToast(t('MCP server deleted'));
     await loadServers();
   } catch (error: unknown) {
-    showErrorToast(errorMessage(error, 'Failed to delete MCP server'));
+    showErrorToast(errorMessage(error, t('Failed to delete MCP server')));
   } finally {
     saving.value = false;
   }

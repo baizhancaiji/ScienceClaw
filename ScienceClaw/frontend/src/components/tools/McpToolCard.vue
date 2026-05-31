@@ -26,16 +26,16 @@
       </div>
 
       <p class="line-clamp-2 min-h-[2.5rem] text-xs leading-relaxed text-[var(--text-secondary)]">
-        {{ tool.description || 'No description available' }}
+        {{ tool.description || t('No description available') }}
       </p>
 
       <div class="mt-3 flex items-center justify-between gap-3">
         <div class="min-w-0">
           <p class="truncate font-mono text-[10px] text-[var(--text-tertiary)]">{{ tool.canonical_name }}</p>
           <div class="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-[var(--text-tertiary)]">
-            <span>{{ schemaSummary.fieldCount }} schema fields</span>
+            <span>{{ t('MCP schema fields count', { count: schemaSummary.fieldCount }) }}</span>
             <span v-if="schemaSummary.payloadMode" class="rounded-full bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
-              payload mode
+              {{ t('payload mode') }}
             </span>
           </div>
         </div>
@@ -43,7 +43,7 @@
           class="flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
           :class="tool.enabled ? 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400'"
         >
-          {{ tool.enabled ? 'Enabled' : 'Disabled' }}
+          {{ tool.enabled ? t('Enabled') : t('Disabled') }}
         </span>
       </div>
     </button>
@@ -52,7 +52,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { MCPTool } from '@/api/mcp';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   tool: MCPTool;

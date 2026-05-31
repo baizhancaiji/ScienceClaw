@@ -25,7 +25,7 @@
         <AlertCircle :size="28" class="text-red-400 dark:text-red-500" />
       </div>
       <div>
-        <p class="text-sm font-semibold text-[var(--text-secondary)]">Failed to load MCP tools</p>
+        <p class="text-sm font-semibold text-[var(--text-secondary)]">{{ t('Failed to load MCP tools') }}</p>
         <p class="mt-1 max-w-md text-xs opacity-70">{{ errorMessage }}</p>
       </div>
       <button
@@ -33,7 +33,7 @@
         class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:bg-[#1e1e1e] dark:text-gray-300 dark:hover:bg-gray-800"
         @click="loadTools"
       >
-        Retry
+        {{ t('Retry') }}
       </button>
     </div>
 
@@ -44,9 +44,9 @@
       </div>
       <div>
         <p class="text-sm font-semibold text-[var(--text-secondary)]">
-          {{ searchQuery ? `No MCP tools match "${searchQuery}"` : 'No enabled MCP tools' }}
+          {{ searchQuery ? t('No MCP tools match "{query}"', { query: searchQuery }) : t('No enabled MCP tools') }}
         </p>
-        <p v-if="!searchQuery" class="mt-1 text-xs opacity-60">Enable tools from an MCP server to browse them here</p>
+        <p v-if="!searchQuery" class="mt-1 text-xs opacity-60">{{ t('Enable tools from an MCP server to browse them here') }}</p>
       </div>
     </div>
 
@@ -66,10 +66,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { AlertCircle, PlugZap, Search } from 'lucide-vue-next';
 import { listMCPTools, type MCPTool } from '@/api/mcp';
 import McpToolSchemaDrawer from '@/components/settings/McpToolSchemaDrawer.vue';
 import McpToolCard from '@/components/tools/McpToolCard.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   searchQuery: string;
@@ -108,7 +111,7 @@ const loadTools = async () => {
     tools.value = await listMCPTools();
   } catch (error) {
     const maybeError = error as { message?: string };
-    errorMessage.value = maybeError.message || 'Unknown MCP tools error';
+    errorMessage.value = maybeError.message || t('Unknown MCP tools error');
     tools.value = [];
   } finally {
     loading.value = false;

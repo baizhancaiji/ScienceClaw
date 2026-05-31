@@ -13,7 +13,7 @@
               </span>
               {{ t('Skills Library') }}
             </h1>
-            <p class="text-white/60 text-xs mt-1">{{ skills.length }} skills installed</p>
+            <p class="text-white/60 text-xs mt-1">{{ t('{count} skills installed', { count: skills.length }) }}</p>
           </div>
           <div class="relative group">
             <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 size-4 group-focus-within:text-white/70 transition-colors" />
@@ -32,7 +32,7 @@
           <Box :size="28" class="text-gray-300 dark:text-gray-600" />
         </div>
         <span class="text-sm">{{ t('No external skills installed') }}</span>
-        <p class="text-xs opacity-60">Use the chat to install skills via find-skills</p>
+        <p class="text-xs opacity-60">{{ t('Use the chat to install skills via find-skills') }}</p>
       </div>
 
       <!-- Skeleton Loading -->
@@ -67,7 +67,7 @@
                   {{ skill.name }}
                 </h3>
                 <span class="inline-block mt-0.5 text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-[var(--text-tertiary)]">
-                  {{ skill.files?.length || 0 }} files
+                  {{ t('{count} files', { count: skill.files?.length || 0 }) }}
                 </span>
               </div>
               <div v-if="!skill.builtin" class="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -86,14 +86,14 @@
                 <span class="opacity-40">{{ file.endsWith('/') ? '📁' : '📄' }}</span>
                 <span>{{ file }}</span>
               </div>
-              <div v-if="(skill.files || []).length > 3" class="opacity-40">+{{ skill.files.length - 3 }} more</div>
+              <div v-if="(skill.files || []).length > 3" class="opacity-40">{{ t('+{count} more', { count: skill.files.length - 3 }) }}</div>
             </div>
             <div class="mt-3 flex items-center justify-between">
-              <span v-if="skill.builtin" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium">Built-in</span>
-              <span v-else-if="skill.blocked" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-medium">Blocked</span>
-              <span v-else class="text-[10px] text-[var(--text-tertiary)]">Agent skill</span>
+              <span v-if="skill.builtin" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium">{{ t('Built-in') }}</span>
+              <span v-else-if="skill.blocked" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-medium">{{ t('Blocked') }}</span>
+              <span v-else class="text-[10px] text-[var(--text-tertiary)]">{{ t('Agent skill') }}</span>
               <div class="text-[10px] text-violet-500 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-1 group-hover:translate-x-0 flex items-center gap-0.5">
-                Open <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                {{ t('Open') }} <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
               </div>
             </div>
           </div>
@@ -105,7 +105,7 @@
         <div class="size-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
           <Search :size="28" class="text-gray-300 dark:text-gray-600" />
         </div>
-        <p class="text-sm text-[var(--text-tertiary)]">No skills match "{{ searchQuery }}"</p>
+        <p class="text-sm text-[var(--text-tertiary)]">{{ t('No skills match "{query}"', { query: searchQuery }) }}</p>
       </div>
     </div>
 
@@ -121,7 +121,7 @@
               </div>
               <div><h3 class="text-sm font-semibold">{{ t('Delete Skill') }}</h3><p class="text-xs text-[var(--text-tertiary)]">{{ t('This action cannot be undone') }}</p></div>
             </div>
-            <p class="text-sm text-[var(--text-secondary)] mb-5">{{ t('Are you sure you want to delete "{name}"?', { name: deleteTarget.name }) }}</p>
+            <p class="text-sm text-[var(--text-secondary)] mb-5">{{ t('Are you sure you want to delete the skill "{name}"?', { name: deleteTarget.name }) }}</p>
             <div class="flex justify-end gap-2">
               <button @click="cancelDelete" class="px-4 py-2 text-sm rounded-lg border border-[var(--border-light)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{{ t('Cancel') }}</button>
               <button @click="executeDelete" :disabled="deleting" class="px-4 py-2 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-all">

@@ -379,6 +379,7 @@ const buildCreatePayload = (): CreateMCPServerRequest => ({
   endpoint_url: form.endpoint_url.trim(),
   auth_mode: form.auth_mode,
   enabled: form.enabled,
+  verify_now: form.verify_now,
   ...authPayload(),
 });
 
@@ -469,7 +470,7 @@ const saveServer = async () => {
     }
     editorOpen.value = false;
     selectedServerId.value = saved.id;
-    if (form.verify_now) {
+    if (form.verify_now && editingServer.value) {
       await verifyServer(saved, false);
     }
     if (form.refresh_after_save) {

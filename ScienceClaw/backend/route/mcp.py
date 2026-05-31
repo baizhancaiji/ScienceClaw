@@ -39,7 +39,17 @@ async def create_mcp_server(
     body: CreateMCPServerRequest,
     current_user: User = Depends(require_user),
 ) -> ApiResponse:
-    server = await service.create_server(current_user.id, body, _encryption_key())
+    encryption_key = _encryption_key()
+    server = await service.create_server(current_user.id, body, encryption_key)
+    if body.verify_now:
+        verified = await service.verify_server(
+            server.id,
+            current_user.id,
+            encryption_key,
+            sync_tools=True,
+        )
+        if verified is not None:
+            server = verified
     return ApiResponse(data=server.model_dump())
 
 

@@ -69,6 +69,38 @@ class MCPVerifyServiceTests(unittest.TestCase):
         self.assertEqual(2, patch_doc["tool_count"])
         self.assertIsInstance(patch_doc["last_verified_at"], int)
 
+    def test_verify_server_can_sync_tools_from_same_tools_list_response(self):
+        existing = _server_doc()
+        remote_tools = [
+            MCPRemoteTool(name="search", description="Search", input_schema_raw={}),
+        ]
+        update_server = AsyncMock(
+            side_effect=lambda server_id, user_id, patch: {**existing, **patch}
+        )
+        list_tools = AsyncMock(return_value=remote_tools)
+        upsert_tools = AsyncMock(return_value={"added": 1, "updated": 0})
+
+        with (
+            patch.object(service.repository, "get_server", new=AsyncMock(return_value=existing)),
+            patch.object(service.repository, "update_server", new=update_server),
+            patch.object(service.repository, "upsert_tools_from_remote", new=upsert_tools),
+            patch.object(service.repository, "list_tools_by_server", new=AsyncMock(return_value=[])),
+            patch.object(service.repository, "mark_removed_tools", new=AsyncMock(return_value=0)),
+            patch.object(service.client, "initialize", new=AsyncMock(return_value={})),
+            patch.object(service.client, "list_tools", new=list_tools),
+        ):
+            result = _run(service.verify_server("server-1", "user-1", "key", sync_tools=True))
+
+        self.assertEqual("healthy", result.verify_status)
+        self.assertEqual(1, result.tool_count)
+        list_tools.assert_awaited_once()
+        tool_docs = upsert_tools.await_args.args[2]
+        self.assertEqual("search", tool_docs[0]["original_name"])
+        self.assertEqual("mcp__github_mcp__search", tool_docs[0]["canonical_name"])
+        patch_doc = update_server.await_args.args[2]
+        self.assertEqual(1, patch_doc["tool_count"])
+        self.assertIsInstance(patch_doc["last_synced_at"], int)
+
     def test_verify_server_marks_error_and_summarizes_client_failure(self):
         existing = _server_doc(verify_status="healthy", verify_error="")
         update_server = AsyncMock(

@@ -15,11 +15,11 @@
 
 ### 第三方 HTTPS MCP 接入
 
-- 状态：执行中；第 5 批 / 5.4 规模与性能边界已按设计文档完成本地收口。已验证 50 个 MCP 工具规模下的 route 列表、Agent wrapper 注入、Tools 页浏览、Settings MCP tab 操作和新会话创建耗时；本批生产实现保持不变，仅补充规模 smoke 回归测试和运行态证据。
+- 状态：执行中；第 5 批 / 完成审计补齐中。已确认 `verify_now=true` 创建合同存在缺口，当前最小增量补齐创建接口的后端验证与工具缓存回写，并让前端创建 payload 交给后端执行，避免创建后双 verify。
 - 权威文档：`docs/mcp-https-integration-design-zh.md`
 - 范围：第三方 HTTPS MCP Server 配置、验证、工具目录缓存、逐工具启用、Agent 工具注入和前端管理界面。
-- 当前批次：5.4 规模与性能边界；已用 50 个临时 MCP 工具验证真实 `/api/v1/mcp/tools` 返回 50/50 且耗时 18ms，Tools 页 MCP tab 可浏览 62 个启用工具，Settings MCP tab 可显示临时 server 并完成 Disable 操作，新会话创建 API 返回 200 且耗时 30ms；临时 smoke 数据已清理。
-- 下一批最小增量：第 5 批完成审计；逐条核对 `docs/mcp-https-integration-design-zh.md` 的目标、非目标、批次验收、测试规划和第一阶段范围，确认是否还存在缺口，只做必要的最小补齐。
+- 当前批次：第 5 批完成审计 / `verify_now` 创建合同补齐；对齐 `docs/mcp-https-integration-design-zh.md` 中“请求携带 `verify_now=true` 时后端立即执行 `initialize -> tools/list`，并回写验证结果和工具目录缓存”的要求。
+- 下一批最小增量：继续第 5 批完成审计；优先核对“只暴露已验证、已启用、未屏蔽的 MCP 工具”和“已启用 MCP 工具超过 50 个时前端提示”是否仍有缺口。
 - 建议验证：
 
 ```powershell

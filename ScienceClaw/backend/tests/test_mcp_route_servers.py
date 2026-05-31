@@ -75,10 +75,14 @@ class MCPServerRouteTests(unittest.TestCase):
 
     def test_create_server_passes_body_user_and_encryption_key(self):
         create_server = AsyncMock(return_value=_server_detail())
+        verify_server = AsyncMock()
         previous_key = os.environ.get("MCP_CONFIG_ENCRYPTION_KEY")
         os.environ["MCP_CONFIG_ENCRYPTION_KEY"] = "route-key"
         try:
-            with patch.object(mcp_route.service, "create_server", new=create_server):
+            with (
+                patch.object(mcp_route.service, "create_server", new=create_server),
+                patch.object(mcp_route.service, "verify_server", new=verify_server),
+            ):
                 response = TestClient(_make_app()).post(
                     "/api/v1/mcp/servers",
                     json={
@@ -99,6 +103,42 @@ class MCPServerRouteTests(unittest.TestCase):
         self.assertEqual("user-1", args[0])
         self.assertEqual("GitHub MCP", args[1].name)
         self.assertEqual("route-key", args[2])
+        verify_server.assert_not_awaited()
+
+    def test_create_server_with_verify_now_verifies_and_syncs_tools(self):
+        create_server = AsyncMock(return_value=_server_detail(verify_status="unknown", tool_count=0))
+        verify_server = AsyncMock(return_value=_server_detail(verify_status="healthy", tool_count=2))
+        previous_key = os.environ.get("MCP_CONFIG_ENCRYPTION_KEY")
+        os.environ["MCP_CONFIG_ENCRYPTION_KEY"] = "route-key"
+        try:
+            with (
+                patch.object(mcp_route.service, "create_server", new=create_server),
+                patch.object(mcp_route.service, "verify_server", new=verify_server),
+            ):
+                response = TestClient(_make_app()).post(
+                    "/api/v1/mcp/servers",
+                    json={
+                        "name": "GitHub MCP",
+                        "endpoint_url": "https://example.com/mcp",
+                        "auth_mode": "none",
+                        "verify_now": True,
+                    },
+                )
+        finally:
+            if previous_key is None:
+                os.environ.pop("MCP_CONFIG_ENCRYPTION_KEY", None)
+            else:
+                os.environ["MCP_CONFIG_ENCRYPTION_KEY"] = previous_key
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("healthy", response.json()["data"]["verify_status"])
+        self.assertEqual(2, response.json()["data"]["tool_count"])
+        verify_server.assert_awaited_once_with(
+            "server-1",
+            "user-1",
+            "route-key",
+            sync_tools=True,
+        )
 
     def test_update_server_returns_404_when_service_cannot_find_server(self):
         update_server = AsyncMock(return_value=None)

@@ -96,22 +96,29 @@ async def verify_server(
     server_id: str,
     user_id: str,
     encryption_key: str | bytes | None,
+    sync_tools: bool = False,
 ) -> MCPVerifyResult | None:
     started_at = time.monotonic()
     existing = await repository.get_server(server_id, user_id)
     if existing is None:
         return None
+    tools: list[client.MCPRemoteTool] = []
     try:
         headers = _build_request_headers(existing, encryption_key)
         await client.initialize(existing["endpoint_url"], headers=headers)
         tools = await client.list_tools(existing["endpoint_url"], headers=headers)
+        now = _now()
+        if sync_tools:
+            await _sync_remote_tools(existing, user_id, tools, now)
         patch = {
             "verify_status": "healthy",
             "verify_error": "",
-            "last_verified_at": _now(),
+            "last_verified_at": now,
             "tool_count": len(tools),
-            "updated_at": _now(),
+            "updated_at": now,
         }
+        if sync_tools:
+            patch["last_synced_at"] = now
     except client.MCPClientError as exc:
         patch = {
             "verify_status": "error",
@@ -154,20 +161,7 @@ async def refresh_server_tools(
     headers = _build_request_headers(existing, encryption_key)
     remote_tools = await client.list_tools(existing["endpoint_url"], headers=headers)
     now = _now()
-    tool_docs = [
-        _remote_tool_to_doc(existing, remote_tool, user_id, now)
-        for remote_tool in remote_tools
-    ]
-    diff = await repository.upsert_tools_from_remote(server_id, user_id, tool_docs)
-
-    existing_tools = await repository.list_tools_by_server(server_id, user_id)
-    remote_names = {tool.name for tool in remote_tools}
-    missing_tool_names = [
-        tool["original_name"]
-        for tool in existing_tools
-        if tool.get("removed") is not True and tool.get("original_name") not in remote_names
-    ]
-    removed = await repository.mark_removed_tools(server_id, user_id, missing_tool_names)
+    diff = await _sync_remote_tools(existing, user_id, remote_tools, now)
     updated_server = await repository.update_server(
         server_id,
         user_id,
@@ -183,9 +177,33 @@ async def refresh_server_tools(
         **_to_detail_item(updated_server).model_dump(),
         added=diff["added"],
         updated=diff["updated"],
-        removed=removed,
+        removed=diff["removed"],
         duration_ms=_duration_ms(started_at),
     )
+
+
+async def _sync_remote_tools(
+    server: dict[str, Any],
+    user_id: str,
+    remote_tools: list[client.MCPRemoteTool],
+    now: int,
+) -> dict[str, int]:
+    server_id = str(server["_id"])
+    tool_docs = [
+        _remote_tool_to_doc(server, remote_tool, user_id, now)
+        for remote_tool in remote_tools
+    ]
+    diff = await repository.upsert_tools_from_remote(server_id, user_id, tool_docs)
+
+    existing_tools = await repository.list_tools_by_server(server_id, user_id)
+    remote_names = {tool.name for tool in remote_tools}
+    missing_tool_names = [
+        tool["original_name"]
+        for tool in existing_tools
+        if tool.get("removed") is not True and tool.get("original_name") not in remote_names
+    ]
+    removed = await repository.mark_removed_tools(server_id, user_id, missing_tool_names)
+    return {"added": diff["added"], "updated": diff["updated"], "removed": removed}
 
 
 async def list_tools_by_server(server_id: str, user_id: str) -> list[MCPToolListItem] | None:

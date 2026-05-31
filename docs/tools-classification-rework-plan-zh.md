@@ -633,3 +633,54 @@ npm --prefix ScienceClaw/frontend run build
 3. 不破坏现有 ToolUniverse 三工具兼容入口。
 4. 不把 skill resource scripts 当成 runtime tools。
 5. 中文 UI 普通文本和普通类别名必须一致中文化。
+
+## 阶段 1 实施记录
+
+完成时间：2026-05-31
+
+本阶段只做现状盘点，不改运行逻辑。扫描范围按阶段 1 指定文件执行：`ToolsPage.vue`、`ScienceToolDetail.vue`、`ToolDetailPage.vue`、`components/tools/*`、`components/settings/Mcp*`、`constants/tool.ts`、`useTool.ts`、`api/tooluniverse.ts`、`api/mcp.ts`、`types/event.ts`、`types/response.ts`、`locales/zh.ts`、`locales/en.ts`。
+
+### 清单一：可翻译普通英文
+
+以下普通英文属于 UI 文案、状态、动作或 fallback，阶段 2-3 必须通过 i18n 或中文分类合同治理，不得继续在中文界面直接展示：
+
+| 工作面 | 当前发现 | 处理方式 |
+| --- | --- | --- |
+| Tools 主页面标题与搜索 | `Tools Library`、`Search tools...`、`All Tools` | 接入 i18n；中文分别落为工具库、搜索工具、全部工具 |
+| Science tab 卡片 | `No description available`、`params`、`Has examples`、`Open`、`Show more`、`remaining`、`No tools match` | 接入 i18n；参数数量和剩余数量使用带 `{count}` 的 key |
+| External tab 空态与卡片 | `Install tools via Skills or the sandbox CLI`、`No description`、`Blocked`、`Custom tool`、`Open` | 接入 i18n；`Skills` 保留原文，普通说明中文化 |
+| 删除弹窗与详情 fallback | `Cancel`、`Error loading file` 等 | 已有部分 i18n key；缺失处补齐并统一调用 `t()` |
+| ToolUniverse 详情页 | `ToolUniverse Scientific Tool`、`Description`、`Examples`、`Parameters`、`Running...`、`Run Tool`、`Copied!`、`Copy JSON`、`Fill in parameters and click "Run Tool"`、`Return Schema`、`Execution failed` | 接入 i18n；`ToolUniverse`、`JSON` 保留原文 |
+| MCP 管理页统计与操作 | `Servers`、`Enabled`、`Healthy`、`Errors`、`Verify`、`Refresh tools`、`Edit`、`Add Server` | 已有部分 key；统计 label 目前仍在 script 中硬编码，阶段 3 改为 i18n |
+| MCP server 表单 | `Endpoint URL`、`Auth Mode`、`Bearer Token`、`Token`、`Verify after save`、`Refresh tools after save`、`Save`、`Create` | 已有部分 key；缺失 key 补齐 |
+| MCP schema 展示 | `This schema uses complex JSON Schema features. Pass arguments as a JSON object in payload.`、字段类型 fallback | 普通说明中文化；`JSON Schema`、`JSON` 保留原文 |
+| 工具事件映射 | `Editing file`、`MCP Tool`、`File Edit` 等 | `constants/tool.ts` 中显示名阶段 3 中文化，legacy key 和图标映射保持兼容 |
+
+### 清单二：必须保留原文的专有名词
+
+以下名称是产品名、协议名、数据源名、文件格式或技术标识，显示层保留原文，只翻译周边普通文本：
+
+| 类型 | 名称 |
+| --- | --- |
+| 项目与能力名 | `ScienceClaw`、`ToolUniverse`、`MCP`、`HTTPS MCP`、`DeepAgents`、`sandbox` |
+| 学术与科学数据源 | `arXiv`、`OpenAlex`、`PubMed`、`Crossref`、`UniProt`、`PDB`、`AlphaFold`、`ChEMBL`、`FAERS`、`ClinicalTrials`、`COD`、`USGS`、`OpenMeteo`、`SIMBAD`、`SDSS`、`NASA`、`OpenML` |
+| 格式与 schema | `PDF`、`DOCX`、`PPTX`、`XLSX`、`Markdown`、`SMILES`、`JSON`、`JSON Schema` |
+| 技术标识 | 根目录 `Tools/*.py` 的函数名、MCP server 名、MCP tool 名、`tool_meta` 内的 `source_type`、`server_name`、`server_slug` |
+
+### 清单三：分类来源字段
+
+当前前端可用字段和阶段 2-3 处理方式如下：
+
+| 来源 | 当前字段 | 处理方式 |
+| --- | --- | --- |
+| ToolUniverse 目录列表 | `TUTool.category`、`TUTool.category_zh`、`TUCategory.name`、`TUCategory.name_zh` | 优先展示 `category_zh`/`name_zh`；缺失时用阶段 2 `toolCategories.ts` 映射；仍无法确定时显示“其他”，不得直接展示普通英文 category |
+| ToolUniverse 详情 | `TUToolSpec.category`、`TUToolSpec.category_zh` | 详情页 badge 同样走中文映射；专有名词保持原文 |
+| External Python Tools | `ExternalToolItem.name`、`description`、`file`、`blocked` | 当前无分类字段；阶段 2-3 暂归“其他”或“文件与执行/技能与工具管理”的 UI 合同，不改变后端结构 |
+| HTTPS MCP tools | `MCPTool.server_name`、`name`、`description`、`enabled`、`input_schema_raw`、`schema_summary` | 当前无中文分类字段；MCP 浏览与设置页只做普通文案中文化，阶段 4 再由 provider 生成 `category_zh` |
+| 工具事件 | `ToolMetaData.name`、`category`、`description`、`mcp`、`source_type`、`server_name`、`server_slug`、`tool_id` | `useTool.ts` 继续优先 `tool_meta`；缺失时保留 legacy `mcp_` fallback；显示名阶段 3 中文化 |
+
+阶段 1 退出结论：
+
+1. Tools/MCP/ToolUniverse 可见英文已按“翻译、保留原文、删除/替换 fallback”归属。
+2. 分类来源已明确为 ToolUniverse 字段优先、前端中文映射兜底、无字段来源暂不新增后端字段。
+3. 本阶段未产生运行逻辑改动，后续只能从阶段 2 的 `toolCategories.ts` 静态合同开始推进。

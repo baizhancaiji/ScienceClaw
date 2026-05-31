@@ -70,7 +70,7 @@
               ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 font-semibold shadow-sm' 
               : 'text-[var(--text-secondary)] hover:bg-gray-50 dark:hover:bg-white/5'">
             <div class="flex items-center justify-between">
-              <span class="truncate text-xs">{{ (cat as any).name_zh || cat.name }}</span>
+              <span class="truncate text-xs">{{ cat.name_zh || cat.name }}</span>
               <span class="text-[10px] tabular-nums font-mono opacity-40 flex-shrink-0">{{ cat.count }}</span>
             </div>
           </button>
@@ -113,7 +113,7 @@
                   <h3 class="text-sm font-semibold text-[var(--text-primary)] truncate group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-indigo-600 transition-all duration-300">
                     {{ tool.name }}
                   </h3>
-                  <span class="inline-block mt-0.5 text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-[var(--text-tertiary)] font-mono">{{ tool.category || 'tool' }}</span>
+                  <span class="inline-block mt-0.5 text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-[var(--text-tertiary)] font-mono">{{ scienceToolCategoryLabel(tool) }}</span>
                 </div>
               </div>
               <p class="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2 min-h-[2.5rem]">
@@ -249,6 +249,12 @@ import { ExternalToolItem } from '../types/response';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import McpToolsTab from '../components/tools/McpToolsTab.vue';
+import {
+  getToolCategoryAliases,
+  getToolCategorySortIndex,
+  mapToolCategoryToZh,
+  type ToolCategoryZh,
+} from '../constants/toolCategories';
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -309,13 +315,26 @@ const getToolGradient = (name: string) => {
 };
 
 const paramCount = (tool: TUTool) => tool.param_count || 0;
+const scienceToolCategoryLabel = (tool: TUTool) => mapToolCategoryToZh(tool.category, tool.category_zh);
+
+const scienceToolMatchesQuery = (tool: TUTool, query: string) => {
+  const categoryZh = scienceToolCategoryLabel(tool);
+  const searchable = [
+    tool.name,
+    tool.description || '',
+    tool.category || '',
+    categoryZh,
+    ...getToolCategoryAliases(categoryZh),
+  ].join(' ').toLowerCase();
+  return searchable.includes(query.toLowerCase());
+};
 
 const filteredScienceTools = computed(() => {
   let list = scienceTools.value;
-  if (selectedCategory.value) list = list.filter(t => t.category === selectedCategory.value);
+  if (selectedCategory.value) list = list.filter(t => scienceToolCategoryLabel(t) === selectedCategory.value);
   if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase();
-    list = list.filter(t => t.name.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q));
+    const q = searchQuery.value.trim();
+    list = list.filter(t => scienceToolMatchesQuery(t, q));
   }
   return list;
 });
@@ -339,14 +358,14 @@ const loadScienceTools = async () => {
     scienceTools.value = res.tools;
     scienceToolsTotal.value = res.total;
     const catCounts: Record<string, number> = {};
-    const catZh: Record<string, string> = {};
     for (const t of res.tools) {
-      const c = t.category || 'other';
+      const c = scienceToolCategoryLabel(t);
       catCounts[c] = (catCounts[c] || 0) + 1;
-      if (t.category_zh) catZh[c] = t.category_zh;
     }
-    scienceCategories.value = Object.entries(catCounts).sort().map(([name, count]) => ({
-      name, count, name_zh: catZh[name] || '',
+    scienceCategories.value = Object.entries(catCounts).sort(([nameA], [nameB]) => {
+      return getToolCategorySortIndex(nameA as ToolCategoryZh) - getToolCategorySortIndex(nameB as ToolCategoryZh);
+    }).map(([name, count]) => ({
+      name, count, name_zh: name,
     }));
   } catch (e) { console.error('Failed to load science tools', e); }
   finally { scienceLoading.value = false; }

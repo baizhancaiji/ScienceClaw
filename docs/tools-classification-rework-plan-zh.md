@@ -684,3 +684,32 @@ npm --prefix ScienceClaw/frontend run build
 1. Tools/MCP/ToolUniverse 可见英文已按“翻译、保留原文、删除/替换 fallback”归属。
 2. 分类来源已明确为 ToolUniverse 字段优先、前端中文映射兜底、无字段来源暂不新增后端字段。
 3. 本阶段未产生运行逻辑改动，后续只能从阶段 2 的 `toolCategories.ts` 静态合同开始推进。
+
+## 阶段 2 实施记录
+
+完成时间：2026-05-31
+
+本阶段落地前端静态分类合同，仍不改变后端数据结构、不改变 Agent 工具暴露面。
+
+已完成：
+
+1. 新增 `ScienceClaw/frontend/src/constants/toolCategories.ts`，固定导出 13 个中文分类、显示顺序、专有名词保留表、中文/英文别名表。
+2. `ToolsPage.vue` 的 Science tab 已使用中文分类合同展示 ToolUniverse 分类 badge 和侧栏分类；原始 `category` 只作为映射输入，不直接展示普通英文类别。
+3. Science tab 本地过滤已纳入中文分类名和别名，可通过“论文”“医学论文”“药物毒性”“PDF 转换”等中文词命中对应分类。
+4. `constants/tool.ts` 中部分工具事件显示名已中文化，并在 `zh.ts` / `en.ts` 补齐反向翻译，保证英文 locale 不直接显示中文 key。
+5. 当前合同已参考 `ScienceClaw/backend/translations/tu_zh.json` 中真实 ToolUniverse category slug，增加 exact alias 和规则词根映射；无法确定时固定落入“其他”。
+
+验证：
+
+```bash
+npm --prefix ScienceClaw/frontend run type-check
+rg -n "医学论文|药物毒性|PDF|论文|pubmed|clinical_trials|cod_crystal|open_meteo|nasa_exoplanet" ScienceClaw/frontend/src/constants/toolCategories.ts
+```
+
+结果：type-check 通过；计划要求的中文检索词和代表性 ToolUniverse category slug 均有明确落点。
+
+阶段 2 退出结论：
+
+1. Tools 页面普通分类展示已收敛到中文分类合同。
+2. 专有名词保留表已落地到前端常量，后续阶段不得生硬翻译这些名词。
+3. 阶段 4 后端 `aliases.py` 必须与 `toolCategories.ts` 的分类名、别名和保留词保持一致。

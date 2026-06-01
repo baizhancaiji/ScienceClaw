@@ -118,3 +118,18 @@ def _default_index_path() -> Path:
     cache_dir = Path(__file__).resolve().parents[3] / "var" / "tool_discovery"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir / "tool_index.sqlite3"
+
+
+_default_service: ToolDiscoveryService | None = None
+
+
+def get_tool_discovery_service() -> ToolDiscoveryService:
+    global _default_service
+    if _default_service is None:
+        _default_service = ToolDiscoveryService()
+    return _default_service
+
+
+def set_tool_discovery_service(service: ToolDiscoveryService | None) -> None:
+    global _default_service
+    _default_service = service

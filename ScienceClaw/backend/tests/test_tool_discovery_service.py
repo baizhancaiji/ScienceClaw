@@ -47,7 +47,7 @@ class FakeProvider:
             tool_ref=tool_ref,
             source_type=self.source_type,
             name=tool_ref.split(":", 1)[1],
-            category_zh=self.category_zh,
+            cat_zh=self.category_zh,
             input_schema={"type": "object", "properties": {"query": {"type": "string"}}},
             provider=self.source_type,
         )
@@ -84,7 +84,7 @@ class ToolDiscoveryServiceTests(unittest.TestCase):
         info = _run(service.get_info("tooluniverse:PubMed_search_articles", "user-1"))
         result = _run(service.run("tooluniverse:PubMed_search_articles", {"query": "CRISPR"}, "user-1"))
 
-        self.assertEqual("学术文献", info.category_zh)
+        self.assertEqual("学术文献", info.cat_zh)
         self.assertTrue(result.ok)
         self.assertEqual({"query": "CRISPR"}, result.result)
 

@@ -113,6 +113,7 @@ class MCPRouteSmokeTests(unittest.TestCase):
         route_paths = {getattr(route, "path", "") for route in app.routes}
 
         self.assertIn("/api/v1/mcp/health", route_paths)
+        self.assertIn("/api/v1/tools/search", route_paths)
         self.assertIn("/health", route_paths)
         self.assertIn("/ready", route_paths)
 

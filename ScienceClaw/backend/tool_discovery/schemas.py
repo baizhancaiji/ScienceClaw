@@ -40,7 +40,7 @@ class ToolSearchRequest(BaseModel):
     query: str = ""
     source_type: ToolSourceType | None = None
     category_zh: str | None = None
-    limit: int = Field(default=5, ge=1, le=30)
+    limit: int = Field(default=5, ge=1, le=10)
     debug: bool = False
 
 
@@ -60,9 +60,10 @@ class ToolInfoResult(BaseModel):
     name: str
     display_name: str = ""
     description: str = ""
-    category_zh: str = "其他"
+    cat_zh: str = "其他"
     input_schema: dict[str, Any] = Field(default_factory=dict)
     examples: list[Any] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
     provider: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 

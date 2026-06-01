@@ -12,7 +12,7 @@ from .schemas import (
     ToolSearchRequest,
     ToolSearchResult,
 )
-from .service import ToolDiscoveryService
+from .service import ToolDiscoveryService, get_tool_discovery_service, set_tool_discovery_service
 
 __all__ = [
     "ToolDiscoveryService",
@@ -22,4 +22,6 @@ __all__ = [
     "ToolRunResult",
     "ToolSearchRequest",
     "ToolSearchResult",
+    "get_tool_discovery_service",
+    "set_tool_discovery_service",
 ]

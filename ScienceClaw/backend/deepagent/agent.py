@@ -39,6 +39,7 @@ from backend.deepagent.tooluniverse_tools import (
     tooluniverse_info,
     tooluniverse_run,
 )
+from backend.deepagent.discovery_tools import tool_search, tool_info, tool_run
 from backend.deepagent.full_sandbox_backend import FullSandboxBackend
 from backend.deepagent.filtered_backend import FilteredFilesystemBackend
 from backend.deepagent.sse_middleware import SSEMonitoringMiddleware
@@ -148,6 +149,14 @@ The sandbox is an isolated execution environment. Scripts running in the sandbox
 
 **Large tool results** are automatically saved to `research_data/` files (raw format). To use them in sandbox scripts: `read_file` the data → write a clean JSON file via a Python script with `json.dump()` → sandbox scripts read that clean file.
 
+## Expandable Tool Discovery
+For large or user-configured tool sources such as ToolUniverse, HTTPS MCP, and external Python tools, use the three-step workflow:
+1. `tool_search(query, source_type?, category_zh?, limit?, debug?)` to get a short candidate list.
+2. `tool_info(tool_ref)` to inspect the single selected tool's schema and examples.
+3. `tool_run(tool_ref, arguments)` with structured JSON arguments only.
+
+Do not request a full tool catalog, do not infer unknown parameters, and keep `debug=False` unless the user explicitly asks to diagnose tool search ranking or missing results.
+
 ## Task Completion Strategy
 
 ### Step 1: Understand & Plan
@@ -254,6 +263,7 @@ def _get_eval_system_prompt(workspace_dir: str, sandbox_env: str | None = None) 
 _STATIC_TOOLS = [
     web_search, web_crawl, propose_skill_save, propose_tool_save,
     eval_skill, grade_eval,
+    tool_search, tool_info, tool_run,
     tooluniverse_search, tooluniverse_info, tooluniverse_run,
 ]
 

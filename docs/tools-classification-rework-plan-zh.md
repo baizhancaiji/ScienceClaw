@@ -636,7 +636,7 @@ npm --prefix ScienceClaw/frontend run build
 
 ## 阶段 1 实施记录
 
-完成时间：2026-05-31
+完成时间：2026-06-01
 
 本阶段只做现状盘点，不改运行逻辑。扫描范围按阶段 1 指定文件执行：`ToolsPage.vue`、`ScienceToolDetail.vue`、`ToolDetailPage.vue`、`components/tools/*`、`components/settings/Mcp*`、`constants/tool.ts`、`useTool.ts`、`api/tooluniverse.ts`、`api/mcp.ts`、`types/event.ts`、`types/response.ts`、`locales/zh.ts`、`locales/en.ts`。
 
@@ -843,3 +843,36 @@ rg -n "embedding|vector|faiss|chromadb|pinecone|milvus|qdrant" ScienceClaw/backe
 
 1. 根据阶段 5 需要接入 `tool_discovery.service` 到统一 API 和 Agent adapter。
 2. 在 API/Agent 接入前继续保持 `_STATIC_TOOLS` 不变，不暴露全量 catalog。
+
+## 阶段 5 实施记录（子增量 1：三段式 adapter 与 API 骨架）
+
+完成时间：2026-05-31
+
+本子增量只新增通用 `tool_search`、`tool_info`、`tool_run` adapter 与 `/api/v1/tools/*` API，不改变 ToolUniverse、MCP、sessions/tools 既有管理接口，不移除兼容 ToolUniverse 三工具。
+
+已完成：
+
+1. 新增 `ScienceClaw/backend/deepagent/discovery_tools.py`，只暴露 `tool_search`、`tool_info`、`tool_run` 三个稳定入口；`tool_run` 只接受 `tool_ref` 和 JSON 对象参数。
+2. 调整 `ScienceClaw/backend/deepagent/agent.py`，`_STATIC_TOOLS` 只新增上述三个通用 adapter，继续保留 `tooluniverse_search`、`tooluniverse_info`、`tooluniverse_run`。
+3. Agent system prompt 已写明扩展工具必须按 `tool_search -> tool_info -> tool_run` 使用，不得请求全量工具目录，不得臆测参数，`debug` 只用于显式诊断。
+4. 新增 `ScienceClaw/backend/route/tools.py` 并在 `main.py` 注册，提供 `POST /api/v1/tools/search`、`GET /api/v1/tools/info/{tool_ref}`、`POST /api/v1/tools/run`。
+5. 新增 `ScienceClaw/frontend/src/api/tools.ts`，只封装统一 tools API；普通调用不默认传 `debug=true`。
+6. 收紧 `ToolSearchRequest.limit` 最大值为 10；`ToolInfoResult` 对外字段使用 `cat_zh`，内部索引项继续使用 `category_zh`。
+
+约束核对：
+
+- 未改变 `/api/v1/tooluniverse/*`、`/api/v1/mcp/*`、`/api/v1/sessions/tools` 管理接口。
+- 未把 ToolUniverse catalog、HTTPS MCP 全量工具、外置 Tools 全量目录注入 Agent；Agent 仅新增三个稳定工具名。
+- `tool_search` 默认响应不包含 `score`、`source_type`、`hit_fields`；只有显式 `debug=true` 才返回诊断字段。
+- `tool_run` 不接收自然语言任务，只接收结构化 JSON arguments。
+
+验证：
+
+```bash
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest ScienceClaw.backend.tests.test_tool_discovery_index ScienceClaw.backend.tests.test_tool_discovery_service ScienceClaw.backend.tests.test_deepagent_discovery_tools ScienceClaw.backend.tests.test_tools_route ScienceClaw.backend.tests.test_mcp_route_smoke
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m compileall -q ScienceClaw/backend/tool_discovery ScienceClaw/backend/deepagent/discovery_tools.py ScienceClaw/backend/route/tools.py ScienceClaw/backend/tests/test_deepagent_discovery_tools.py ScienceClaw/backend/tests/test_tools_route.py
+npm --prefix ScienceClaw/frontend run type-check
+rg -n "embedding|vector|faiss|chromadb|pinecone|milvus|qdrant" ScienceClaw/backend/tool_discovery ScienceClaw/backend/deepagent/discovery_tools.py ScienceClaw/backend/route/tools.py ScienceClaw/backend/tests/test_deepagent_discovery_tools.py ScienceClaw/backend/tests/test_tools_route.py ScienceClaw/frontend/src/api/tools.ts
+```
+
+结果：unittest 通过 22 项；compileall 通过；frontend type-check 通过；禁项扫描无命中。由于本子增量只新增 API 封装和后端 adapter，不改变可见页面，未做浏览器验收。

@@ -18,13 +18,16 @@ Sessions 路由。
 from __future__ import annotations
 
 import asyncio
+import hmac
 import hashlib
 import json
 import os
 import re
+import secrets
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
+from urllib.parse import urlencode
 
 import shutil
 from pathlib import Path as _Path
@@ -33,11 +36,12 @@ import httpx
 import yaml as _yaml
 
 import shortuuid
-from fastapi import APIRouter, HTTPException, Query, Request, Depends, UploadFile, File as FastAPIFile
+from fastapi import APIRouter, HTTPException, Query, Request, Depends, UploadFile, File as FastAPIFile, WebSocket
 from fastapi.responses import FileResponse, Response
 from loguru import logger
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
+from starlette.websockets import WebSocketDisconnect
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -124,9 +128,21 @@ class ChatRequest(BaseModel):
     selected_skill_names: List[str] = Field(default_factory=list, description="User-selected skill names for this chat")
 
 
+class VncSignedUrlRequest(BaseModel):
+    expire_minutes: int = Field(default=15, ge=1, le=120, description="Signed VNC URL lifetime in minutes")
+
+
+class VncSignedUrlData(BaseModel):
+    signed_url: str = Field(..., description="Signed noVNC WebSocket URL")
+    expires_in: int = Field(..., description="Lifetime in seconds")
+
+
 # ═══════════════════════════════════════════════════════════════════
 # 内部辅助函数
 # ═══════════════════════════════════════════════════════════════════
+
+_VNC_SIGNING_SECRET = os.environ.get("VNC_SIGNING_SECRET") or secrets.token_urlsafe(32)
+
 
 def _now_ts() -> int:
     return int(time.time())
@@ -392,8 +408,32 @@ _OPEN_WRITE_RE = re.compile(
 
 def _get_sandbox_rest_base() -> str:
     """Derive sandbox REST base URL from SANDBOX_MCP_URL."""
+    rest_url = os.environ.get("SANDBOX_REST_URL", "").strip()
+    if rest_url:
+        return rest_url.rstrip("/")
     mcp_url = os.environ.get("SANDBOX_MCP_URL", "http://sandbox:8080/mcp")
-    return mcp_url.rsplit("/", 1)[0]
+    return mcp_url.rsplit("/", 1)[0].rstrip("/")
+
+
+def _get_sandbox_vnc_websockify_url() -> str:
+    base = _get_sandbox_rest_base()
+    if base.startswith("https://"):
+        return f"wss://{base.removeprefix('https://')}/websockify"
+    if base.startswith("http://"):
+        return f"ws://{base.removeprefix('http://')}/websockify"
+    return f"ws://{base}/websockify"
+
+
+def _build_vnc_signature(session_id: str, user_id: str, expires_at: int) -> str:
+    payload = f"{session_id}:{user_id}:{expires_at}".encode("utf-8")
+    return hmac.new(_VNC_SIGNING_SECRET.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+
+def _is_valid_vnc_signature(session_id: str, user_id: str, expires_at: int, signature: str) -> bool:
+    if expires_at < _now_ts():
+        return False
+    expected = _build_vnc_signature(session_id, user_id, expires_at)
+    return hmac.compare_digest(expected, signature or "")
 
 
 def _extract_sandbox_file_paths(events: List[Dict[str, Any]]) -> Set[str]:
@@ -1488,6 +1528,108 @@ async def session_notifications(
             await unsubscribe(sub_id)
 
     return EventSourceResponse(event_generator())
+
+
+@router.post("/{session_id}/vnc/signed-url", response_model=ApiResponse)
+async def get_vnc_signed_url(
+    session_id: str,
+    body: VncSignedUrlRequest = VncSignedUrlRequest(),
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    try:
+        session = await async_get_science_session(session_id)
+        if session.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        expires_in = body.expire_minutes * 60
+        expires_at = _now_ts() + expires_in
+        query = urlencode({
+            "expires": str(expires_at),
+            "user_id": current_user.id,
+            "sig": _build_vnc_signature(session_id, current_user.id, expires_at),
+        })
+        signed_url = f"/api/v1/sessions/{session_id}/vnc/ws?{query}"
+        return ApiResponse(data=VncSignedUrlData(
+            signed_url=signed_url,
+            expires_in=expires_in,
+        ).model_dump())
+    except ScienceSessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("get_vnc_signed_url failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.websocket("/{session_id}/vnc/ws")
+async def proxy_vnc_websocket(
+    websocket: WebSocket,
+    session_id: str,
+    expires: int = Query(...),
+    user_id: str = Query(...),
+    sig: str = Query(...),
+) -> None:
+    try:
+        session = await async_get_science_session(session_id)
+        if session.user_id != user_id or not _is_valid_vnc_signature(session_id, user_id, expires, sig):
+            await websocket.close(code=1008)
+            return
+    except ScienceSessionNotFoundError:
+        await websocket.close(code=1008)
+        return
+
+    requested_protocol = websocket.headers.get("sec-websocket-protocol", "")
+    requested_protocols = [p.strip() for p in requested_protocol.split(",")]
+    subprotocol = "binary" if "binary" in requested_protocols else None
+    await websocket.accept(subprotocol=subprotocol)
+
+    try:
+        import websockets
+
+        upstream_url = _get_sandbox_vnc_websockify_url()
+        async with websockets.connect(
+            upstream_url,
+            subprotocols=["binary"] if subprotocol else None,
+            max_size=None,
+        ) as upstream:
+            async def client_to_upstream() -> None:
+                while True:
+                    message = await websocket.receive()
+                    if message.get("type") == "websocket.disconnect":
+                        await upstream.close()
+                        return
+                    if message.get("bytes") is not None:
+                        await upstream.send(message["bytes"])
+                    elif message.get("text") is not None:
+                        await upstream.send(message["text"])
+
+            async def upstream_to_client() -> None:
+                async for message in upstream:
+                    if isinstance(message, bytes):
+                        await websocket.send_bytes(message)
+                    else:
+                        await websocket.send_text(message)
+
+            done, pending = await asyncio.wait(
+                {
+                    asyncio.create_task(client_to_upstream()),
+                    asyncio.create_task(upstream_to_client()),
+                },
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in pending:
+                task.cancel()
+            for task in done:
+                task.result()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.exception("VNC websocket proxy failed")
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass
 
 
 # ═══════════════════════════════════════════════════════════════════

@@ -15,21 +15,23 @@
 
 ### VNC signed URL 接口闭环
 
-- 状态：待确认/待补齐。
+- 状态：已补齐，待可用 session 浏览器 smoke。
 - 来源：前端 TypeScript 修复中发现 `VNCViewer.vue` 已消费 `getVNCUrl()` 返回的 `signed_url`，但当前审查未找到后端 `/sessions/{sessionId}/vnc/signed-url` 路由实现。
 - 关联归档计划：`docs/archive/plans/frontend-typescript-remediation-plan-zh.md`
-- 下一批最小增量：
-  - 搜索并确认后端是否已有等价 VNC 路由或代理入口。
-  - 若不存在，新增最小后端 route/service 合同，返回 `{ signed_url, expires_in }`。
-  - 前端只在必要时补充错误提示，不扩大 VNC UI 范围。
-- 建议验证：
+- 已完成最小增量：
+  - 确认后端此前不存在 `/sessions/{sessionId}/vnc/signed-url` 路由；sandbox 实际 noVNC WebSocket 入口为 `/websockify`。
+  - 在 `ScienceClaw/backend/route/sessions.py` 新增 session 属主校验后的 `POST /sessions/{session_id}/vnc/signed-url`，返回 `{ signed_url, expires_in }`。
+  - 新增 `GET /sessions/{session_id}/vnc/ws` WebSocket 签名校验与 sandbox `/websockify` 代理，避免前端直接裸连 sandbox。
+  - 新增 `ScienceClaw/backend/tests/test_sessions_vnc_route.py` 覆盖认证、属主校验、404 和响应合同。
+- 已验证：
 
 ```powershell
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest ScienceClaw/backend/tests/test_sessions_vnc_route.py
 npm --prefix .\ScienceClaw\frontend run type-check
 npm --prefix .\ScienceClaw\frontend run build
 ```
 
-并在可用 session 下做一次 `?vnc=1` 浏览器 smoke。
+- 剩余手工项：在可用 session 下做一次 `?vnc=1` 浏览器 smoke。
 
 ## 归档记录
 

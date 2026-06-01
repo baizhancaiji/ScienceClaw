@@ -158,6 +158,8 @@ Once the user is satisfied:
 
 When the user wants to modify, improve, or fix an existing tool:
 
+Only root-level `/app/Tools/*.py` files are external Python runtime tools. Do not treat `/app/Skills/*/tools` or `/app/builtin_skills/*/scripts` as runtime tools, and do not scan those folders when looking for tools to upgrade. Skill scripts are workflow resources used by their SKILL.md instructions.
+
 ### Step 1: Identify the Tool
 
 List or read the existing tools to find the one the user wants to upgrade. The existing tools are available at `/app/Tools/` (mounted as the Tools directory). You can:
@@ -388,6 +390,7 @@ def person_total_score(physical_score: int, social_score: int) -> int:
 - **Workspace**: Your workspace directory is provided in the system prompt (e.g., `/home/scienceclaw/{session_id}/`). Use `{workspace_dir}/tools_dev/` for development and `{workspace_dir}/tools_staging/` for final versions.
 - **Sandbox execution**: Both test scripts AND saved `@tool` functions run in the sandbox container. The testing environment IS the production environment. Use absolute paths.
 - **Tools directory**: The permanent Tools directory is at `/app/Tools/`. Never write directly to it — always use `propose_tool_save`.
+- **Runtime tool boundary**: Only `/app/Tools/*.py` files become external Python runtime tools. `Skills/*/tools` and `builtin_skills/*/scripts` are skill resources, not Agent runtime tools.
 - **Hot reload not available**: After a tool is saved to Tools/, it will be available in NEW sessions. The current session uses the tools that were loaded when it started.
 - **`propose_tool_save` tool**: This is the ONLY way to save a tool. It triggers a UI prompt for the user to confirm. The system copies the file from `{workspace_dir}/tools_staging/{tool_name}.py` to `/app/Tools/{tool_name}.py`.
 

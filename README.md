@@ -212,14 +212,18 @@ ScienceClaw integrates **ToolUniverse**, a unified ecosystem of 1,900+ scientifi
 | 📚 **Academic Literature** | Multi-source search (PubMed, arXiv, OpenAlex, Semantic Scholar, DBLP, INSPIRE-HEP, Crossref, DOAJ, CORE) |
 | 🤖 **Data Science & Computing** | HuggingFace models/datasets, OpenML, GitHub repositories, scientific computing software, image processing |
 
-### 🛠️ Four-Layer Tool Architecture
+### 🛠️ Tool Architecture
 
-| Layer | Description | Examples |
+ScienceClaw separates stable core tools from expandable tool sources:
+
+| Type | How it is used | Examples |
 |---|---|---|
-| 🔧 **Built-in Tools** | Core search & crawl capabilities | `web_search`, `web_crawl` |
-| 🧪 **ToolUniverse** | 1,900+ scientific tools, ready to use | UniProt, OpenTargets, FAERS, PDB, ADMET, etc. |
-| 📦 **Sandbox Tools** | File operations & code execution | `read_file`, `write_file`, `execute`, `shell` |
-| 🛠️ **Custom @tool** | User-defined Python functions, hot-loaded from `Tools/` | Your own tools |
+| 🔧 **Core Tools** | Exposed directly to the Agent for frequent stable operations | `web_search`, `web_crawl`, file operations, code execution |
+| 🔎 **Expandable Tool Discovery** | Used on demand through `tool_search` → `tool_info` → `tool_run` | ToolUniverse, HTTPS MCP, external Python Tools |
+| 🧪 **ToolUniverse** | Browsable and searchable catalog; the 1,900+ catalog is not injected directly into the Agent tool list | UniProt, OpenTargets, FAERS, PDB, ADMET, etc. |
+| 🛠️ **Custom @tool** | Only root-level `Tools/*.py` files are external Python runtime tools | Your own tools |
+
+`Skills/*/tools` and `builtin_skills/*/scripts` are workflow resources for skills, not Agent runtime tools. Reusable Python tools should be saved into the root `Tools/` directory through tool-creator.
 
 ### 🎨 Custom Tools
 

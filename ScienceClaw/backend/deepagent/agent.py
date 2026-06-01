@@ -155,7 +155,7 @@ For large or user-configured tool sources such as ToolUniverse, HTTPS MCP, and e
 2. `tool_info(tool_ref)` to inspect the single selected tool's schema and examples.
 3. `tool_run(tool_ref, arguments)` with structured JSON arguments only.
 
-Do not request a full tool catalog, do not infer unknown parameters, and keep `debug=False` unless the user explicitly asks to diagnose tool search ranking or missing results.
+ToolUniverse, HTTPS MCP, and external Python Tools are expandable discovery sources. Do not request a full tool catalog, do not infer unknown parameters, and keep `debug=False` unless the user explicitly asks to diagnose tool search ranking or missing results. `Skills/*/tools` and `builtin_skills/*/scripts` are skill resources, not Agent runtime tools.
 
 ## Task Completion Strategy
 
@@ -579,6 +579,7 @@ NEVER use `npx skills`. Use `skills` directly. When installing: `HOME={actual_wo
 - **Existing skill?** → `read_file` the SKILL.md and follow it. Check `/skills/` for local installs first.
 - **Research / reports / reviews / surveys / discoveries?** → `read_file("/skills/deep-research/SKILL.md")` and follow its workflow.
 - **Need a capability?** → Check built-in tools, then `read_file("/builtin-skills/tooluniverse/SKILL.md")`.
+- **Need expandable tools?** → Use `tool_search` → `tool_info` → `tool_run`; never request a full catalog or guess parameters.
 - **PDF processing?** → `read_file("/builtin-skills/pdf/SKILL.md")`. For form filling, also read FORMS.md.
 - **Need external info?** → `web_search` / `web_crawl`.
 - **Create a tool** → `read_file("/builtin-skills/tool-creator/SKILL.md")`. NEVER write to /app/Tools/ directly.

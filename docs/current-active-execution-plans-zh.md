@@ -1,6 +1,6 @@
 # 当前活跃执行计划台账
 
-更新时间：2026-05-31
+更新时间：2026-06-01
 
 本文档是 ScienceClaw 当前执行计划的唯一滚动入口。新任务进入执行态前先登记到这里；计划完成后从本台账移除，并移动到 `docs/archive/plans/`。
 
@@ -15,13 +15,13 @@
 
 ### Tools 分类探查与重新分类规划
 
-- 状态：规划已收敛为确定路线，待按阶段执行。
+- 状态：阶段 1-5 已完成并提交；当前进入阶段 6 文档、skill 与 Agent 提示收口。
 - 权威文档：`docs/tools-classification-rework-plan-zh.md`
 - 来源：当前优先级是 Tools / MCP / ToolUniverse 页面中文国际化、中文工具分类、Agent 工具暴露面控制，以及非 embedding 的工具快速检索定位。
 - 下一批最小增量：
-  - 盘点 Tools / MCP / ToolUniverse 相关前端页面硬编码英文与中英文混杂分类名。
-  - 落定中文分类表、别名词典和专有名词保留清单。
-  - 先完成前端 i18n 最小改造；后续再落非 embedding 混合检索和通用 `tool_search/info/run`。
+  - README / README_zh 说明基础常用工具直接暴露，扩展工具源走 `tool_search -> tool_info -> tool_run`。
+  - ToolUniverse 与 tool-creator 内置 skill 文案对齐，不列全量工具目录，不把 skill scripts 说成 runtime tools。
+  - Agent 提示词确认禁止请求全量工具目录、禁止臆测参数、默认不打开 debug。
 - 验收要求：ToolUniverse 1,900+ catalog 不进入 Agent tool list；扩展工具源走“检索 -> 获取信息 -> 运行”；检索方案不引入 embedding。
 
 ### VNC signed URL 接口闭环

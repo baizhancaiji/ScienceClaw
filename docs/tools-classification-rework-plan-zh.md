@@ -876,3 +876,38 @@ rg -n "embedding|vector|faiss|chromadb|pinecone|milvus|qdrant" ScienceClaw/backe
 ```
 
 结果：unittest 通过 22 项；compileall 通过；frontend type-check 通过；禁项扫描无命中。由于本子增量只新增 API 封装和后端 adapter，不改变可见页面，未做浏览器验收。
+
+## 阶段 6 实施记录（文档、skill 与提示词收口）
+
+完成时间：2026-06-01
+
+本阶段只同步 README、活跃计划台账、内置 skill 文案和 Agent 提示，不新增运行逻辑，不改变 API，不改变 Agent 工具列表。
+
+已完成：
+
+1. `README_zh.md` / `README.md` 的工具体系说明已改为：基础常用工具直接暴露；ToolUniverse、HTTPS MCP、外置 Python Tools 等扩展工具源通过 `tool_search -> tool_info -> tool_run` 按需使用。
+2. README 已明确 ToolUniverse 是可浏览、可检索目录，1,900+ catalog 不直接注入 Agent tool list。
+3. README 和 `tool-creator` skill 已明确只有根目录 `Tools/*.py` 是外置 Python runtime tools；`Skills/*/tools` 与 `builtin_skills/*/scripts` 是 skill 工作流资源，不作为 runtime tools 扫描。
+4. `tooluniverse` skill 已对齐为优先使用 `tool_search/info/run`，同时保留 `tooluniverse_search/info/run` 兼容流程；文案不再要求或暗示列出全量目录。
+5. Agent system prompt 与 general-purpose 子 agent 提示已补充扩展工具三段式流程、禁止请求全量 catalog、禁止臆测参数、默认不启用 debug 的约束。
+6. `docs/current-active-execution-plans-zh.md` 已更新当前计划状态，指向阶段 6 收口事项。
+
+验证：
+
+```bash
+rg -n "embedding|vector|全量工具|ToolUniverse|tool_search|tool_info|tool_run|Skills/.*/tools|builtin_skills/.*/scripts|Tools/\\*.py" README_zh.md README.md docs ScienceClaw/backend/builtin_skills ScienceClaw/backend/deepagent/agent.py
+rg -n "vector|embedding|faiss|chromadb|pinecone|milvus|qdrant" README_zh.md README.md docs/current-active-execution-plans-zh.md ScienceClaw/backend/builtin_skills/tooluniverse/SKILL.md ScienceClaw/backend/builtin_skills/tool-creator/SKILL.md ScienceClaw/backend/deepagent/agent.py
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest ScienceClaw.backend.tests.test_tool_discovery_index ScienceClaw.backend.tests.test_tool_discovery_service ScienceClaw.backend.tests.test_deepagent_discovery_tools ScienceClaw.backend.tests.test_tools_route ScienceClaw.backend.tests.test_mcp_route_smoke
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m compileall -q ScienceClaw/backend/deepagent/agent.py
+npm --prefix ScienceClaw/frontend run type-check
+npm --prefix ScienceClaw/frontend run build
+```
+
+结果：文档扫描确认新增文案只保留计划允许的关键词与约束说明；更窄的新增文档禁项扫描未命中向量库或 embedding 方案。unittest 通过 22 项；compileall 通过；frontend type-check 通过。`npm --prefix ScienceClaw/frontend run build` 在 Vite 构建完成后失败于既有 Rollup/Vite HTML 资源输出路径问题：`fileName` 收到绝对路径 `D:/trae/ScienceClaw/ScienceClaw/frontend/index.html`；该失败与本阶段文档/提示词改造无关。
+
+阶段 6 退出结论：
+
+1. 文档、UI 计划和 Agent 提示对工具使用路径的描述已一致。
+2. 新用户可以判断何时直接用基础常用工具，何时用 `tool_search/info/run`。
+3. 文档未把 ToolUniverse 1,900+ catalog 描述为直接注入 Agent 的工具列表。
+4. 当前方案仍保持非 embedding 检索，不新增向量数据库、embedding 服务或 embedding SDK。

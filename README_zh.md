@@ -213,14 +213,18 @@ ScienceClaw 集成了 **ToolUniverse**，这是一个涵盖 1,900+ 科研工具�
 | 🤖 **数据科学与计算** | HuggingFace 模型/数据集、OpenML、GitHub 仓库、科学计算软件、图像处理 |
 
 
-### 🛠️ 四层工具架构
+### 🛠️ 工具体系
 
-| 层级 | 说明 | 示例 |
+ScienceClaw 区分基础常用工具和可扩展工具源：
+
+| 类型 | 使用方式 | 示例 |
 |---|---|---|
-| 🔧 **内置工具** | 核心搜索与爬取能力 | `web_search`、`web_crawl` |
-| 🧪 **ToolUniverse** | 1,900+ 科研工具，开箱即用 | UniProt、OpenTargets、FAERS、PDB、ADMET 等 |
-| 📦 **沙箱工具** | 文件操作与代码执行 | `read_file`、`write_file`、`execute`、`shell` |
-| 🛠️ **自定义 @tool** | 用户自定义 Python 函数，放入 `Tools/` 目录自动热加载 | 您自己的工具 |
+| 🔧 **基础常用工具** | 直接暴露给 Agent，用于高频稳定操作 | `web_search`、`web_crawl`、文件读写、代码执行 |
+| 🔎 **扩展工具发现** | 通过 `tool_search` → `tool_info` → `tool_run` 按需使用 | ToolUniverse、HTTPS MCP、外置 Python Tools |
+| 🧪 **ToolUniverse** | 作为可浏览、可检索目录，不把 1,900+ catalog 直接注入 Agent | UniProt、OpenTargets、FAERS、PDB、ADMET 等 |
+| 🛠️ **自定义 @tool** | 只有根目录 `Tools/*.py` 是外置 Python runtime tools | 您自己的工具 |
+
+`Skills/*/tools` 和 `builtin_skills/*/scripts` 是技能工作流资源，不会被当作 Agent runtime tools 扫描。需要长期复用的 Python 工具应通过 tool-creator 保存到根目录 `Tools/`。
 
 ### 🎨 自定义工具
 

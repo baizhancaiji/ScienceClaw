@@ -1,17 +1,22 @@
 <template>
-  <Teleport to="body">
-    <Transition name="drawer">
-      <div v-if="open" class="fixed inset-0 z-[9999] flex justify-end">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="$emit('close')"></div>
-        <aside class="relative flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl dark:bg-gray-900">
+  <DialogRoot :open="open" @update:open="handleOpenChange">
+    <DialogPortal>
+      <DialogOverlay class="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm" />
+      <DialogContent as-child>
+        <aside class="fixed inset-y-0 right-0 z-[10000] flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl dark:bg-gray-900">
           <header class="border-b border-gray-100 bg-gray-50/70 px-6 py-4 dark:border-gray-800 dark:bg-gray-800/30">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="text-[11px] font-semibold uppercase tracking-wide text-blue-500">{{ t('HTTPS MCP server') }}</p>
-                <h3 class="mt-1 flex items-center gap-2 text-lg font-bold text-gray-800 dark:text-gray-100">
-                  <Server class="size-5 text-blue-500" />
+                <DialogTitle as-child>
+                  <h3 class="mt-1 flex items-center gap-2 text-lg font-bold text-gray-800 dark:text-gray-100">
+                    <Server class="size-5 text-blue-500" />
+                    {{ editing ? t('Edit MCP Server') : t('Add MCP Server') }}
+                  </h3>
+                </DialogTitle>
+                <DialogDescription class="sr-only">
                   {{ editing ? t('Edit MCP Server') : t('Add MCP Server') }}
-                </h3>
+                </DialogDescription>
               </div>
               <button
                 type="button"
@@ -137,15 +142,23 @@
             </div>
           </footer>
         </aside>
-      </div>
-    </Transition>
-  </Teleport>
+      </DialogContent>
+    </DialogPortal>
+  </DialogRoot>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Loader2, Server, X } from 'lucide-vue-next';
+import {
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+} from 'reka-ui';
 import type { MCPAuthMode } from '@/api/mcp';
 import McpHeaderEditor, { type MCPHeaderForm } from './McpHeaderEditor.vue';
 
@@ -209,26 +222,10 @@ const forwardHeaderUpdate = (index: number, field: 'name' | 'value', value: stri
 const emitUpdate = (field: keyof MCPServerForm, value: string | boolean) => {
   emit('update-field', field, value);
 };
+
+const handleOpenChange = (open: boolean) => {
+  if (!open) {
+    emit('close');
+  }
+};
 </script>
-
-<style scoped>
-.drawer-enter-active,
-.drawer-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.drawer-enter-active aside,
-.drawer-leave-active aside {
-  transition: transform 0.22s ease;
-}
-
-.drawer-enter-from,
-.drawer-leave-to {
-  opacity: 0;
-}
-
-.drawer-enter-from aside,
-.drawer-leave-to aside {
-  transform: translateX(24px);
-}
-</style>

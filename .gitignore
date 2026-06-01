@@ -90,6 +90,7 @@ Desktop.ini
 .pytest_cache
 .cursor
 .trae
+.workbuddy/
 workspace
 .plan
 sync-to-huawei-swr-docker.sh

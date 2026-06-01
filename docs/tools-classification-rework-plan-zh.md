@@ -808,3 +808,38 @@ rg -n "Error loading file|Failed to load tool source|Browser action|Terminal ses
 2. ToolUniverse 分类展示已走中文分类合同，普通 category 不直接以英文 fallback 展示。
 3. 工具事件显示映射已有中英文 locale 落点；专有名词、真实工具名、URL、JSON/JSON Schema、MCP/HTTPS MCP 保留原文。
 4. 后续按计划进入阶段 4：后端 `tool_discovery` 非 embedding 索引最小实现。
+
+## 阶段 4 实施记录（子增量 1：tool_discovery 核心索引包）
+
+完成时间：2026-05-31
+
+本子增量只新增后端 `tool_discovery` 核心包和单元测试，不注册 HTTP API，不修改 `_STATIC_TOOLS`，不改变 Agent 工具暴露面，不引入 embedding、向量数据库或新依赖。
+
+已完成：
+
+1. 新增 `ScienceClaw/backend/tool_discovery/schemas.py`，定义 `ToolIndexItem`、`ToolSearchRequest`、`ToolSearchResult`、`ToolInfoResult`、`ToolRunRequest`、`ToolRunResult` 等 schema；内部字段使用 `category_zh`，搜索响应使用 `cat_zh`。
+2. 新增 `aliases.py`，后端中文分类、别名、同义词和专有名词保留表与前端 `toolCategories.ts` 保持同一套分类语义。
+3. 新增 `providers.py`，定义 provider 协议，并实现 ToolUniverse、HTTPS MCP、External Python Tools 三类 provider；External provider 只通过现有根目录 `Tools/*.py` 热加载入口读取，不递归扫描 skill scripts。
+4. 新增 `index_store.py`，使用 SQLite FTS5 建可重建索引，支持结构化过滤、中文别名扩展、FTS 召回和规则重排。
+5. 新增 `service.py`，编排 provider、索引重建、`search/info/run` 分发；默认索引文件固定在 `var/tool_discovery/tool_index.sqlite3`，该目录被 `.gitignore` 忽略，只作为运行时缓存，不作为权威数据源。
+6. 新增 `test_tool_discovery_index.py`、`test_tool_discovery_service.py`，覆盖 FTS5 可用性、中文别名搜索、`PDF 转换` 搜索、三类 source_type、默认响应不带 debug 字段、显式 debug 才返回诊断字段、`info/run` 按 `tool_ref` prefix 分发。
+
+验证：
+
+```bash
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest ScienceClaw.backend.tests.test_tool_discovery_index ScienceClaw.backend.tests.test_tool_discovery_service
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -c "import sqlite3; conn=sqlite3.connect(':memory:'); conn.execute('CREATE VIRTUAL TABLE x USING fts5(name)'); print('fts5_ok')"
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m compileall -q ScienceClaw/backend/tool_discovery ScienceClaw/backend/tests/test_tool_discovery_index.py ScienceClaw/backend/tests/test_tool_discovery_service.py
+PYTHONPATH=ScienceClaw PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -c "from backend.tool_discovery.service import ToolDiscoveryService; svc=ToolDiscoveryService(providers=[]); print(svc.index_store.db_path); svc.index_store.close()"
+git check-ignore -v var/tool_discovery/tool_index.sqlite3
+rg -n "embedding|vector|faiss|chromadb|pinecone|milvus|qdrant" ScienceClaw/backend/tool_discovery ScienceClaw/backend/tests/test_tool_discovery_index.py ScienceClaw/backend/tests/test_tool_discovery_service.py
+```
+
+结果：unittest 通过 7 项；FTS5 探针输出 `fts5_ok`；compileall 通过；默认索引路径确认为 `D:\trae\ScienceClaw\var\tool_discovery\tool_index.sqlite3`；`git check-ignore` 确认 `var/` 忽略该缓存文件；新增代码和测试未命中 embedding/向量数据库关键词。
+
+说明：计划中的 pytest 命令在当前 `D:\conda\envs\scienceclaw` 环境下失败，原因是该环境未安装 `pytest`（`No module named pytest`）。本仓库后端测试现有风格以 `unittest` 为主，因此本子增量采用等价的 `python -m unittest` 路径完成验证。
+
+阶段 4 后续子增量：
+
+1. 根据阶段 5 需要接入 `tool_discovery.service` 到统一 API 和 Agent adapter。
+2. 在 API/Agent 接入前继续保持 `_STATIC_TOOLS` 不变，不暴露全量 catalog。

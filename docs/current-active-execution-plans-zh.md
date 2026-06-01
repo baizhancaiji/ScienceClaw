@@ -13,17 +13,6 @@
 
 ## 活跃计划
 
-### Tools 分类探查与重新分类规划
-
-- 状态：阶段 1-5 已完成并提交；当前进入阶段 6 文档、skill 与 Agent 提示收口。
-- 权威文档：`docs/tools-classification-rework-plan-zh.md`
-- 来源：当前优先级是 Tools / MCP / ToolUniverse 页面中文国际化、中文工具分类、Agent 工具暴露面控制，以及非 embedding 的工具快速检索定位。
-- 下一批最小增量：
-  - README / README_zh 说明基础常用工具直接暴露，扩展工具源走 `tool_search -> tool_info -> tool_run`。
-  - ToolUniverse 与 tool-creator 内置 skill 文案对齐，不列全量工具目录，不把 skill scripts 说成 runtime tools。
-  - Agent 提示词确认禁止请求全量工具目录、禁止臆测参数、默认不打开 debug。
-- 验收要求：ToolUniverse 1,900+ catalog 不进入 Agent tool list；扩展工具源走“检索 -> 获取信息 -> 运行”；检索方案不引入 embedding。
-
 ### VNC signed URL 接口闭环
 
 - 状态：待确认/待补齐。
@@ -46,6 +35,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 | 计划文档 | 归档原因 | 后续事项 |
 | --- | --- | --- |
+| `docs/archive/plans/tools-classification-rework-plan-zh.md` | Tools / MCP / ToolUniverse 中文分类治理、非 embedding 工具发现索引、三段式 adapter/API、README/skill/Agent 提示收口已完成并逐步提交。 | `npm --prefix ScienceClaw/frontend run build` 仍受既有 Vite/Rollup 绝对路径 `fileName` 问题影响；后续若要修复构建链路，应新建独立计划。 |
 | `docs/archive/plans/mcp-https-integration-completion-audit-zh.md` | 第三方 HTTPS MCP 接入第 0-5 批已完成；第 5 批联调和完成审计均已有提交证据。 | 残余未测项和累积警告已记录；后续若加强 live LLM chat/SSE 或前端自动化测试，应新建独立计划。 |
 | `docs/archive/plans/frontend-typescript-remediation-plan-zh.md` | 已完成主要目标：`vue-tsc` 从 63 条错误收敛到 0，生产构建通过。 | VNC 后端 signed URL 路由仍需单独闭环，已登记为活跃计划。 |
 

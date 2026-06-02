@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 1 已完成首个代码增量；下一批次为批次 2「前端自动化测试基座」。
+- 状态：批次 2 已完成；下一批次为批次 3「Task Service 客户端整理」。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -45,12 +45,16 @@ npm --prefix .\ScienceClaw\frontend run build
   - 新增 `ScienceClaw/task-service/app/auth.py`，按主后端 `user_sessions` session-id 合同解析 bearer token。
   - `tasks.py` 和 `webhooks.py` 按普通用户 owner 过滤；管理员 `role=admin` 保留全量可见能力。
   - 新增 `ScienceClaw/task-service/tests/test_auth_isolation.py`，覆盖未授权、普通用户跨用户 404、管理员全量列表、创建时 owner 写入。
+  - 新增 Vitest 前端测试基座：`ScienceClaw/frontend/vitest.config.ts`、`test`/`test:run`/`test:coverage` 脚本、`happy-dom` 环境和 V8 coverage provider。
+  - 首批前端测试覆盖 `content.ts`、`fileType.ts`、`useSessionSearch.ts`，共 12 个单元测试；测试样例不依赖 Pinia 或未落地架构。
 - 下一批最小增量：
-  - 批次 2「前端自动化测试基座」：新增 Vitest 最小基座和首批稳定工具/组合式函数测试。
+  - 批次 3「Task Service 客户端整理」：新建共享 task-service API client，统一 `/task-service` base URL、超时、token 注入和错误映射，让 `tasks.ts` 与 `webhooks.ts` 复用同一边界。
 - 验收命令：
 
 ```bash
 PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest discover -s ScienceClaw/task-service/tests -t ScienceClaw/task-service
+npm --prefix ScienceClaw/frontend run test:run
+npm --prefix ScienceClaw/frontend run test:coverage
 npm --prefix ScienceClaw/frontend run type-check
 npm --prefix ScienceClaw/frontend run build
 gitnexus detect-changes

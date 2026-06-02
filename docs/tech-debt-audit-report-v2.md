@@ -172,6 +172,13 @@ npm --prefix ScienceClaw/frontend run build
 - `type-check` 和 `build` 保持通过。
 - 测试样例不依赖尚未存在的 Pinia store 或未落地架构。
 
+**执行记录**
+
+- 2026-06-02 已新增 `ScienceClaw/frontend/vitest.config.ts`，测试环境为 `happy-dom`，coverage provider 为 `v8`，未引入 `jsdom`。
+- 已新增 `test`、`test:run`、`test:coverage` 脚本；coverage 产物目录 `coverage/` 已加入 `.gitignore`。
+- 首批测试覆盖 `ScienceClaw/frontend/src/utils/content.ts`、`ScienceClaw/frontend/src/utils/fileType.ts`、`ScienceClaw/frontend/src/composables/useSessionSearch.ts`，共 12 个测试；task-service 客户端错误映射留到批次 3 共享 client 落地时覆盖。
+- 已验证 `npm --prefix ScienceClaw/frontend run test:run`、`test:coverage`、`type-check`、`build` 均通过。
+
 ---
 
 ### 批次 3：Task Service 客户端整理

@@ -99,28 +99,31 @@
                   </label>
                   <p v-if="info.description" class="text-xs text-[var(--text-tertiary)] mb-2 leading-relaxed">{{ info.description }}</p>
                   
-                  <select v-if="info.enum" v-model="formValues[name]" class="form-input">
+                  <select v-if="info.enum" :value="getTextInputValue(name)" class="form-input" @change="onTextInput(name, $event)">
                     <option value="">{{ t('Select...') }}</option>
                     <option v-for="opt in info.enum" :key="opt" :value="opt">{{ opt }}</option>
                   </select>
 
                   <div v-else-if="info.type === 'boolean'" class="flex items-center gap-3">
-                    <button @click="formValues[name] = !formValues[name]"
+                    <button @click="toggleBooleanInput(name)"
                       class="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 shadow-inner"
-                      :class="formValues[name] ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gray-200 dark:bg-gray-700'">
+                      :class="getBooleanInputValue(name) ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gray-200 dark:bg-gray-700'">
                       <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 shadow-md"
-                        :class="formValues[name] ? 'translate-x-6' : 'translate-x-1'"></span>
+                        :class="getBooleanInputValue(name) ? 'translate-x-6' : 'translate-x-1'"></span>
                     </button>
-                    <span class="text-xs text-[var(--text-tertiary)] font-mono">{{ formValues[name] }}</span>
+                    <span class="text-xs text-[var(--text-tertiary)] font-mono">{{ getBooleanInputValue(name) }}</span>
                   </div>
 
                   <input v-else-if="info.type === 'integer' || info.type === 'number'" 
-                    v-model.number="formValues[name]" type="number" class="form-input" :placeholder="t('Enter field', { name })">
+                    :value="getNumberInputValue(name)" type="number" class="form-input" :placeholder="t('Enter field', { name })"
+                    @input="onNumberInput(name, $event)">
 
-                  <textarea v-else-if="info.type === 'array'" v-model="formValues[name]"
-                    class="form-input font-mono" rows="2" :placeholder='`["value1", "value2"]`'></textarea>
+                  <textarea v-else-if="info.type === 'array'" :value="getTextInputValue(name)"
+                    class="form-input font-mono" rows="2" :placeholder='`["value1", "value2"]`'
+                    @input="onTextInput(name, $event)"></textarea>
 
-                  <input v-else v-model="formValues[name]" type="text" class="form-input" :placeholder="t('Enter field', { name })">
+                  <input v-else :value="getTextInputValue(name)" type="text" class="form-input" :placeholder="t('Enter field', { name })"
+                    @input="onTextInput(name, $event)">
                 </div>
               </div>
 
@@ -262,6 +265,7 @@ import { useI18n } from 'vue-i18n';
 import { ArrowLeft, Play, Terminal } from 'lucide-vue-next';
 import { getTUToolSpec, runTUTool, TUToolSpec } from '../api/tooluniverse';
 import { mapToolCategoryToZh } from '../constants/toolCategories';
+import type { JsonObject, JsonValue } from '../types/json';
 
 const { t, locale } = useI18n();
 
@@ -272,9 +276,9 @@ const toolName = decodeURIComponent(route.params.toolName as string);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const spec = ref<TUToolSpec | null>(null);
-const formValues = reactive<Record<string, any>>({});
+const formValues = reactive<Record<string, JsonValue | undefined>>({});
 const running = ref(false);
-const resultData = ref<any>(null);
+const resultData = ref<unknown>(null);
 const resultError = ref<string | null>(null);
 const execTime = ref<number | null>(null);
 const copied = ref(false);
@@ -282,8 +286,10 @@ const resultView = ref<'table' | 'json'>('table');
 const showSchema = ref(false);
 const specCategoryLabel = computed(() => mapToolCategoryToZh(spec.value?.category, spec.value?.category_zh));
 
-const isArrayResult = computed(() => Array.isArray(resultData.value) && resultData.value.length > 0 && typeof resultData.value[0] === 'object');
-const resultArray = computed(() => isArrayResult.value ? resultData.value as Record<string, any>[] : []);
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+const isArrayResult = computed(() => Array.isArray(resultData.value) && resultData.value.length > 0 && isRecord(resultData.value[0]));
+const resultArray = computed(() => isArrayResult.value ? resultData.value as Record<string, unknown>[] : []);
 const tableColumns = computed(() => {
   if (!isArrayResult.value) return [];
   const cols = new Set<string>();
@@ -292,7 +298,7 @@ const tableColumns = computed(() => {
   }
   return Array.from(cols);
 });
-const formatCell = (val: any) => {
+const formatCell = (val: unknown) => {
   if (val === null || val === undefined) return '-';
   if (typeof val === 'object') return JSON.stringify(val).slice(0, 80);
   return String(val);
@@ -335,12 +341,74 @@ const loadSpec = async () => {
 onMounted(loadSpec);
 watch(locale, loadSpec);
 
-const buildArgs = (): Record<string, any> => {
-  const args: Record<string, any> = {};
+const getTextInputValue = (name: string): string => {
+  const value = formValues[name];
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
+};
+
+const getNumberInputValue = (name: string): string | number => {
+  const value = formValues[name];
+  if (typeof value === 'number' || typeof value === 'string') return value;
+  return '';
+};
+
+const getBooleanInputValue = (name: string): boolean => formValues[name] === true;
+
+const onTextInput = (name: string, event: Event) => {
+  formValues[name] = (event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
+};
+
+const onNumberInput = (name: string, event: Event) => {
+  const rawValue = (event.target as HTMLInputElement).value;
+  formValues[name] = rawValue === '' ? undefined : Number(rawValue);
+};
+
+const toggleBooleanInput = (name: string) => {
+  formValues[name] = !getBooleanInputValue(name);
+};
+
+const toJsonValue = (value: unknown): JsonValue | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    const items = value
+      .map((item) => toJsonValue(item))
+      .filter((item): item is JsonValue => item !== undefined);
+    return items;
+  }
+  if (typeof value === 'object') {
+    const record: JsonObject = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      const jsonEntry = toJsonValue(entry);
+      if (jsonEntry !== undefined) record[key] = jsonEntry;
+    }
+    return record;
+  }
+  return String(value);
+};
+
+const parseJsonInput = (value: string): JsonValue | undefined => {
+  try {
+    return toJsonValue(JSON.parse(value));
+  } catch {
+    return value;
+  }
+};
+
+const buildArgs = (): Record<string, JsonValue> => {
+  const args: Record<string, JsonValue> = {};
   for (const [name, info] of paramEntries.value) {
     const val = formValues[name];
     if (val === undefined || val === null || val === '') continue;
-    if (info.type === 'array' && typeof val === 'string') { try { args[name] = JSON.parse(val); } catch { args[name] = val; } }
+    if (info.type === 'array' && typeof val === 'string') {
+      const parsed = parseJsonInput(val);
+      if (parsed !== undefined) args[name] = parsed;
+    }
     else if ((info.type === 'integer' || info.type === 'number') && typeof val === 'string') args[name] = Number(val);
     else args[name] = val;
   }
@@ -359,7 +427,7 @@ const runTool = async () => {
   finally { running.value = false; }
 };
 
-const applyExample = (ex: Record<string, any>) => {
+const applyExample = (ex: JsonObject) => {
   const paramNames = new Set(paramEntries.value.map(([n]) => n));
   for (const [k, v] of Object.entries(ex)) {
     if (paramNames.has(k)) {

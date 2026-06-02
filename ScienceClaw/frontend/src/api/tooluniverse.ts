@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import { i18n } from '../composables/useI18n';
+import type { JsonObject, JsonValue } from '../types/json';
 
 function _lang(): string {
   return i18n.global.locale.value || 'en';
@@ -29,8 +30,8 @@ export interface TUToolSpec {
     }>;
     required?: string[];
   };
-  test_examples: Record<string, any>[];
-  return_schema: any;
+  test_examples: JsonObject[];
+  return_schema: unknown;
   category: string;
   category_zh?: string;
   source_file: string;
@@ -61,9 +62,9 @@ export async function getTUToolSpec(toolName: string): Promise<TUToolSpec> {
   return resp.data;
 }
 
-export async function runTUTool(toolName: string, args: Record<string, any>): Promise<{
+export async function runTUTool(toolName: string, args: Record<string, JsonValue>): Promise<{
   success: boolean;
-  result: any;
+  result: unknown;
 }> {
   const resp = await apiClient.post(`/tooluniverse/tools/${encodeURIComponent(toolName)}/run`, {
     arguments: args,

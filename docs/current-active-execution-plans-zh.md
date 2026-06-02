@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 3 已完成；下一批次为批次 4「核心类型边界收紧」。
+- 状态：批次 4「核心类型边界收紧」第一段协议边界增量已完成；下一批最小增量为 Axios refresh queue 类型收紧。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -50,8 +50,12 @@ npm --prefix .\ScienceClaw\frontend run build
   - 新增 `ScienceClaw/frontend/src/api/taskClient.ts`，统一 task-service 的 `/task-service` base URL、30s timeout、bearer token 注入、401 logout 事件和错误映射。
   - `tasks.ts` 与 `webhooks.ts` 已复用共享 `taskClient`；既有导出函数和响应解包保持不变，`tooluniverse.ts` 未修改。
   - 新增 `ScienceClaw/frontend/src/api/taskClient.spec.ts`，覆盖 base URL、token header、显式 Authorization 不覆盖、错误映射、401 清 token 和 `auth:logout`。
+  - 新增 `ScienceClaw/frontend/src/types/json.ts`，定义递归 `JsonValue`/`JsonObject` 类型和 `isJsonObject` narrowing。
+  - `tooluniverse.ts` 已将工具参数收紧为 `Record<string, JsonValue>`，工具结果和 `return_schema` 收紧为 `unknown`；保持 `return resp.data` 后端裸业务对象解包不变。
+  - `ScienceToolDetail.vue` 已在视图层 narrow `unknown` 结果，并用显式输入 getter/setter 维护 DOM 表单值与 JSON 参数边界。
+  - 新增 `json.spec.ts` 与 `tooluniverse.spec.ts`，覆盖嵌套对象、数组、`null` 参数透传，以及 ToolUniverse 列表响应不额外 unwrap。
 - 下一批最小增量：
-  - 批次 4「核心类型边界收紧」：先定义共享 JSON/unknown 类型边界，优先治理工具参数、工具结果和 Axios refresh queue 类型，不做全仓机械替换。
+  - 批次 4 后续段：为 `ScienceClaw/frontend/src/api/client.ts` 的 Axios refresh queue 定义明确 queue item 类型，继续避免全仓机械替换。
 - 验收命令：
 
 ```bash

@@ -1,5 +1,6 @@
 // Backend API client configuration
 import axios, { AxiosError } from 'axios';
+import type { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { fetchEventSource, EventSourceMessage } from '@microsoft/fetch-event-source';
 import { router } from '@/main';
 import { clearStoredTokens, getStoredToken, getStoredRefreshToken, storeToken } from './auth';
@@ -55,11 +56,25 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+type RefreshQueueItem = {
+  resolve: (token: string | null) => void;
+  reject: (error: unknown) => void;
+};
+
+type RefreshRequestConfig = AxiosRequestConfig & {
+  __isRefreshRequest: true;
+};
+
+type RetryableRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+  __isRefreshRequest?: boolean;
+};
+
 // Track if we're currently refreshing token to prevent multiple concurrent requests
 let isRefreshing = false;
-let failedQueue: any[] = [];
+let failedQueue: RefreshQueueItem[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) {
       reject(error);
@@ -113,12 +128,12 @@ const refreshAuthToken = async (): Promise<string | null> => {
 
   try {
     // Attempt to refresh token
+    const refreshRequestConfig: RefreshRequestConfig = {
+      __isRefreshRequest: true
+    };
     const response = await apiClient.post('/auth/refresh', {
       refresh_token: refreshToken
-    }, {
-      // Add special marker to prevent interceptor from retrying this request
-      __isRefreshRequest: true
-    } as any);
+    }, refreshRequestConfig);
     
     if (response.data && response.data.data) {
       const newAccessToken = response.data.data.access_token;
@@ -171,10 +186,10 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as RetryableRequestConfig | undefined;
     
     // Skip retry logic for refresh requests to prevent infinite loops
-    if (originalRequest.__isRefreshRequest) {
+    if (originalRequest?.__isRefreshRequest) {
       const apiError: ApiError = {
         code: error.response?.status || 500,
         message: 'Token refresh failed',
@@ -185,7 +200,7 @@ apiClient.interceptors.response.use(
     }
     
     // Handle 401 Unauthorized errors with token refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
@@ -392,4 +407,4 @@ export const createSSEConnection = async <T = any>(
   return () => {
     abortController.abort();
   };
-}; 
+};

@@ -238,7 +238,9 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - `frontend/src/api/tooluniverse.ts` 已将工具参数收紧为 `Record<string, JsonValue>`，将工具结果和 `return_schema` 收紧为 `unknown`；`return resp.data` 保持不变。
 - `ScienceToolDetail.vue` 在视图层处理 `unknown` 工具结果，并用显式输入 getter/setter 避免把完整 `JsonValue` 直接绑定到 DOM 输入。
 - 新增 `json.spec.ts` 与 `tooluniverse.spec.ts`，覆盖嵌套对象、数组、`null` 参数，以及 ToolUniverse 裸业务对象响应不额外 unwrap。
-- `ToolContent`/`ToolEventData` 的消息协议类型影响面为 HIGH，未纳入本最小增量；下一段优先处理 Axios refresh queue item 类型。
+- 第二段 Axios refresh queue 增量已完成：`frontend/src/api/client.ts` 已定义 refresh queue item、refresh request marker 和 retryable request config 类型，移除该队列上的宽泛 `any`。
+- 新增 `client.spec.ts`，覆盖两个并发 401 请求只触发一次 refresh，并在队列释放后使用新 token 重试。
+- `ToolContent`/`ToolEventData` 的消息协议类型影响面为 HIGH，未纳入本最小增量；下一段先补调用点测试或缩小 adapter 边界，再决定是否替换 `any`。
 
 ---
 
@@ -404,4 +406,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3，以及批次 4 第一段 ToolUniverse JSON/unknown 协议边界增量；下一批最小增量为 Axios refresh queue 类型收紧。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3，以及批次 4 的 ToolUniverse JSON/unknown 边界和 Axios refresh queue 类型收紧；下一批最小增量为 `ToolContent`/`ToolEventData` 消息协议类型边界评估与测试设计。

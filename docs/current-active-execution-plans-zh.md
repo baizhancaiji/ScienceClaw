@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 4「核心类型边界收紧」第一段协议边界增量已完成；下一批最小增量为 Axios refresh queue 类型收紧。
+- 状态：批次 4「核心类型边界收紧」已完成 ToolUniverse JSON/unknown 边界和 Axios refresh queue 类型收紧；下一批最小增量为消息协议类型边界评估与测试设计。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -54,8 +54,10 @@ npm --prefix .\ScienceClaw\frontend run build
   - `tooluniverse.ts` 已将工具参数收紧为 `Record<string, JsonValue>`，工具结果和 `return_schema` 收紧为 `unknown`；保持 `return resp.data` 后端裸业务对象解包不变。
   - `ScienceToolDetail.vue` 已在视图层 narrow `unknown` 结果，并用显式输入 getter/setter 维护 DOM 表单值与 JSON 参数边界。
   - 新增 `json.spec.ts` 与 `tooluniverse.spec.ts`，覆盖嵌套对象、数组、`null` 参数透传，以及 ToolUniverse 列表响应不额外 unwrap。
+  - `ScienceClaw/frontend/src/api/client.ts` 已为 refresh queue、refresh request marker 和 retryable request config 定义显式类型，移除该队列上的宽泛 `any`。
+  - 新增 `ScienceClaw/frontend/src/api/client.spec.ts`，覆盖两个并发 401 请求只触发一次 refresh，并在队列释放后用新 token 重试。
 - 下一批最小增量：
-  - 批次 4 后续段：为 `ScienceClaw/frontend/src/api/client.ts` 的 Axios refresh queue 定义明确 queue item 类型，继续避免全仓机械替换。
+  - 批次 4 后续段：评估 `ToolContent`/`ToolEventData` 消息协议边界的 HIGH 影响面，先补调用点测试或缩小 adapter 边界，再决定是否替换 `any`。
 - 验收命令：
 
 ```bash

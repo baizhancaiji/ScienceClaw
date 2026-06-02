@@ -181,6 +181,7 @@ import { formatMarkdown } from '../utils/markdownFormatter';
 import MarkdownEnhancements from './MarkdownEnhancements.vue';
 import { useFilePanel } from '../composables/useFilePanel';
 import { parseChatMessageContent } from '../utils/chatMessageContent';
+import { renderMarkdownLink } from '../utils/markdownRenderer';
 
 import RobotAvatar from './icons/RobotAvatar.vue';
 
@@ -493,41 +494,7 @@ renderer.code = function(token: { text: string; lang?: string } | string, langua
 // 自定义链接渲染 - 在新标签页打开外部链接
 // marked.js v15+ 使用 token 对象，兼容新旧 API
 renderer.link = function(token: { href: string; title?: string | null; text: string } | string, title?: string | null, text?: string) {
-  let href: string;
-  let linkTitle: string | null | undefined;
-  let linkText = '';
-
-  try {
-    if (typeof token === 'object' && token !== null) {
-      // marked.js v15+ API - token 对象
-      href = token.href ?? '#';
-      linkTitle = token.title;
-      linkText = token.text ?? '';
-    } else if (typeof token === 'string') {
-      // 旧版 API - 字符串参数
-      href = token || '#';
-      linkTitle = title;
-      linkText = text || '';
-    } else {
-      href = '#';
-      linkTitle = null;
-      linkText = '';
-    }
-
-    // 安全检查 href
-    if (!href || typeof href !== 'string') {
-      href = '#';
-    }
-  } catch (e) {
-    console.error('[Markdown] Link render error:', e);
-    href = '#';
-    linkText = linkText || '';
-  }
-
-  const isExternal = href.startsWith('http://') || href.startsWith('https://');
-  const titleAttr = linkTitle ? ` title="${linkTitle}"` : '';
-  const targetAttr = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
-  return `<a href="${href}"${titleAttr}${targetAttr}>${linkText}</a>`;
+  return renderMarkdownLink(token, title, text);
 };
 
 // 配置 marked

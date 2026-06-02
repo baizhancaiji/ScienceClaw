@@ -4,7 +4,10 @@ import {
   escapeCodeForCopyAttribute,
   getCodeBlockLayout,
   normalizeMarkdownCodeToken,
+  postprocessMath,
+  preprocessMath,
   renderHighlightedCodeBlock,
+  renderKaTeX,
   renderMermaidError,
   renderMermaidPlaceholder,
   renderMarkdownLink,
@@ -136,5 +139,46 @@ describe('renderMermaidError', () => {
     expect(html).toContain('class="mermaid-error"');
     expect(html).toContain('<span>图表渲染失败</span>');
     expect(html).toContain('<pre class="mermaid-raw-code">graph TD; A-->B;</pre>');
+  });
+});
+
+describe('renderKaTeX', () => {
+  it('renders display math with the existing KaTeX options', () => {
+    const html = renderKaTeX('a+b', true);
+
+    expect(html).toContain('class="katex-display"');
+    expect(html).toContain('a');
+    expect(html).toContain('b');
+  });
+});
+
+describe('preprocessMath', () => {
+  const createId = (() => {
+    let counter = 0;
+    return (kind: 'block' | 'inline') => `MATH_${kind.toUpperCase()}_${counter++}`;
+  });
+
+  it('replaces block and inline formulas with generated placeholders', () => {
+    const nextId = createId();
+    const result = preprocessMath('Block $$a+b$$ and inline $x_1$.', nextId);
+
+    expect(result.text).toBe('Block MATH_BLOCK_0 and inline MATH_INLINE_1.');
+    expect(result.mathBlocks.get('MATH_BLOCK_0')).toContain('<div class="katex-display">');
+    expect(result.mathBlocks.get('MATH_INLINE_1')).toContain('<span class="katex-inline">');
+  });
+
+  it('preserves text that does not look like math', () => {
+    const result = preprocessMath('Cost is $100 and $$ok$$ stays.', createId());
+
+    expect(result.text).toBe('Cost is $100 and $$ok$$ stays.');
+    expect(result.mathBlocks.size).toBe(0);
+  });
+});
+
+describe('postprocessMath', () => {
+  it('restores math placeholder HTML', () => {
+    const blocks = new Map([['MATH_INLINE_1', '<span class="katex-inline">x</span>']]);
+
+    expect(postprocessMath('Value MATH_INLINE_1.', blocks)).toBe('Value <span class="katex-inline">x</span>.');
   });
 });

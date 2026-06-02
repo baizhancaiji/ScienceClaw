@@ -1,3 +1,5 @@
+import katex from 'katex';
+
 export interface MarkedLinkToken {
   href?: string;
   title?: string | null;
@@ -33,6 +35,15 @@ export interface MermaidPlaceholderOptions {
   id: string;
   code: string;
 }
+
+export type MathPlaceholderKind = 'block' | 'inline';
+
+export interface PreprocessMathResult {
+  text: string;
+  mathBlocks: Map<string, string>;
+}
+
+export type CreateMathPlaceholderId = (kind: MathPlaceholderKind) => string;
 
 export const normalizeMarkdownCodeToken = (
   token: MarkedCodeToken | string,
@@ -139,6 +150,114 @@ export const renderMermaidError = (code: string): string => (
           </div>
           <pre class="mermaid-raw-code">${code}</pre>`
 );
+
+export const renderKaTeX = (formula: string, displayMode: boolean = false): string => {
+  try {
+    return katex.renderToString(formula, {
+      displayMode,
+      throwOnError: false,
+      output: 'html',
+      strict: false,
+      trust: true,
+    });
+  } catch (e) {
+    console.warn('KaTeX render error:', e);
+    // 返回原始公式作为后备
+    return displayMode
+      ? `<div class="katex-error">$$${formula}$$</div>`
+      : `<span class="katex-error">$${formula}$</span>`;
+  }
+};
+
+export const preprocessMath = (
+  text: string,
+  createPlaceholderId: CreateMathPlaceholderId,
+): PreprocessMathResult => {
+  const mathBlocks = new Map<string, string>();
+  let result = text;
+
+  try {
+    // 处理块级公式 $$...$$
+    // 只匹配多行或包含数学符号的内容
+    result = result.replace(/\$\$([\s\S]+?)\$\$/g, (_, formula) => {
+      const trimmed = formula.trim();
+      // 检查是否像数学公式
+      const hasMathChars = /[\^\\\_\/\+\-\=\<\>\(\)\[\]\{\}]/.test(trimmed);
+      const hasGreekLetters = /alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|omega/i.test(trimmed);
+
+      if (!hasMathChars && !hasGreekLetters && trimmed.length < 3) {
+        // 不像数学公式，保留原样
+        return `$$${formula}$$`;
+      }
+
+      const id = createPlaceholderId('block');
+      const rendered = renderKaTeX(trimmed, true);
+      mathBlocks.set(id, `<div class="katex-display">${rendered}</div>`);
+      console.log('[KaTeX] Block formula:', trimmed.substring(0, 50));
+      return id;
+    });
+
+    // 处理行内公式 $...$
+    // 严格匹配：必须是合理的数学表达式
+    result = result.replace(/\$([^\$\n]+?)\$/g, (fullMatch, formula) => {
+      const trimmed = formula.trim();
+
+      // 排除条件：
+      // 1. 内容为空
+      // 2. 只包含数字（货币符号如 $100）
+      // 3. 包含 Markdown 语法字符
+      // 4. 长度太短且不含数学符号
+      if (!trimmed || /^\d+(\.\d+)?$/.test(trimmed)) {
+        return fullMatch; // 货币符号，保留原样
+      }
+      if (trimmed.includes('**') || trimmed.includes('__') || trimmed.includes('##')) {
+        return fullMatch; // Markdown 语法，保留原样
+      }
+      if (trimmed.length < 2 && !/[\^\\\_]/.test(trimmed)) {
+        return fullMatch; // 太短且不是数学符号
+      }
+
+      // 检查是否像数学公式
+      const hasMathChars = /[\^\\\_\/\+\-\=\<\>\(\)\[\]\{\}]/.test(trimmed);
+      const hasGreekLetters = /alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|omega|infty|frac|sqrt/i.test(trimmed);
+      const hasSubscript = /[a-zA-Z]_[a-zA-Z0-9]/.test(trimmed);
+
+      if (!hasMathChars && !hasGreekLetters && !hasSubscript) {
+        // 不像数学公式，保留原样
+        return fullMatch;
+      }
+
+      const id = createPlaceholderId('inline');
+      try {
+        const rendered = renderKaTeX(trimmed, false);
+        mathBlocks.set(id, `<span class="katex-inline">${rendered}</span>`);
+        console.log('[KaTeX] Inline formula:', trimmed.substring(0, 30));
+        return id;
+      } catch (e) {
+        console.warn('[KaTeX] Failed to render:', trimmed);
+        return fullMatch; // 渲染失败，保留原样
+      }
+    });
+
+    if (mathBlocks.size > 0) {
+      console.log('[KaTeX] Preprocessed', mathBlocks.size, 'formulas');
+    }
+  } catch (e) {
+    console.error('[KaTeX] Preprocess error:', e);
+    // 返回原始文本
+    return { text: text, mathBlocks: new Map() };
+  }
+
+  return { text: result, mathBlocks };
+};
+
+export const postprocessMath = (text: string, mathBlocks: Map<string, string>): string => {
+  let result = text;
+  mathBlocks.forEach((html, id) => {
+    result = result.replace(id, html);
+  });
+  return result;
+};
 
 export const renderMarkdownLink = (
   token: MarkedLinkToken | string,

@@ -379,6 +379,15 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - `npm --prefix ScienceClaw/frontend run format:check` 可执行。
 - 新增代码不扩大 lint 问题。
 
+**执行记录**
+
+- 已选择 ESLint 9 flat config：新增 `frontend/eslint.config.js`，组合 `@eslint/js`、`typescript-eslint`、`eslint-plugin-vue` 和 `eslint-config-prettier`，忽略 `dist`、`coverage`、`node_modules`。
+- `prettier` 和 `@types/dompurify` 已从 runtime dependencies 移到 devDependencies；新增 devDependencies 包括 ESLint 9、Vue/TypeScript flat config 所需插件、`globals` 和 `eslint-config-prettier`。
+- 已新增 `lint` 与 `format:check` 脚本；当前 `format:check` 只覆盖本批新增/变更入口 `eslint.config.js` 与 `package.json`，避免对 244 个既有未格式化文件生成机械 diff。
+- 暂不引入 Husky 和 lint-staged；暂不新增 `lint:fix` 脚本。
+- `npm --prefix ScienceClaw/frontend run lint` 已可执行并通过，当前 baseline 为 0 error/42 warning；`npm --prefix ScienceClaw/frontend run format:check` 已可执行并通过。
+- `lint:fix` 机械范围已用 dry-run 评估：在 `ScienceClaw/frontend` 目录运行 `npm exec eslint -- "src/**/*.{ts,vue}" "*.config.ts" --fix-dry-run` 退出 0，dry-run 后仍剩 26 个 warning；本批不执行写入式 fix。
+
 ---
 
 ### 批次 9：Pinia 适用性评估
@@ -457,4 +466,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu、`chat-message-renderer.css` 表格/kbd surface-border 和 code block 控件色值的稳定 token 迁移，且全量验证已通过；下一批进入批次 8。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu、`chat-message-renderer.css` 表格/kbd surface-border 和 code block 控件色值的稳定 token 迁移，且全量验证已通过；批次 8 已建立 ESLint/Prettier baseline；下一批进入批次 9。

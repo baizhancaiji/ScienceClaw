@@ -274,7 +274,13 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 新增 `activitySnapshot.spec.ts`，覆盖 activity list 浅拷贝、plan 深拷贝和空 plan。
 - 第四段 pending-tool 关联 helper 增量已完成：新增 `frontend/src/utils/pendingTools.ts`，将 ChatPage/SharePage 重复的 pending-tool 关联规则抽成明确输入/输出的局部 mutation helper。
 - 新增 `pendingTools.spec.ts`，覆盖 pending tool 关联、重复 tool 跳过、未解析 pending id 清空，以及缺失 `tools` 列表初始化。
-- 以上增量不改变 SSE 连接、消息 append、Plan 工具关联或 UI 分支；下一段进入批次 6，优先提取 `ChatMessage.vue` Markdown renderer helper。
+- 以上增量不改变 SSE 连接、消息 append、Plan 工具关联或 UI 分支。
+
+批次 6 执行记录：
+
+- 第一段 parse-content helper 增量已完成：新增 `frontend/src/utils/chatMessageContent.ts`，将 `ChatMessage.vue` 的 rendered HTML/special viewer/suggested questions 拆分规则抽成 helper。
+- 新增 `chatMessageContent.spec.ts`，覆盖 HTML 合并、suggested questions 提取、special viewer source 转换和空内容回退。
+- 该增量不改变 Markdown 渲染、数学公式、Mermaid、代码块复制、消息展示或附件分支；下一段继续优先提取 Markdown renderer 内部纯 helper。
 
 ---
 
@@ -420,4 +426,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」，以及批次 5 的 `smartMerge`、pending-tool 目标步骤选择、Activity snapshot 和 pending-tool 关联四段纯函数/helper 提取；下一批最小增量进入批次 6，优先提取 `ChatMessage.vue` Markdown renderer helper。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content helper 提取；下一批最小增量继续提取 Markdown renderer 内部纯 helper。

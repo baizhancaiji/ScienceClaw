@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 5 `ChatPage.vue` 渐进拆分已完成四段纯函数/helper 增量；下一批最小增量进入批次 6，先提取 `ChatMessage.vue` Markdown renderer helper。
+- 状态：批次 6 `ChatMessage.vue` 渐进拆分已完成第一段 parse-content helper；下一批最小增量继续提取 Markdown renderer 内部纯 helper。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -67,8 +67,10 @@ npm --prefix .\ScienceClaw\frontend run build
   - 新增 `activitySnapshot.spec.ts`，覆盖 activity list 浅拷贝、plan 深拷贝和空 plan。
   - 新增 `ScienceClaw/frontend/src/utils/pendingTools.ts`，将 ChatPage/SharePage 重复的 pending-tool 关联规则抽成明确输入/输出的局部 mutation helper。
   - 新增 `pendingTools.spec.ts`，覆盖 pending tool 关联、重复 tool 跳过、未解析 pending id 清空，以及缺失 `tools` 列表初始化。
+  - 新增 `ScienceClaw/frontend/src/utils/chatMessageContent.ts`，将 `ChatMessage.vue` 的 rendered HTML/special viewer/suggested questions 拆分规则抽成 helper。
+  - 新增 `chatMessageContent.spec.ts`，覆盖 HTML 合并、suggested questions 提取、special viewer source 转换和空内容回退。
 - 下一批最小增量：
-  - 批次 6 第一段：从 `ChatMessage.vue` 提取 Markdown renderer helper；优先保留现有渲染输出和代码块复制接线，配套单元测试，不改变消息展示、数学公式、Mermaid 或附件分支。
+  - 批次 6 后续段：继续从 `ChatMessage.vue` 提取 Markdown renderer 内部纯 helper；优先保留现有渲染输出和代码块复制接线，配套单元测试，不改变消息展示、数学公式、Mermaid 或附件分支。
 - 验收命令：
 
 ```bash

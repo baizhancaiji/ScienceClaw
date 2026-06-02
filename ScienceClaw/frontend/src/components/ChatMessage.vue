@@ -180,6 +180,7 @@ import { transformSrc, domPurifyConfig } from '../utils/content';
 import { formatMarkdown } from '../utils/markdownFormatter';
 import MarkdownEnhancements from './MarkdownEnhancements.vue';
 import { useFilePanel } from '../composables/useFilePanel';
+import { parseChatMessageContent } from '../utils/chatMessageContent';
 
 import RobotAvatar from './icons/RobotAvatar.vue';
 
@@ -799,120 +800,10 @@ onMounted(() => {
   });
 });
 
-// 解析内容
-const parseContent = (markdown: string) => {
-  // Extract suggested questions
-  const questions: string[] = [];
-  const suggestionRegex = /<suggested_questions>([\s\S]*?)<\/suggested_questions>/;
-  const match = markdown.match(suggestionRegex);
-
-  let contentToRender = markdown;
-
-  if (match) {
-    const questionsXml = match[1];
-    const qRegex = /<question>(.*?)<\/question>/g;
-    let qMatch;
-    while ((qMatch = qRegex.exec(questionsXml)) !== null) {
-      questions.push(qMatch[1].trim());
-    }
-    contentToRender = markdown.replace(suggestionRegex, '');
-  }
-
-  // 渲染 Markdown
-  const html = renderMarkdown(contentToRender);
-
-  // 解析 HTML
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(`<body>${html}</body>`, 'text/html');
-  const body = doc.body;
-
-  interface Part {
-    type: string;
-    content?: string;
-    src?: string;
-    alt?: string;
-    questions?: string[];
-  }
-
-  const escapeHtml = (text: string) => {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  };
-
-  const processNode = (node: Node): Part[] => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent || '';
-      if (!text.trim()) return [];
-      return [{ type: 'html', content: escapeHtml(text) }];
-    }
-
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as HTMLElement;
-      const tagName = el.tagName.toLowerCase();
-
-      // 特殊组件
-      if (tagName === 'molecule-viewer') {
-        return [{ type: 'molecule', src: transformSrc(el.getAttribute('src') || '') }];
-      }
-      if (tagName === 'html-viewer') {
-        return [{ type: 'html-file', src: transformSrc(el.getAttribute('src') || '') }];
-      }
-      if (tagName === 'img') {
-        return [{ type: 'image', src: transformSrc(el.getAttribute('src') || ''), alt: el.getAttribute('alt') || '' }];
-      }
-
-      // 处理子节点
-      let childParts: Part[] = [];
-      node.childNodes.forEach(child => {
-        childParts = childParts.concat(processNode(child));
-      });
-
-      const hasSpecialComponent = childParts.some(p => p.type !== 'html');
-
-      if (hasSpecialComponent) {
-        return childParts;
-      } else {
-        return [{ type: 'html', content: el.outerHTML }];
-      }
-    }
-
-    return [];
-  };
-
-  // 处理所有节点
-  let rawParts: Part[] = [];
-  body.childNodes.forEach(node => {
-    rawParts = rawParts.concat(processNode(node));
-  });
-
-  // 合并相邻的 HTML 部分
-  const mergedParts: Part[] = [];
-  let currentHtmlContent = '';
-
-  rawParts.forEach(part => {
-    if (part.type === 'html') {
-      currentHtmlContent += part.content || '';
-    } else {
-      if (currentHtmlContent) {
-        mergedParts.push({ type: 'html', content: currentHtmlContent });
-        currentHtmlContent = '';
-      }
-      mergedParts.push(part);
-    }
-  });
-
-  if (currentHtmlContent) {
-    mergedParts.push({ type: 'html', content: currentHtmlContent });
-  }
-
-  // 添加建议问题
-  if (questions.length > 0) {
-    mergedParts.push({ type: 'questions', questions });
-  }
-
-  return mergedParts.length > 0 ? mergedParts : [{ type: 'html', content: '' }];
-};
+const parseContent = (markdown: string) => parseChatMessageContent(markdown, {
+  renderMarkdown,
+  transformSrc,
+});
 </script>
 
 <style>

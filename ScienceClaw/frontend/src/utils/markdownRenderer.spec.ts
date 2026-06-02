@@ -5,6 +5,8 @@ import {
   getCodeBlockLayout,
   normalizeMarkdownCodeToken,
   renderHighlightedCodeBlock,
+  renderMermaidError,
+  renderMermaidPlaceholder,
   renderMarkdownLink,
 } from './markdownRenderer';
 
@@ -109,5 +111,30 @@ describe('renderHighlightedCodeBlock', () => {
     expect(html).toContain('code-block-wrapper code-block-collapsed');
     expect(html).toContain('class="code-block-expand"');
     expect(html).toContain('点击展开全部 21 行代码');
+  });
+});
+
+describe('renderMermaidPlaceholder', () => {
+  it('renders the existing mermaid loading placeholder', () => {
+    const html = renderMermaidPlaceholder({
+      id: 'mermaid-1',
+      code: 'graph TD; A-->B;',
+    });
+
+    expect(html).toContain('class="mermaid-wrapper"');
+    expect(html).toContain('data-mermaid-id="mermaid-1"');
+    expect(html).toContain('data-mermaid-code="graph%20TD%3B%20A--%3EB%3B"');
+    expect(html).toContain('<span>正在渲染图表...</span>');
+    expect(html).toContain('<div class="mermaid-content" id="mermaid-1"></div>');
+  });
+});
+
+describe('renderMermaidError', () => {
+  it('renders the existing mermaid error content with raw code', () => {
+    const html = renderMermaidError('graph TD; A-->B;');
+
+    expect(html).toContain('class="mermaid-error"');
+    expect(html).toContain('<span>图表渲染失败</span>');
+    expect(html).toContain('<pre class="mermaid-raw-code">graph TD; A-->B;</pre>');
   });
 });

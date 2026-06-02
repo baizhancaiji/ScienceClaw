@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 10 依赖升级已完成；本施工单登记的批次 1-10 已全部完成，剩余只保留独立 major migration 候选项。
+- 状态：批次 10 依赖升级已完成；2026-06-02 批次 6 composable 补施工已完成并复验，本施工单登记的批次 1-10 已全部完成。剩余只保留独立 major migration 候选项，需另行建计划处理。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -87,6 +87,9 @@ npm --prefix .\ScienceClaw\frontend run build
   - 新增 `MessageFooter.spec.ts`，覆盖反馈/复制/文件数/统计信息渲染，以及 like/dislike、copy、convertToPdf、showFiles 事件透传。
   - 将 `MessageFooter.vue` 所需的 `.msg-footer-*`、`.msg-action-*`、`.msg-stat-*` 和对应移动端规则从 `ChatMessage.vue` 大样式块迁入 `MessageFooter.vue`。
   - 新增 `ScienceClaw/frontend/src/assets/chat-message-renderer.css`，将 `.markdown-content` 下的 Markdown、code block、KaTeX、Mermaid 和移动端表格样式从 `ChatMessage.vue` 外置到独立样式文件；`ChatMessage.vue` 只保留组件入场动画和搜索命中动画。
+  - 2026-06-02 复核更正：原批次 6 执行记录已移回 `tech-debt-audit-report-v2.md` 的批次 6 章节内部；复核发现施工项 1-3 的 composable 缺口后，已补齐 `ScienceClaw/frontend/src/composables/useMarkdownRenderer.ts`、`useMathRenderer.ts`、`useMermaidRenderer.ts`。
+  - 批次 6 补施工已将 marked/highlight/DOMPurify 渲染接线、KaTeX 预/后处理、Mermaid 缓存/动态加载/DOM 扫描/生命周期触发从 `ChatMessage.vue` 移入 composable；`ChatMessage.vue` 只保留 UI 状态、点击处理和 composable 接线。
+  - 新增 `useMarkdownRenderer.spec.ts`、`useMathRenderer.spec.ts`、`useMermaidRenderer.spec.ts`，覆盖 Markdown 渲染接线、公式 composable 边界、Mermaid placeholder id、动态加载/渲染和无 wrapper 跳过加载。
   - `ScienceClaw/frontend/src/assets/theme.css` 已新增 chat renderer 专用 code、diagram、semantic-state token；`chat-message-renderer.css` 已将稳定的 inline code、code block、Mermaid、KaTeX error 和删除线错误态颜色迁移到 token，品牌/实验性渐变暂不混入全局语义层。
   - `MarkdownEnhancements.vue` 的 code fullscreen overlay/header/border/control/success/error 颜色已复用 chat renderer code 与 semantic-state token；`type-check`、build 和 Node CSS token smoke 已通过。
   - Codex App in-app browser 当前返回 `iab` unavailable，Playwright 临时包在 PowerShell/npx 下无法解析 `playwright` 模块；本段 smoke 使用 Node 校验 light/dark 各 11 个 token、无缺失引用和无旧硬编码残留。

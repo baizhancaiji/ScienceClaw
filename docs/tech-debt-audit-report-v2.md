@@ -84,7 +84,7 @@ PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest <te
 | 3 | Task Service 客户端整理 | P1 | 批次 1 合同明确，批次 2 提供测试基线 | tasks/webhooks 共用客户端 |
 | 4 | 核心类型边界收紧 | P1 | 批次 2 完成 | 协议边界减少宽泛 `any` |
 | 5 | `ChatPage.vue` 渐进拆分 | P2 | 批次 2 和 4 完成相关前置 | 纯函数/helper 已抽出并测试 |
-| 6 | `ChatMessage.vue` 渐进拆分 | P2 | 批次 2 完成 | renderer 边界拆出并 smoke |
+| 6 | `ChatMessage.vue` 渐进拆分 | P2 | 批次 2 完成 | renderer/composable/style/footer 已拆出并验证 |
 | 7 | 颜色 token 分层治理 | P2 | 批次 2 完成 | light/dark 截图或浏览器 smoke 通过 |
 | 8 | ESLint 和 Prettier 基线 | P2 | 批次 2 完成 | lint/format check 可运行 |
 | 9 | Pinia 适用性评估 | P3 | 共享状态继续扩张或测试暴露问题 | 得出迁移/不迁移结论 |
@@ -276,7 +276,27 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 新增 `pendingTools.spec.ts`，覆盖 pending tool 关联、重复 tool 跳过、未解析 pending id 清空，以及缺失 `tools` 列表初始化。
 - 以上增量不改变 SSE 连接、消息 append、Plan 工具关联或 UI 分支。
 
-批次 6 执行记录：
+---
+
+### 批次 6：`ChatMessage.vue` 渐进拆分
+
+**目的**：把 Markdown、数学公式、Mermaid、代码块复制等 renderer 复杂度移出单文件组件。
+
+**施工项**
+
+1. 提取 `useMarkdownRenderer.ts`。
+2. 提取 `useMathRenderer.ts`。
+3. 提取 `useMermaidRenderer.ts`。
+4. 提取 `MessageFooter.vue`。
+5. 将 800 行以上样式拆成独立样式文件或明确分区。
+
+**验收**
+
+- Markdown、KaTeX、Mermaid、代码块复制、附件显示行为保持不变。
+- Mermaid 仍保持动态加载，不引入首屏无谓加载。
+- `ChatMessage` chunk 变化被记录，但不把 chunk 大小作为唯一验收指标。
+
+**执行记录**
 
 - 第一段 parse-content helper 增量已完成：新增 `frontend/src/utils/chatMessageContent.ts`，将 `ChatMessage.vue` 的 rendered HTML/special viewer/suggested questions 拆分规则抽成 helper。
 - 新增 `chatMessageContent.spec.ts`，覆盖 HTML 合并、suggested questions 提取、special viewer source 转换和空内容回退。
@@ -298,27 +318,16 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 新增 `MessageFooter.spec.ts`，覆盖反馈/复制/文件数/统计信息渲染，以及 like/dislike、copy、convertToPdf、showFiles 事件透传。
 - 第十段 footer style 增量已完成：将 `MessageFooter.vue` 所需的 `.msg-footer-*`、`.msg-action-*`、`.msg-stat-*` 和对应移动端规则从 `ChatMessage.vue` 大样式块迁入 `MessageFooter.vue`。
 - 第十一段 renderer style 增量已完成：新增 `frontend/src/assets/chat-message-renderer.css`，将 `.markdown-content` 下的 Markdown、code block、KaTeX、Mermaid 和移动端表格样式从 `ChatMessage.vue` 外置到独立样式文件；`ChatMessage.vue` 保留组件入场动画和搜索命中动画。
-- 以上增量不改变 Markdown 渲染、数学公式、Mermaid 动态 import/初始化/缓存/渲染、代码块复制、消息展示或附件分支；批次 6 已完成，下一批进入批次 7 颜色 token 分层治理。
+- 2026-06-02 补施工增量已完成：新增 `frontend/src/composables/useMathRenderer.ts`，将公式预处理和公式占位符回填接线从 `ChatMessage.vue` 移出。
+- 新增 `frontend/src/composables/useMarkdownRenderer.ts`，将 marked renderer、highlight.js 语言注册、代码块 HTML、Mermaid placeholder、link renderer、Markdown format、KaTeX 预/后处理和 DOMPurify sanitize 接线集中为 composable。
+- 新增 `frontend/src/composables/useMermaidRenderer.ts`，将 Mermaid 缓存、占位符 id、动态 import/初始化、`.mermaid-wrapper` DOM 扫描、异步 SVG 渲染，以及 `watch`/`onMounted` 触发从 `ChatMessage.vue` 移出。
+- `ChatMessage.vue` 现在只通过 `useMermaidRenderer` 获取 `createMermaidPlaceholderId`，再传给 `useMarkdownRenderer`；组件内不再直接持有 Mermaid 缓存、计数器、marked renderer、highlight.js 语言注册或 Mermaid DOM 扫描逻辑。
+- 新增 `useMathRenderer.spec.ts`、`useMarkdownRenderer.spec.ts`、`useMermaidRenderer.spec.ts`，覆盖公式 composable 边界、Markdown 渲染接线、Mermaid placeholder id、Mermaid 动态加载/渲染和无 wrapper 跳过加载。
 
----
+**复核与补齐记录**
 
-### 批次 6：`ChatMessage.vue` 渐进拆分
-
-**目的**：把 Markdown、数学公式、Mermaid、代码块复制等 renderer 复杂度移出单文件组件。
-
-**施工项**
-
-1. 提取 `useMarkdownRenderer.ts`。
-2. 提取 `useMathRenderer.ts`。
-3. 提取 `useMermaidRenderer.ts`。
-4. 提取 `MessageFooter.vue`。
-5. 将 800 行以上样式拆成独立样式文件或明确分区。
-
-**验收**
-
-- Markdown、KaTeX、Mermaid、代码块复制、附件显示行为保持不变。
-- Mermaid 仍保持动态加载，不引入首屏无谓加载。
-- `ChatMessage` chunk 变化被记录，但不把 chunk 大小作为唯一验收指标。
+- 2026-06-02 复核曾确认原执行记录错位，且施工项 1-3 的 composable 未落地；本次补施工已补齐 `useMarkdownRenderer.ts`、`useMathRenderer.ts`、`useMermaidRenderer.ts`。
+- 验证已通过：`npm run test:run -- useMarkdownRenderer.spec.ts useMathRenderer.spec.ts useMermaidRenderer.spec.ts markdownRenderer.spec.ts chatMessageContent.spec.ts MessageFooter.spec.ts`、`npm run type-check`、`npm run test:run`、`npm run build`。全量前端测试为 19 个测试文件、77 个用例通过；build 输出中 `mermaid.core` 仍为独立 chunk，Mermaid 动态加载要求保持成立。
 
 ---
 
@@ -497,4 +506,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu、`chat-message-renderer.css` 表格/kbd surface-border 和 code block 控件色值的稳定 token 迁移，且全量验证已通过；批次 8 已建立 ESLint/Prettier baseline；批次 9 已完成 Pinia 适用性评估且决策为暂不迁移；批次 10 已完成 Browserslist 更新、当前主版本内依赖安全/patch/minor 升级和 major migration 拆分记录。本施工单批次 1-10 已全部完成。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口、renderer style 外置和 `useMarkdownRenderer.ts`、`useMathRenderer.ts`、`useMermaidRenderer.ts` 补施工；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu、`chat-message-renderer.css` 表格/kbd surface-border 和 code block 控件色值的稳定 token 迁移，且全量验证已通过；批次 8 已建立 ESLint/Prettier baseline；批次 9 已完成 Pinia 适用性评估且决策为暂不迁移；批次 10 已完成 Browserslist 更新、当前主版本内依赖安全/patch/minor 升级和 major migration 拆分记录。本施工单登记的批次 1-10 已完成；剩余依赖债务按独立 major migration 计划处理。

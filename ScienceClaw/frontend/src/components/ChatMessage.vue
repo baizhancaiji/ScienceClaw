@@ -3,22 +3,52 @@
     v-if="message.type === 'user'"
     :data-message-key="messageKey"
     :data-message-keys="messageKeysAttr"
-    :class="['msg-enter-right flex w-full flex-col items-end justify-end gap-1 group mt-4', messageFlashClass]"
+    :class="[
+      'msg-enter-right flex w-full flex-col items-end justify-end gap-1 group mt-4',
+      messageFlashClass,
+    ]"
   >
     <div class="flex items-end mb-0.5">
-      <div class="transition-opacity duration-200 text-[11px] text-[var(--text-tertiary)] opacity-40 group-hover:opacity-100 tabular-nums">
+      <div
+        class="transition-opacity duration-200 text-[11px] text-[var(--text-tertiary)] opacity-40 group-hover:opacity-100 tabular-nums"
+      >
         {{ relativeTime(message.content.timestamp) }}
       </div>
     </div>
     <div class="flex max-w-[85%] relative flex-col gap-2 items-end">
       <div
-        class="relative flex flex-col items-center rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-3.5 ltr:rounded-br-sm rtl:rounded-bl-sm shadow-lg shadow-blue-500/15">
-        <template v-for="(part, index) in parseContent(messageContent.content)" :key="index">
-          <div v-if="part.type === 'html'" v-html="part.content" class="w-full text-white/95 [&_a]:text-white [&_a]:underline [&_code]:bg-white/20 [&_code]:rounded [&_code]:px-1"></div>
-          <molecule-viewer v-else-if="part.type === 'molecule'" :src="part.src || ''" class="w-full my-2" />
-          <image-viewer v-else-if="part.type === 'image'" :src="part.src || ''" :alt="part.alt" class="w-full my-2" />
-          <html-viewer v-else-if="part.type === 'html-file'" :src="part.src || ''" class="w-full my-2" />
-          <suggested-questions v-else-if="part.type === 'questions'" :questions="part.questions || []" @click="emit('suggestionClick', $event)" />
+        class="relative flex flex-col items-center rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-3.5 ltr:rounded-br-sm rtl:rounded-bl-sm shadow-lg shadow-blue-500/15"
+      >
+        <template
+          v-for="(part, index) in parseContent(messageContent.content)"
+          :key="index"
+        >
+          <div
+            v-if="part.type === 'html'"
+            v-html="part.content"
+            class="w-full text-white/95 [&_a]:text-white [&_a]:underline [&_code]:bg-white/20 [&_code]:rounded [&_code]:px-1"
+          ></div>
+          <molecule-viewer
+            v-else-if="part.type === 'molecule'"
+            :src="part.src || ''"
+            class="w-full my-2"
+          />
+          <image-viewer
+            v-else-if="part.type === 'image'"
+            :src="part.src || ''"
+            :alt="part.alt"
+            class="w-full my-2"
+          />
+          <html-viewer
+            v-else-if="part.type === 'html-file'"
+            :src="part.src || ''"
+            class="w-full my-2"
+          />
+          <suggested-questions
+            v-else-if="part.type === 'questions'"
+            :questions="part.questions || []"
+            @click="emit('suggestionClick', $event)"
+          />
         </template>
       </div>
     </div>
@@ -27,36 +57,72 @@
     v-else-if="message.type === 'assistant'"
     :data-message-key="messageKey"
     :data-message-keys="messageKeysAttr"
-    :class="['msg-enter-left flex flex-col gap-2 w-full group mt-3', messageFlashClass]"
+    :class="[
+      'msg-enter-left flex flex-col gap-2 w-full group mt-3',
+      messageFlashClass,
+    ]"
   >
     <!-- Header: avatar + name + time -->
     <div class="flex items-center justify-between h-7">
       <div class="flex items-center gap-2">
-        <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 via-red-500 to-amber-500 p-[3px] shadow-sm">
-          <div class="w-full h-full rounded-[5px] bg-white dark:bg-[#1e1e1e] flex items-center justify-center overflow-hidden">
+        <div
+          class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 via-red-500 to-amber-500 p-[3px] shadow-sm"
+        >
+          <div
+            class="w-full h-full rounded-[5px] bg-white dark:bg-[#1e1e1e] flex items-center justify-center overflow-hidden"
+          >
             <RobotAvatar class="w-full h-full" :interactive="false" />
           </div>
         </div>
-        <span class="font-sans font-bold text-xs bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-red-500 to-amber-500">{{ botName }}</span>
+        <span
+          class="font-sans font-bold text-xs bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-red-500 to-amber-500"
+          >{{ botName }}</span
+        >
       </div>
-      <div class="transition-opacity duration-200 text-[11px] text-[var(--text-tertiary)] opacity-40 group-hover:opacity-100 tabular-nums">
+      <div
+        class="transition-opacity duration-200 text-[11px] text-[var(--text-tertiary)] opacity-40 group-hover:opacity-100 tabular-nums"
+      >
         {{ relativeTime(message.content.timestamp) }}
       </div>
     </div>
     <!-- Answer card -->
-    <div class="relative rounded-2xl bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
-      <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-red-400 to-amber-400"></div>
+    <div
+      class="relative rounded-2xl bg-white dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden"
+    >
+      <div
+        class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-red-400 to-amber-400"
+      ></div>
       <div
         ref="markdownRef"
         class="p-4 markdown-content text-[15px] text-[var(--text-primary)] leading-relaxed"
         @click="handleMarkdownClick"
       >
-        <template v-for="(part, index) in parseContent(messageContent.content)" :key="index">
+        <template
+          v-for="(part, index) in parseContent(messageContent.content)"
+          :key="index"
+        >
           <div v-if="part.type === 'html'" v-html="part.content"></div>
-          <molecule-viewer v-else-if="part.type === 'molecule'" :src="part.src || ''" class="w-full my-2" />
-          <image-viewer v-else-if="part.type === 'image'" :src="part.src || ''" :alt="part.alt" class="w-full my-2" />
-          <html-viewer v-else-if="part.type === 'html-file'" :src="part.src || ''" class="w-full my-2" />
-          <suggested-questions v-else-if="part.type === 'questions'" :questions="part.questions || []" @click="emit('suggestionClick', $event)" />
+          <molecule-viewer
+            v-else-if="part.type === 'molecule'"
+            :src="part.src || ''"
+            class="w-full my-2"
+          />
+          <image-viewer
+            v-else-if="part.type === 'image'"
+            :src="part.src || ''"
+            :alt="part.alt"
+            class="w-full my-2"
+          />
+          <html-viewer
+            v-else-if="part.type === 'html-file'"
+            :src="part.src || ''"
+            class="w-full my-2"
+          />
+          <suggested-questions
+            v-else-if="part.type === 'questions'"
+            :questions="part.questions || []"
+            @click="emit('suggestionClick', $event)"
+          />
         </template>
       </div>
     </div>
@@ -75,140 +141,41 @@
   </div>
   <div v-else-if="message.type === 'tool'" class="hidden"></div>
   <div v-else-if="message.type === 'step'" class="hidden"></div>
-  <AttachmentsMessage v-else-if="message.type === 'attachments'" :content="attachmentsContent"/>
+  <AttachmentsMessage
+    v-else-if="message.type === 'attachments'"
+    :content="attachmentsContent"
+  />
 
   <!-- Markdown 增强功能组件 -->
   <MarkdownEnhancements ref="markdownEnhancementsRef" />
-
 </template>
 
 <script setup lang="ts">
-import { Message, MessageContent, AttachmentsContent } from '../types/message';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-import hljs from 'highlight.js/lib/core';
-import bash from 'highlight.js/lib/languages/bash';
-import css from 'highlight.js/lib/languages/css';
-import go from 'highlight.js/lib/languages/go';
-import java from 'highlight.js/lib/languages/java';
-import javascript from 'highlight.js/lib/languages/javascript';
-import json from 'highlight.js/lib/languages/json';
-import markdown from 'highlight.js/lib/languages/markdown';
-import plaintext from 'highlight.js/lib/languages/plaintext';
-import python from 'highlight.js/lib/languages/python';
-import shell from 'highlight.js/lib/languages/shell';
-import typescript from 'highlight.js/lib/languages/typescript';
-import xml from 'highlight.js/lib/languages/xml';
-import { computed, ref, onMounted, nextTick, watch } from 'vue';
-import { ToolContent } from '../types/message';
-import { useRelativeTime } from '../composables/useTime';
-import AttachmentsMessage from './AttachmentsMessage.vue';
-import ImageViewer from './ImageViewer.vue';
-import HtmlViewer from './HtmlViewer.vue';
-import MoleculeViewer from './MoleculeViewer.vue';
-import SuggestedQuestions from './SuggestedQuestions.vue';
-import { transformSrc, domPurifyConfig } from '../utils/content';
-import { formatMarkdown } from '../utils/markdownFormatter';
-import MarkdownEnhancements from './MarkdownEnhancements.vue';
-import MessageFooter from './MessageFooter.vue';
-import { useFilePanel } from '../composables/useFilePanel';
-import { parseChatMessageContent } from '../utils/chatMessageContent';
-import {
-  createMermaidLoader,
-  normalizeMarkdownCodeToken,
-  postprocessMath,
-  preprocessMath,
-  renderHighlightedCodeBlock,
-  renderMermaidPlaceholder,
-  renderMermaidWrapper,
-  renderMarkdownLink,
-} from '../utils/markdownRenderer';
+import { Message, MessageContent, AttachmentsContent } from "../types/message";
+import DOMPurify from "dompurify";
+import { computed, ref } from "vue";
+import { ToolContent } from "../types/message";
+import { useRelativeTime } from "../composables/useTime";
+import { useMarkdownRenderer } from "../composables/useMarkdownRenderer";
+import { useMermaidRenderer } from "../composables/useMermaidRenderer";
+import AttachmentsMessage from "./AttachmentsMessage.vue";
+import ImageViewer from "./ImageViewer.vue";
+import HtmlViewer from "./HtmlViewer.vue";
+import MoleculeViewer from "./MoleculeViewer.vue";
+import SuggestedQuestions from "./SuggestedQuestions.vue";
+import { transformSrc, domPurifyConfig } from "../utils/content";
+import MarkdownEnhancements from "./MarkdownEnhancements.vue";
+import MessageFooter from "./MessageFooter.vue";
+import { useFilePanel } from "../composables/useFilePanel";
+import { parseChatMessageContent } from "../utils/chatMessageContent";
 
-import RobotAvatar from './icons/RobotAvatar.vue';
-
-hljs.registerLanguage('bash', bash);
-hljs.registerLanguage('css', css);
-hljs.registerLanguage('go', go);
-hljs.registerLanguage('html', xml);
-hljs.registerLanguage('java', java);
-hljs.registerLanguage('javascript', javascript);
-hljs.registerLanguage('js', javascript);
-hljs.registerLanguage('json', json);
-hljs.registerLanguage('markdown', markdown);
-hljs.registerLanguage('md', markdown);
-hljs.registerLanguage('plaintext', plaintext);
-hljs.registerLanguage('python', python);
-hljs.registerLanguage('py', python);
-hljs.registerLanguage('shell', shell);
-hljs.registerLanguage('sh', shell);
-hljs.registerLanguage('ts', typescript);
-hljs.registerLanguage('typescript', typescript);
-hljs.registerLanguage('xml', xml);
+import RobotAvatar from "./icons/RobotAvatar.vue";
 
 // Markdown 增强组件引用
-const markdownEnhancementsRef = ref<InstanceType<typeof MarkdownEnhancements> | null>(null);
+const markdownEnhancementsRef = ref<InstanceType<
+  typeof MarkdownEnhancements
+> | null>(null);
 const markdownRef = ref<HTMLElement | null>(null);
-
-// Mermaid 图表缓存（避免重复渲染）
-const mermaidCache = new Map<string, string>();
-let mermaidCounter = 0;
-const { initMermaid } = createMermaidLoader(() => import('mermaid').then(module => module.default));
-
-// 配置 marked
-const renderer = new marked.Renderer();
-
-// 自定义代码块渲染 - 添加语言标签、行号、折叠和复制按钮
-// marked.js v15+ 使用 token 对象，兼容新旧 API
-renderer.code = function(token: { text: string; lang?: string } | string, language?: string) {
-  // 兼容新旧 API：v15+ 传入 token 对象，旧版本传入 (code, language) 字符串
-  let code: string;
-  let lang: string;
-
-  try {
-    const normalized = normalizeMarkdownCodeToken(token, language);
-    code = normalized.code;
-    lang = normalized.lang;
-  } catch (e) {
-    console.error('[Markdown] Code block render error:', e);
-    code = '';
-    lang = 'plaintext';
-  }
-
-  // 特殊处理 Mermaid 图表
-  if (lang === 'mermaid') {
-    const id = `mermaid-${mermaidCounter++}`;
-    // 返回占位符，稍后异步渲染
-    return renderMermaidPlaceholder({ id, code });
-  }
-
-  let highlightedCode = code;
-
-  // 代码高亮
-  if (lang && hljs.getLanguage(lang)) {
-    try {
-      highlightedCode = hljs.highlight(code, { language: lang }).value;
-    } catch {
-      // 忽略错误
-    }
-  } else {
-    highlightedCode = hljs.highlightAuto(code).value;
-  }
-
-  return renderHighlightedCodeBlock({ code, highlightedCode, lang });
-};
-
-// 自定义链接渲染 - 在新标签页打开外部链接
-// marked.js v15+ 使用 token 对象，兼容新旧 API
-renderer.link = function(token: { href: string; title?: string | null; text: string } | string, title?: string | null, text?: string) {
-  return renderMarkdownLink(token, title, text);
-};
-
-// 配置 marked
-marked.setOptions({
-  renderer,
-  breaks: true,
-  gfm: true,
-});
 
 const props = defineProps<{
   message: Message;
@@ -222,23 +189,23 @@ const props = defineProps<{
 }>();
 
 const botName = computed(() => {
-  if (props.mode === 'skills') {
-    return 'ScienceClaw';
+  if (props.mode === "skills") {
+    return "ScienceClaw";
   }
-  return 'ScienceClaw';
+  return "ScienceClaw";
 });
 
 const emit = defineEmits<{
-  (e: 'toolClick', tool: ToolContent): void;
-  (e: 'suggestionClick', question: string): void;
-  (e: 'convertToPdf'): void;
+  (e: "toolClick", tool: ToolContent): void;
+  (e: "suggestionClick", question: string): void;
+  (e: "convertToPdf"): void;
 }>();
 
 // Feedback state
-const feedback = ref<'like' | 'dislike' | null>(null);
+const feedback = ref<"like" | "dislike" | null>(null);
 const isCopied = ref(false);
 
-const toggleFeedback = (type: 'like' | 'dislike') => {
+const toggleFeedback = (type: "like" | "dislike") => {
   if (feedback.value === type) {
     feedback.value = null;
   } else {
@@ -248,7 +215,7 @@ const toggleFeedback = (type: 'like' | 'dislike') => {
 
 const copyMessage = async () => {
   try {
-    const text = messageContent.value?.content || '';
+    const text = messageContent.value?.content || "";
     if (!text) return;
     await navigator.clipboard.writeText(text);
     isCopied.value = true;
@@ -256,13 +223,13 @@ const copyMessage = async () => {
       isCopied.value = false;
     }, 2000);
   } catch (err) {
-    console.error('Failed to copy:', err);
+    console.error("Failed to copy:", err);
   }
 };
 
 // 转成PDF
 const handleConvertToPdf = () => {
-  emit('convertToPdf');
+  emit("convertToPdf");
 };
 
 // 本轮文件
@@ -274,10 +241,10 @@ const handleMarkdownClick = (event: MouseEvent) => {
   const target = event.target as HTMLElement;
 
   // 点击图片 - 打开 Lightbox
-  if (target.tagName === 'IMG') {
+  if (target.tagName === "IMG") {
     const img = target as HTMLImageElement;
-    const src = img.getAttribute('src') || '';
-    const alt = img.getAttribute('alt') || '';
+    const src = img.getAttribute("src") || "";
+    const alt = img.getAttribute("alt") || "";
     if (src && markdownEnhancementsRef.value) {
       markdownEnhancementsRef.value.openLightbox(src, alt);
     }
@@ -285,18 +252,18 @@ const handleMarkdownClick = (event: MouseEvent) => {
   }
 
   // 点击代码块全屏按钮
-  const fullscreenBtn = target.closest('.code-block-fullscreen');
+  const fullscreenBtn = target.closest(".code-block-fullscreen");
   if (fullscreenBtn) {
-    const wrapper = fullscreenBtn.closest('.code-block-wrapper');
+    const wrapper = fullscreenBtn.closest(".code-block-wrapper");
     if (wrapper) {
-      const codeEl = wrapper.querySelector('code');
-      const preEl = wrapper.querySelector('pre');
-      const langEl = wrapper.querySelector('.code-block-lang');
+      const codeEl = wrapper.querySelector("code");
+      const preEl = wrapper.querySelector("pre");
+      const langEl = wrapper.querySelector(".code-block-lang");
 
       if (codeEl && preEl && markdownEnhancementsRef.value) {
         const html = codeEl.innerHTML;
-        const lang = langEl?.textContent || 'plaintext';
-        const rawCode = preEl.textContent || '';
+        const lang = langEl?.textContent || "plaintext";
+        const rawCode = preEl.textContent || "";
         markdownEnhancementsRef.value.openCodeFullscreen(html, lang, rawCode);
       }
     }
@@ -306,9 +273,15 @@ const handleMarkdownClick = (event: MouseEvent) => {
 
 // For backward compatibility
 const messageContent = computed(() => props.message.content as MessageContent);
-const attachmentsContent = computed(() => props.message.content as AttachmentsContent);
-const messageFlashClass = computed(() => (props.flashToken ? 'session-search-hit-flash' : ''));
-const messageKeysAttr = computed(() => `|${(props.messageKeys ?? []).join('|')}|`);
+const attachmentsContent = computed(
+  () => props.message.content as AttachmentsContent,
+);
+const messageFlashClass = computed(() =>
+  props.flashToken ? "session-search-hit-flash" : "",
+);
+const messageKeysAttr = computed(
+  () => `|${(props.messageKeys ?? []).join("|")}|`,
+);
 
 const { relativeTime } = useRelativeTime();
 
@@ -316,135 +289,68 @@ const { relativeTime } = useRelativeTime();
 DOMPurify.setConfig(domPurifyConfig);
 
 // 添加 DOMPurify hook 处理 molecule-viewer
-DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName.toLowerCase() === 'molecule-viewer') {
-    if (node.hasAttribute('src')) {
-      const src = node.getAttribute('src');
-      if (src && (src.startsWith('/api/') || src.startsWith('http'))) {
-        node.setAttribute('src', src);
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+  if (node.tagName.toLowerCase() === "molecule-viewer") {
+    if (node.hasAttribute("src")) {
+      const src = node.getAttribute("src");
+      if (src && (src.startsWith("/api/") || src.startsWith("http"))) {
+        node.setAttribute("src", src);
       } else {
-        node.removeAttribute('src');
+        node.removeAttribute("src");
       }
     }
   }
 });
 
-// 渲染 Markdown 为 HTML
-const renderMarkdown = (text: string): string => {
-  if (typeof text !== 'string') return '';
+const { createMermaidPlaceholderId } = useMermaidRenderer({
+  markdownRef,
+  getContent: () => messageContent.value?.content,
+});
+const { renderMarkdown } = useMarkdownRenderer({
+  createMermaidPlaceholderId,
+});
 
-  const logPrefix = '[Markdown]';
-  try {
-    // 步骤1：格式化 Markdown
-    let formatted = formatMarkdown(text);
-
-    // 步骤2：预处理数学公式
-    let mathBlocks: Map<string, string> | null = null;
-    try {
-      const result = preprocessMath(formatted, kind => (
-        kind === 'block'
-          ? `MATH_BLOCK_${mermaidCounter++}`
-          : `MATH_INLINE_${mermaidCounter++}`
-      ));
-      formatted = result.text;
-      mathBlocks = result.mathBlocks;
-    } catch (e) {
-      console.warn(logPrefix, 'Math preprocessing failed:', e);
-      mathBlocks = new Map();
-    }
-
-    // 步骤3：渲染为 HTML
-    let html = marked(formatted) as string;
-
-    // 步骤4：后处理：恢复数学公式
-    if (mathBlocks && mathBlocks.size > 0) {
-      try {
-        html = postprocessMath(html, mathBlocks);
-      } catch (e) {
-        console.warn(logPrefix, 'Math postprocessing failed:', e);
-      }
-    }
-
-    // 步骤5：清理 XSS
-    const sanitized = DOMPurify.sanitize(html, domPurifyConfig);
-    return sanitized;
-  } catch (e) {
-    console.error(logPrefix, 'Markdown rendering failed:', e);
-    return DOMPurify.sanitize(text, domPurifyConfig);
-  }
-};
-
-/**
- * 异步渲染 Mermaid 图表
- */
-const renderMermaidDiagrams = async () => {
-  const logPrefix = '[Mermaid]';
-
-  if (!markdownRef.value) {
-    console.log(logPrefix, 'markdownRef not ready');
-    return;
-  }
-
-  const mermaidWrappers = markdownRef.value.querySelectorAll('.mermaid-wrapper');
-  if (mermaidWrappers.length === 0) {
-    console.log(logPrefix, 'No mermaid diagrams found');
-    return;
-  }
-
-  console.log(logPrefix, 'Found', mermaidWrappers.length, 'mermaid diagrams');
-  const mermaid = await initMermaid();
-
-  for (let i = 0; i < mermaidWrappers.length; i++) {
-    await renderMermaidWrapper({
-      wrapper: mermaidWrappers[i],
-      index: i,
-      mermaid,
-      cache: mermaidCache,
-      logPrefix,
-    });
-  }
-};
-
-// 监听内容变化，渲染 Mermaid 图表（仅在组件挂载后）
-watch(
-  () => messageContent.value?.content,
-  () => {
-    nextTick(() => {
-      if (markdownRef.value) {
-        renderMermaidDiagrams();
-      }
-    });
-  }
-);
-
-onMounted(() => {
-  // 组件挂载后渲染 Mermaid 图表
-  nextTick(() => {
-    renderMermaidDiagrams();
+const parseContent = (markdown: string) =>
+  parseChatMessageContent(markdown, {
+    renderMarkdown,
+    transformSrc,
   });
-});
-
-const parseContent = (markdown: string) => parseChatMessageContent(markdown, {
-  renderMarkdown,
-  transformSrc,
-});
 </script>
 
 <style src="../assets/chat-message-renderer.css"></style>
 
 <style>
-.duration-300 { animation-duration: .3s; transition-duration: .3s; }
+.duration-300 {
+  animation-duration: 0.3s;
+  transition-duration: 0.3s;
+}
 
-.msg-enter-left { animation: msgSlideLeft 0.3s ease-out both; }
-.msg-enter-right { animation: msgSlideRight 0.3s ease-out both; }
+.msg-enter-left {
+  animation: msgSlideLeft 0.3s ease-out both;
+}
+.msg-enter-right {
+  animation: msgSlideRight 0.3s ease-out both;
+}
 
 @keyframes msgSlideLeft {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 @keyframes msgSlideRight {
-  from { opacity: 0; transform: translateX(8px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .session-search-hit-flash {

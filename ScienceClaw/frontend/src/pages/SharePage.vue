@@ -165,6 +165,7 @@ import { useFilePanel } from '../composables/useFilePanel'
 import { copyToClipboard } from '../utils/dom'
 import { smartMerge } from '../utils/smartMerge';
 import { findBestStepForFlush } from '../utils/planSteps';
+import { createActivitySnapshot } from '../utils/activitySnapshot';
 import { useMessageGrouper } from '../composables/useMessageGrouper';
 import type { ActivityItem } from '../components/ActivityPanel.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
@@ -465,10 +466,7 @@ const handleDoneEvent = (doneData: DoneEventData) => {
   }
 
   const turnIdx = activitySnapshots.value.length;
-  activitySnapshots.value.push({
-    items: [...activityItems.value],
-    plan: plan.value ? JSON.parse(JSON.stringify(plan.value)) : undefined,
-  });
+  activitySnapshots.value.push(createActivitySnapshot(activityItems.value, plan.value));
   activityItems.value = [];
   pendingToolCallIds.value = [];
   plan.value = undefined;

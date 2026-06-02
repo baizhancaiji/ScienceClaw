@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 5 `ChatPage.vue` 渐进拆分已完成两段纯函数/helper 增量；下一批最小增量为继续提取 pending-tool 关联或 Activity snapshot helper。
+- 状态：批次 5 `ChatPage.vue` 渐进拆分已完成三段纯函数/helper 增量；下一批最小增量为继续提取 pending-tool 关联 helper。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -63,8 +63,10 @@ npm --prefix .\ScienceClaw\frontend run build
   - 新增 `smartMerge.spec.ts`，覆盖有效值覆盖、`undefined`/`null`/空对象跳过，以及数组、`0`、`false`、空字符串仍可覆盖。
   - 新增 `ScienceClaw/frontend/src/utils/planSteps.ts`，将 ChatPage/SharePage 重复的 pending-tool 目标步骤选择规则抽成纯函数。
   - 新增 `planSteps.spec.ts`，覆盖 `running > completed > first` 优先级和空步骤列表。
+  - 新增 `ScienceClaw/frontend/src/utils/activitySnapshot.ts`，将 ChatPage/SharePage 重复的 Activity snapshot 生成规则抽成纯函数。
+  - 新增 `activitySnapshot.spec.ts`，覆盖 activity list 浅拷贝、plan 深拷贝和空 plan。
 - 下一批最小增量：
-  - 批次 5 后续段：继续从 `ChatPage.vue` 提取 pending-tool 关联或 Activity snapshot helper；优先纯函数，配套单元测试，不改变 SSE 消息合并、计划工具关联或 UI 行为。
+  - 批次 5 后续段：继续从 `ChatPage.vue` 提取 pending-tool 关联 helper；优先纯函数或明确输入/输出的局部 mutation helper，配套单元测试，不改变 SSE 消息合并、计划工具关联或 UI 行为。
 - 验收命令：
 
 ```bash

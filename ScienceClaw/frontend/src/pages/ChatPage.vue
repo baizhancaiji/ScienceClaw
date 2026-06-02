@@ -356,6 +356,7 @@ import { useSettingsDialog } from '../composables/useSettingsDialog';
 import { useSessionNotifications } from '../composables/useSessionNotifications';
 import { consumePendingChat } from '../composables/usePendingChat';
 import { findBestStepForFlush } from '../utils/planSteps';
+import { createActivitySnapshot } from '../utils/activitySnapshot';
 
 import { useMessageGrouper } from '../composables/useMessageGrouper';
 import { getSessionSearchMessageKey, useSessionSearch } from '../composables/useSessionSearch';
@@ -918,10 +919,7 @@ const handleDoneEvent = (doneData: DoneEventData) => {
 
   // Snapshot current turn's activity data and switch to viewing it
   const turnIdx = activitySnapshots.value.length;
-  activitySnapshots.value.push({
-    items: [...activityItems.value],
-    plan: plan.value ? JSON.parse(JSON.stringify(plan.value)) : undefined,
-  });
+  activitySnapshots.value.push(createActivitySnapshot(activityItems.value, plan.value));
   activityItems.value = [];
   pendingToolCallIds.value = [];
   plan.value = undefined;

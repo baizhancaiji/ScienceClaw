@@ -270,7 +270,9 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 新增 `smartMerge.spec.ts`，覆盖有效值覆盖、`undefined`/`null`/空对象跳过，以及数组、`0`、`false`、空字符串仍可覆盖。
 - 第二段 Plan helper 增量已完成：新增 `frontend/src/utils/planSteps.ts`，将 ChatPage/SharePage 重复的 pending-tool 目标步骤选择规则抽成纯函数。
 - 新增 `planSteps.spec.ts`，覆盖 `running > completed > first` 优先级和空步骤列表。
-- 以上增量不改变 SSE 连接、消息 append、Plan 工具关联或 UI 分支；下一段继续优先选择 pending-tool 关联或 Activity snapshot 纯 helper。
+- 第三段 Activity snapshot helper 增量已完成：新增 `frontend/src/utils/activitySnapshot.ts`，将 ChatPage/SharePage 重复的 Activity snapshot 生成规则抽成纯函数。
+- 新增 `activitySnapshot.spec.ts`，覆盖 activity list 浅拷贝、plan 深拷贝和空 plan。
+- 以上增量不改变 SSE 连接、消息 append、Plan 工具关联或 UI 分支；下一段继续优先选择 pending-tool 关联 helper。
 
 ---
 
@@ -416,4 +418,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」，以及批次 5 的 `smartMerge` 和 pending-tool 目标步骤选择两段纯函数/helper 提取；下一批最小增量为继续提取 pending-tool 关联或 Activity snapshot helper。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」，以及批次 5 的 `smartMerge`、pending-tool 目标步骤选择和 Activity snapshot 三段纯函数/helper 提取；下一批最小增量为继续提取 pending-tool 关联 helper。

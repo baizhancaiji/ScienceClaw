@@ -68,6 +68,7 @@
     /* Chat renderer semantic-state tokens */
     --chat-state-error-text: #ef4444;
     --chat-state-error-surface: rgba(239, 68, 68, 0.1);
+    --chat-state-error-surface-strong: rgba(239, 68, 68, 0.3);
     --chat-state-error-decoration: rgba(239, 68, 68, 0.5);
     --chat-state-success-from: #22c55e;
     --chat-state-success-to: #16a34a;
@@ -78,7 +79,10 @@
     --chat-code-text: #e6edf3;
     --chat-code-header-from: #1e293b;
     --chat-code-header-to: #334155;
+    --chat-code-fullscreen-header: #161b22;
+    --chat-code-fullscreen-border: #30363d;
     --chat-code-control-text: #94a3b8;
+    --chat-code-fullscreen-control-text: #c9d1d9;
     --chat-code-line-count: #64748b;
     --chat-code-line-number: #4a5568;
     --chat-code-inline-bg-from: rgba(236, 72, 153, 0.1);
@@ -162,6 +166,7 @@
     /* Chat renderer semantic-state tokens */
     --chat-state-error-text: #ef4444;
     --chat-state-error-surface: rgba(239, 68, 68, 0.1);
+    --chat-state-error-surface-strong: rgba(239, 68, 68, 0.3);
     --chat-state-error-decoration: rgba(239, 68, 68, 0.5);
     --chat-state-success-from: #22c55e;
     --chat-state-success-to: #16a34a;
@@ -172,7 +177,10 @@
     --chat-code-text: #e6edf3;
     --chat-code-header-from: #0f172a;
     --chat-code-header-to: #1e293b;
+    --chat-code-fullscreen-header: #161b22;
+    --chat-code-fullscreen-border: #30363d;
     --chat-code-control-text: #94a3b8;
+    --chat-code-fullscreen-control-text: #c9d1d9;
     --chat-code-line-count: #64748b;
     --chat-code-line-number: #4a5568;
     --chat-code-inline-bg-from: rgba(236, 72, 153, 0.15);

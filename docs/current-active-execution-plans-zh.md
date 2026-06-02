@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 7 颜色 token 分层治理已完成第一段 chat renderer code/diagram/semantic-state token 迁移；下一批最小增量迁移 `MarkdownEnhancements.vue` 并补 light/dark smoke。
+- 状态：批次 7 颜色 token 分层治理已完成 chat renderer 与 `MarkdownEnhancements.vue` code fullscreen 的 code/diagram/semantic-state token 迁移；下一批最小增量继续评估品牌、surface、border 或 selection menu 色值。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -88,8 +88,10 @@ npm --prefix .\ScienceClaw\frontend run build
   - 将 `MessageFooter.vue` 所需的 `.msg-footer-*`、`.msg-action-*`、`.msg-stat-*` 和对应移动端规则从 `ChatMessage.vue` 大样式块迁入 `MessageFooter.vue`。
   - 新增 `ScienceClaw/frontend/src/assets/chat-message-renderer.css`，将 `.markdown-content` 下的 Markdown、code block、KaTeX、Mermaid 和移动端表格样式从 `ChatMessage.vue` 外置到独立样式文件；`ChatMessage.vue` 只保留组件入场动画和搜索命中动画。
   - `ScienceClaw/frontend/src/assets/theme.css` 已新增 chat renderer 专用 code、diagram、semantic-state token；`chat-message-renderer.css` 已将稳定的 inline code、code block、Mermaid、KaTeX error 和删除线错误态颜色迁移到 token，品牌/实验性渐变暂不混入全局语义层。
+  - `MarkdownEnhancements.vue` 的 code fullscreen overlay/header/border/control/success/error 颜色已复用 chat renderer code 与 semantic-state token；`type-check`、build 和 Node CSS token smoke 已通过。
+  - Codex App in-app browser 当前返回 `iab` unavailable，Playwright 临时包在 PowerShell/npx 下无法解析 `playwright` 模块；本段 smoke 使用 Node 校验 light/dark 各 11 个 token、无缺失引用和无旧硬编码残留。
 - 下一批最小增量：
-  - 批次 7 第二段：盘点并迁移 `ScienceClaw/frontend/src/components/MarkdownEnhancements.vue` 中稳定的 code/diagram/semantic-state 颜色，并完成 light/dark 浏览器 smoke 或截图记录。
+  - 批次 7 后续段：继续评估 `ScienceClaw/frontend/src/assets/chat-message-renderer.css` 与 `MarkdownEnhancements.vue` 中品牌、surface、border 或 selection menu 色值是否应迁移；优先迁移稳定 token，实验性渐变保持局部命名。
 - 验收命令：
 
 ```bash

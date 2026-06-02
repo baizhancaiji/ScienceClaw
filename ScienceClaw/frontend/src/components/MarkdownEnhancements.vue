@@ -506,7 +506,7 @@ defineExpose({
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: #0d1117;
+  background: var(--chat-code-surface);
   display: flex;
   flex-direction: column;
 }
@@ -523,15 +523,15 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
+  background: var(--chat-code-fullscreen-header);
+  border-bottom: 1px solid var(--chat-code-fullscreen-border);
 }
 
 .code-fullscreen-lang {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #8b949e;
+  color: var(--chat-code-control-text);
   font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
@@ -541,9 +541,9 @@ defineExpose({
 .code-fullscreen-dot {
   width: 10px;
   height: 10px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  background: linear-gradient(135deg, var(--chat-state-success-from), var(--chat-state-success-to));
   border-radius: 50%;
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 10px var(--chat-state-success-shadow);
 }
 
 .code-fullscreen-actions {
@@ -559,7 +559,7 @@ defineExpose({
   background: rgba(255, 255, 255, 0.1);
   border: none;
   border-radius: 8px;
-  color: #c9d1d9;
+  color: var(--chat-code-fullscreen-control-text);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
@@ -571,16 +571,16 @@ defineExpose({
 }
 
 .code-fullscreen-btn--copied {
-  color: #22c55e;
+  color: var(--chat-state-success-from);
 }
 
 .code-fullscreen-btn--close {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--chat-state-error-surface);
+  color: var(--chat-state-error-text);
 }
 
 .code-fullscreen-btn--close:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: var(--chat-state-error-surface-strong);
 }
 
 .code-fullscreen-content {

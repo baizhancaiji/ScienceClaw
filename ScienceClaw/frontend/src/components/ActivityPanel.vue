@@ -247,6 +247,7 @@ import type { ToolContent } from '../types/message';
 import type { PlanEventData } from '../types/event';
 import type { SandboxPreviewMode } from '../utils/sandbox';
 import { getPreviewMode } from '../utils/sandbox';
+import { getFirstToolArgPreview, getToolResultStringField, getToolStringArg } from '../types/toolPayload';
 import { useResizeObserver } from '../composables/useResizeObserver';
 import { eventBus } from '../utils/eventBus';
 import { EVENT_SHOW_FILE_PANEL, EVENT_SHOW_TOOL_PANEL, EVENT_SHOW_ACTIVITY_PANEL } from '../constants/event';
@@ -384,16 +385,15 @@ const planCompleted = computed(() => props.plan?.steps.every(s => s.status === '
 const isVisible = computed(() => visible.value);
 
 const getToolArg = (tool: ToolContent): string => {
-  if (!tool.args) return '';
   const fn = tool.function || tool.name || '';
-  if (fn.includes('search')) return tool.args.query || tool.args.search_query || '';
-  if (fn.includes('exec') || fn === 'execute' || fn.startsWith('terminal_')) return tool.args.command || '';
-  if (fn.includes('file') || fn === 'read_file' || fn === 'write_file' || fn === 'edit_file') return tool.args.file_path || tool.args.file || tool.args.path || '';
-  if (fn.includes('crawl') || fn.startsWith('browser_')) return tool.args.url || '';
-  if (fn.startsWith('markitdown_')) return tool.args.file || '';
-  const vals = Object.values(tool.args);
-  if (vals.length > 0 && typeof vals[0] === 'string') return (vals[0] as string).slice(0, 80);
-  return '';
+  if (fn.includes('search')) return getToolStringArg(tool.args, 'query') || getToolStringArg(tool.args, 'search_query');
+  if (fn.includes('exec') || fn === 'execute' || fn.startsWith('terminal_')) return getToolStringArg(tool.args, 'command');
+  if (fn.includes('file') || fn === 'read_file' || fn === 'write_file' || fn === 'edit_file') {
+    return getToolStringArg(tool.args, 'file_path') || getToolStringArg(tool.args, 'file') || getToolStringArg(tool.args, 'path');
+  }
+  if (fn.includes('crawl') || fn.startsWith('browser_')) return getToolStringArg(tool.args, 'url');
+  if (fn.startsWith('markitdown_')) return getToolStringArg(tool.args, 'file');
+  return getFirstToolArgPreview(tool.args);
 };
 
 const formatDuration = (ms: number): string => {
@@ -430,9 +430,13 @@ watch(() => props.plan, () => {}, { deep: true });
  * Extract a display-friendly command string from tool args.
  */
 function extractCommand(tool: ToolContent): string {
-  const args = tool.args;
-  if (!args || typeof args !== 'object') return '';
-  return args.command || args.code || args.script || args.path || args.file || args.url || args.action || '';
+  return getToolStringArg(tool.args, 'command')
+    || getToolStringArg(tool.args, 'code')
+    || getToolStringArg(tool.args, 'script')
+    || getToolStringArg(tool.args, 'path')
+    || getToolStringArg(tool.args, 'file')
+    || getToolStringArg(tool.args, 'url')
+    || getToolStringArg(tool.args, 'action');
 }
 
 /**
@@ -450,7 +454,7 @@ function extractOutput(tool: ToolContent): string {
     }
   }
   if (typeof c === 'object') {
-    return (c as any).stdout || (c as any).output || (c as any).text || JSON.stringify(c);
+    return getToolResultStringField(c, ['stdout', 'output', 'text']) || JSON.stringify(c);
   }
   return String(c);
 }

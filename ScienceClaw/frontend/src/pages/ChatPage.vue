@@ -326,6 +326,7 @@ import { useI18n } from 'vue-i18n';
 import ChatBox from '../components/ChatBox.vue';
 import * as agentApi from '../api/agent';
 import { Message, MessageContent, ToolContent, StepContent, AttachmentsContent } from '../types/message';
+import { getToolArgValue, getToolStringArg } from '../types/toolPayload';
 import {
   StepEventData,
   ToolEventData,
@@ -734,17 +735,18 @@ const handleToolEvent = (toolData: ToolEventData) => {
       || (lastTool.value?.tool_call_id === toolContent.tool_call_id ? lastTool.value.args : null);
 
     if (toolContent.function === 'propose_skill_save') {
-      const skillName = callingArgs?.skill_name;
+      const skillName = getToolStringArg(callingArgs, 'skill_name');
       if (skillName) {
         pendingSkillSave.value = skillName;
       }
     }
 
     if (toolContent.function === 'propose_tool_save') {
-      const toolName = callingArgs?.tool_name;
+      const toolName = getToolStringArg(callingArgs, 'tool_name');
       if (toolName) {
         pendingToolSave.value = toolName;
-        pendingToolReplaces.value = callingArgs?.replaces || null;
+        const replaces = getToolArgValue(callingArgs, 'replaces');
+        pendingToolReplaces.value = typeof replaces === 'string' ? replaces : null;
       }
     }
   }

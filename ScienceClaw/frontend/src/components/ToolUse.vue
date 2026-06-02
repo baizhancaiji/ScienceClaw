@@ -1,6 +1,6 @@
 <template>
-  <p v-if="tool.name === 'message' && tool.args?.text" class="text-[var(--text-secondary)] text-[14px] overflow-hidden text-ellipsis whitespace-pre-line pl-1">
-    {{ tool.args.text }}
+  <p v-if="tool.name === 'message' && messageText" class="text-[var(--text-secondary)] text-[14px] overflow-hidden text-ellipsis whitespace-pre-line pl-1">
+    {{ messageText }}
   </p>
   <div v-else-if="toolInfo" class="tool-use-card flex items-center group/tool gap-1.5 w-full max-w-full">
     <div
@@ -53,6 +53,7 @@ import { ref, computed } from "vue";
 import { ToolContent } from "../types/message";
 import { useToolInfo } from "../composables/useTool";
 import { useRelativeTime } from "../composables/useTime";
+import { getToolStringArg } from "../types/toolPayload";
 
 const props = defineProps<{
   tool: ToolContent;
@@ -66,6 +67,7 @@ const { relativeTime } = useRelativeTime();
 const { toolInfo } = useToolInfo(ref(props.tool));
 
 const toolMetaIcon = computed(() => props.tool.tool_meta?.icon || '');
+const messageText = computed(() => getToolStringArg(props.tool.args, 'text'));
 
 const formatDuration = (ms: number): string => {
   if (ms < 1000) return `${ms}ms`;

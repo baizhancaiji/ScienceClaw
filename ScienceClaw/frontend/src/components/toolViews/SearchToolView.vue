@@ -54,6 +54,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { ToolContent } from '@/types/message';
+import { getToolResultStringField, getToolStringArg, isToolResultObject } from '@/types/toolPayload';
 
 const props = defineProps<{
   sessionId: string;
@@ -64,9 +65,8 @@ const props = defineProps<{
 /** 提取搜索查询词 */
 const searchQuery = computed(() => {
   const args = props.toolContent?.args;
-  if (!args) return '';
   // 支持多种参数格式: query, queries, q
-  return args.query || args.queries || args.q || '';
+  return getToolStringArg(args, 'query') || getToolStringArg(args, 'queries') || getToolStringArg(args, 'q');
 });
 
 /** 解析结构化搜索结果 */
@@ -75,7 +75,7 @@ const parsedResults = computed(() => {
   if (!content) return [];
 
   // 格式1: content.results 数组
-  if (content.results && Array.isArray(content.results)) {
+  if (isToolResultObject(content) && Array.isArray(content.results)) {
     return content.results;
   }
 
@@ -104,6 +104,8 @@ const rawTextContent = computed(() => {
   const content = props.toolContent?.content;
   if (!content) return '';
   if (typeof content === 'string') return content;
+  const resultText = getToolResultStringField(content, ['text', 'output']);
+  if (resultText) return resultText;
   if (typeof content === 'object') {
     try { return JSON.stringify(content, null, 2); } catch { return ''; }
   }

@@ -54,6 +54,7 @@
 import { defineAsyncComponent, onMounted, ref, computed, watch, onUnmounted } from "vue";
 import { ToolContent } from "@/types/message";
 import { viewFile } from "@/api/agent";
+import { getToolResultStringField, getToolStringArg } from "@/types/toolPayload";
 //import { showErrorToast } from "../utils/toast";
 //import { useI18n } from "vue-i18n";
 
@@ -77,13 +78,7 @@ const fileContent = ref("");
 const refreshTimer = ref<ReturnType<typeof setInterval> | null>(null);
 
 const filePath = computed(() => {
-  if (props.toolContent && props.toolContent.args.file) {
-    return props.toolContent.args.file;
-  }
-  if (props.toolContent && props.toolContent.args.file_path) {
-    return props.toolContent.args.file_path;
-  }
-  return "";
+  return getToolStringArg(props.toolContent.args, 'file') || getToolStringArg(props.toolContent.args, 'file_path');
 });
 
 const fileName = computed(() => {
@@ -106,12 +101,13 @@ const loadFileContent = async () => {
   // If it's write_file, we should prioritize showing what was written (from args)
   // because the content returned by the tool is just a success message.
   // Also checking 'function' field and existence of content/file_path args to be robust
+  const argContent = getToolStringArg(props.toolContent.args, 'content');
   const isWriteOp = props.toolContent.name === 'write_file' || 
                     props.toolContent.function === 'write_file' ||
-                    (props.toolContent.args?.content && props.toolContent.args?.file_path);
+                    (argContent && getToolStringArg(props.toolContent.args, 'file_path'));
 
   if (isWriteOp) {
-    let contentToWrite = props.toolContent.args?.content;
+    let contentToWrite = argContent;
     
     // Fallback: check if args is a string and try to parse it
     if (!contentToWrite && typeof props.toolContent.args === 'string') {
@@ -147,8 +143,9 @@ const loadFileContent = async () => {
   if (props.toolContent.content) {
     if (typeof props.toolContent.content === 'string') {
         fileContent.value = props.toolContent.content;
-    } else if (props.toolContent.content.content) {
-        fileContent.value = props.toolContent.content.content;
+    } else {
+        const content = getToolResultStringField(props.toolContent.content, ['content']);
+        if (content) fileContent.value = content;
     }
     return;
   }

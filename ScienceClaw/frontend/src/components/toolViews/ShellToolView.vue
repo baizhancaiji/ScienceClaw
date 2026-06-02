@@ -23,6 +23,7 @@
 import { onMounted, ref, computed, watch, onUnmounted } from 'vue';
 import { viewShellSession } from '@/api/agent';
 import { ToolContent } from '@/types/message';
+import { getToolResultStringField, getToolStringArg, isToolResultObject } from '@/types/toolPayload';
 //import { showErrorToast } from '@/utils/toast';
 
 const props = defineProps<{
@@ -43,14 +44,16 @@ const refreshTimer = ref<ReturnType<typeof setInterval> | null>(null);
 // Get shellSessionId from toolContent
 const shellSessionId = computed(() => {
   // Sandbox proxy tool: show tool function name
-  if (props.toolContent?.content?._sandbox_exec) {
+  if (isToolResultObject(props.toolContent?.content) && props.toolContent.content._sandbox_exec) {
     return `sandbox: ${props.toolContent.function || props.toolContent.name}`;
   }
-  if (props.toolContent && props.toolContent.args.id) {
-    return props.toolContent.args.id;
+  const id = getToolStringArg(props.toolContent.args, 'id');
+  if (id) {
+    return id;
   }
-  if (props.toolContent && props.toolContent.args.script_path) {
-    return props.toolContent.args.script_path.split('/').pop();
+  const scriptPath = getToolStringArg(props.toolContent.args, 'script_path');
+  if (scriptPath) {
+    return scriptPath.split('/').pop();
   }
   return '';
 });
@@ -64,8 +67,8 @@ const updateShellContent = (console: any) => {
     
     // Add command if it's run_python_script
     if (props.toolContent.name === 'run_python_script' || props.toolContent.function === 'run_python_script') {
-        const script = props.toolContent.args?.script_path || '';
-        const args = props.toolContent.args?.args || '';
+        const script = getToolStringArg(props.toolContent.args, 'script_path');
+        const args = getToolStringArg(props.toolContent.args, 'args');
         const cmd = `python ${script} ${args}`.trim();
         const ps1 = "$";
         // Construct a shell-like display
@@ -105,10 +108,11 @@ const loadShellContent = async () => {
 
   // Sandbox proxy tool: display command + output in terminal style
   const content = props.toolContent.content;
-  if (content && typeof content === 'object' && content._sandbox_exec) {
+  if (isToolResultObject(content) && content._sandbox_exec && typeof content._sandbox_exec === 'object') {
     const exec = content._sandbox_exec;
-    const cmd = escapeHtml(exec.command || '');
-    const output = escapeHtml(exec.output || '');
+    const execRecord = exec as Record<string, unknown>;
+    const cmd = escapeHtml(typeof execRecord.command === 'string' ? execRecord.command : '');
+    const output = escapeHtml(typeof execRecord.output === 'string' ? execRecord.output : '');
     const result = content.result;
     const ps1 = '<span style="color: rgb(0, 187, 0);">$</span>';
 
@@ -131,20 +135,22 @@ const loadShellContent = async () => {
   }
   
   // Also check if content is nested in content.content (like FileToolView logic)
-  if (content && typeof content.content === 'string') {
-      updateShellContent(content.content);
+  const nestedContent = getToolResultStringField(content, ['content']);
+  if (nestedContent) {
+      updateShellContent(nestedContent);
       return;
   }
 
   if (!props.live) {
-    updateShellContent(content?.console);
+    updateShellContent(getToolResultStringField(content, ['console']));
     return;
   }
   
   // Only call API if we have a valid session ID (not a script path)
-  if (props.toolContent.args.id) {
+  const sessionToolId = getToolStringArg(props.toolContent.args, 'id');
+  if (sessionToolId) {
     try {
-      const response = await viewShellSession(props.sessionId, props.toolContent.args.id);
+      const response = await viewShellSession(props.sessionId, sessionToolId);
       updateShellContent(response.console);
     } catch (error) {
       console.error("Failed to load shell content:", error);

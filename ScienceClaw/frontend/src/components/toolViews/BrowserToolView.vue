@@ -3,7 +3,7 @@
     class="h-[36px] flex items-center px-3 w-full bg-[var(--background-gray-main)] border-b border-[var(--border-main)] rounded-t-[12px] shadow-[inset_0px_1px_0px_0px_#FFFFFF] dark:shadow-[inset_0px_1px_0px_0px_#FFFFFF30]">
     <div class="flex-1 flex items-center justify-center">
       <div class="max-w-[250px] truncate text-[var(--text-tertiary)] text-sm font-medium text-center">
-        {{ toolContent?.args?.url || 'Browser' }}
+        {{ pageUrl || 'Browser' }}
       </div>
     </div>
   </div>
@@ -21,7 +21,7 @@
           <img v-else-if="imageUrl" alt="Image Preview" class="cursor-pointer w-full" referrerpolicy="no-referrer" :src="imageUrl">
           <div v-else class="p-6 text-center text-sm text-[var(--text-tertiary)]">
             <div class="font-medium text-[var(--text-secondary)] mb-2">无截图可展示</div>
-            <div class="break-all">{{ toolContent?.args?.url || '' }}</div>
+            <div class="break-all">{{ pageUrl }}</div>
           </div>
         </div>
         <button
@@ -42,6 +42,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import TakeOverIcon from '@/components/icons/TakeOverIcon.vue';
 import { getSandboxVncUrl } from '@/utils/sandbox';
+import { getToolResultStringField, getToolStringArg } from '@/types/toolPayload';
 
 const props = defineProps<{
   sessionId: string;
@@ -54,14 +55,16 @@ const { t } = useI18n();
 const imageUrl = ref('');
 
 const sandboxVncUrl = computed(() => getSandboxVncUrl());
+const pageUrl = computed(() => getToolStringArg(props.toolContent?.args, 'url'));
+const screenshotUrl = computed(() => getToolResultStringField(props.toolContent?.content, ['screenshot']));
 
 
 
-watch(() => props.toolContent?.content?.screenshot, async () => {
-  if (!props.toolContent?.content?.screenshot) {
+watch(screenshotUrl, async (screenshot) => {
+  if (!screenshot) {
     return;
   }
-  imageUrl.value = props.toolContent?.content?.screenshot;
+  imageUrl.value = screenshot;
 }, { immediate: true });
 
 const takeOver = () => {

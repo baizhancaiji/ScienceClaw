@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 4「核心类型边界收紧」已完成 ToolUniverse JSON/unknown 边界和 Axios refresh queue 类型收紧；下一批最小增量为消息协议类型边界评估与测试设计。
+- 状态：批次 4「核心类型边界收紧」已完成 ToolUniverse JSON/unknown 边界、Axios refresh queue 类型收紧，以及消息协议工具 payload 边界；下一批最小增量为批次 5 `ChatPage.vue` 纯函数/helper 渐进拆分。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -56,8 +56,11 @@ npm --prefix .\ScienceClaw\frontend run build
   - 新增 `json.spec.ts` 与 `tooluniverse.spec.ts`，覆盖嵌套对象、数组、`null` 参数透传，以及 ToolUniverse 列表响应不额外 unwrap。
   - `ScienceClaw/frontend/src/api/client.ts` 已为 refresh queue、refresh request marker 和 retryable request config 定义显式类型，移除该队列上的宽泛 `any`。
   - 新增 `ScienceClaw/frontend/src/api/client.spec.ts`，覆盖两个并发 401 请求只触发一次 refresh，并在队列释放后用新 token 重试。
+  - 新增 `ScienceClaw/frontend/src/types/toolPayload.ts`，定义 `ToolArgs`/`ToolResultContent` 和工具参数、工具结果字段访问 helper。
+  - `ToolContent`/`ToolEventData` 已从宽泛 `any` 收紧到共享工具 payload 类型；ActivityPanel、ToolUse、各 tool view 和 ChatPage save prompt 调用点已改为显式 narrowing。
+  - 新增 `toolPayload.spec.ts`，覆盖对象/string/null 参数、字段读取、预览生成和结果对象 narrowing。
 - 下一批最小增量：
-  - 批次 4 后续段：评估 `ToolContent`/`ToolEventData` 消息协议边界的 HIGH 影响面，先补调用点测试或缩小 adapter 边界，再决定是否替换 `any`。
+  - 批次 5：从 `ScienceClaw/frontend/src/pages/ChatPage.vue` 抽出一个低风险纯函数/helper，并为该 helper 增加单元测试；不改变 SSE 消息合并、计划工具关联或 UI 行为。
 - 验收命令：
 
 ```bash

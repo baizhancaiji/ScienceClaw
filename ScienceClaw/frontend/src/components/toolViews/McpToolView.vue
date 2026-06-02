@@ -15,15 +15,15 @@
             {{ t('Tool') }}: {{ toolContent.function }}
           </div>
           
-          <div v-if="toolContent.args && Object.keys(toolContent.args).length > 0" class="mb-4">
+          <div v-if="hasArguments" class="mb-4">
             <div class="text-[var(--text-primary)] text-sm font-medium mb-2">{{ t('Arguments') }}:</div>
             <pre class="bg-[var(--fill-tsp-gray-main)] rounded-lg p-3 text-xs text-[var(--text-secondary)] overflow-x-auto"><code>{{ JSON.stringify(toolContent.args, null, 2) }}</code></pre>
           </div>
           
-          <div v-if="toolContent.content?.result" class="mb-4">
+          <div v-if="resultText" class="mb-4">
             <div class="text-[var(--text-primary)] text-sm font-medium mb-2">{{ t('Result') }}:</div>
             <div class="bg-[var(--fill-tsp-gray-main)] rounded-lg p-3 text-sm text-[var(--text-secondary)] whitespace-pre-wrap">
-              {{ toolContent.content.result }}
+              {{ resultText }}
             </div>
           </div>
           
@@ -39,12 +39,17 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { ToolContent } from '@/types/message';
+import { computed } from 'vue';
+import { getToolResultStringField, isToolArgsObject } from '@/types/toolPayload';
 
 const { t } = useI18n()
 
-defineProps<{
+const props = defineProps<{
   sessionId: string;
   toolContent: ToolContent;
   live: boolean;
 }>();
+
+const hasArguments = computed(() => isToolArgsObject(props.toolContent.args) && Object.keys(props.toolContent.args).length > 0);
+const resultText = computed(() => getToolResultStringField(props.toolContent.content, ['result']));
 </script>

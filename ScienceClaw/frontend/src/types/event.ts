@@ -1,4 +1,5 @@
 import type { FileInfo } from '../api/file';
+import type { ToolArgs, ToolResultContent } from './toolPayload';
 
 export type AgentSSEEvent =
   | { event: 'tool'; data: ToolEventData }
@@ -41,8 +42,8 @@ export interface ToolEventData extends BaseEventData {
   name: string;
   status: "calling" | "called";
   function: string;
-  args: {[key: string]: any};
-  content?: any;
+  args: ToolArgs;
+  content?: ToolResultContent;
   /** 工具调用耗时（毫秒），仅 status=called 时存在 */
   duration_ms?: number;
   /** 工具元数据（图标、分类、描述） */

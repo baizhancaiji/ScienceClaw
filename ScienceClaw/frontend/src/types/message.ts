@@ -1,5 +1,6 @@
 import type { FileInfo } from '../api/file';
 import type { ToolMetaData, StatisticsData, RoundFileInfo, StepStatus } from './event';
+import type { ToolArgs, ToolResultContent } from './toolPayload';
 
 export type MessageType = "user" | "assistant" | "tool" | "step" | "attachments" | "thinking";
 
@@ -24,8 +25,8 @@ export interface ToolContent extends BaseContent {
   tool_call_id: string;
   name: string;
   function: string;
-  args: any;
-  content?: any;
+  args: ToolArgs;
+  content?: ToolResultContent;
   status: "calling" | "called";
   /** 工具调用耗时（毫秒） */
   duration_ms?: number;

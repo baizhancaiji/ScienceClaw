@@ -355,7 +355,9 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 由于 Codex App in-app browser 当前返回 `iab` unavailable，Playwright 临时包在 PowerShell/npx 下无法解析 `playwright` 模块，本段使用 Node CSS token smoke 替代浏览器截图：light/dark 均检查 11 个 code fullscreen 所需 token，组件迁移目标无缺失 token 引用且无旧硬编码残留。
 - 第三段 selection menu token 增量已完成：`MarkdownEnhancements.vue` 的 selection menu surface、border、text 和 hover 色值已迁移到 light/dark token，暗色样式不再需要组件局部 override。
 - 第四段 surface/border token 增量已完成：`chat-message-renderer.css` 的表格单元格、斑马纹、kbd surface/border，以及 code block subtle border 已迁移到 light/dark token，组件局部 dark override 已移除。
-- 本段不改变 Markdown、Mermaid、KaTeX、代码块复制、消息正文或附件分支；批次 7 收尾审计应复核剩余硬编码色值，确认品牌/实验性渐变保持局部命名，并在收尾前运行批次 7 全量验证。
+- 收尾审计已完成：`chat-message-renderer.css` 的 code block 控件背景、hover、展开提示和 header 分隔线已迁移到 chat code token；剩余硬编码色值限定为标题/链接/列表/引用/分隔线等品牌渐变、KaTeX 轻量装饰、lightbox overlay 和阴影类局部视觉效果，按“实验性渐变保留局部命名”原则不进入全局语义层。
+- 批次 7 全量验证已通过：`PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest discover -s ScienceClaw/task-service/tests -t ScienceClaw/task-service` 运行 7 个用例通过；`npm --prefix ScienceClaw/frontend run test:run` 运行 15 个测试文件/65 个用例通过；`npm --prefix ScienceClaw/frontend run test:coverage` 通过且总体 statements 80.56%；`npm --prefix ScienceClaw/frontend run type-check` 和 `npm --prefix ScienceClaw/frontend run build` 通过，build/test 仅保留既有 Browserslist 数据陈旧提示。
+- 本段不改变 Markdown、Mermaid、KaTeX、代码块复制、消息正文或附件分支；批次 7 已关闭，下一批进入批次 8 ESLint/Prettier baseline。
 
 ---
 
@@ -455,4 +457,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu，以及 `chat-message-renderer.css` 表格/kbd surface-border 的稳定 token 迁移，下一批最小增量进行批次 7 收尾审计。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu、`chat-message-renderer.css` 表格/kbd surface-border 和 code block 控件色值的稳定 token 迁移，且全量验证已通过；下一批进入批次 8。

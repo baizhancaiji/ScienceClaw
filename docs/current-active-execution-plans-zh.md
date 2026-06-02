@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 7 颜色 token 分层治理已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu，以及 `chat-message-renderer.css` 表格/kbd surface-border 的稳定 token 迁移；下一批最小增量进行批次 7 收尾审计。
+- 状态：批次 7 颜色 token 分层治理已完成且全量验证通过；下一批最小增量进入批次 8 ESLint/Prettier baseline。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -92,8 +92,10 @@ npm --prefix .\ScienceClaw\frontend run build
   - Codex App in-app browser 当前返回 `iab` unavailable，Playwright 临时包在 PowerShell/npx 下无法解析 `playwright` 模块；本段 smoke 使用 Node 校验 light/dark 各 11 个 token、无缺失引用和无旧硬编码残留。
   - `MarkdownEnhancements.vue` 的 selection menu surface、border、text 和 hover 颜色已迁移到 light/dark token，暗色分支由 `.dark` token 覆盖，不再保留组件局部 dark override。
   - `chat-message-renderer.css` 的表格单元格、斑马纹、kbd surface/border，以及 code block subtle border 已迁移到 light/dark token；稳定 surface/border 色值不再保留组件局部 dark override。
+  - 批次 7 收尾审计已完成：`chat-message-renderer.css` 的 code block 控件背景、hover、展开提示和 header 分隔线已迁移到 chat code token；剩余硬编码色值限定为标题/链接/列表/引用/分隔线等品牌渐变、KaTeX 轻量装饰、lightbox overlay 和阴影类局部视觉效果，按施工单保留局部命名。
+  - 批次 7 全量验证已通过：task-service unittest 7 个用例通过，前端 Vitest 15 个测试文件/65 个用例通过，coverage 总体 statements 80.56%，`type-check` 和 `build` 通过；build/test 仅保留既有 Browserslist 数据陈旧提示。
 - 下一批最小增量：
-  - 批次 7 收尾审计：复核剩余硬编码色值，确认品牌/实验性渐变保持局部命名是否符合施工单，并在收尾前运行批次 7 全量验证。
+  - 批次 8：建立 ESLint/Prettier baseline，先审计当前配置和脚本，再以最小增量处理可自动化的格式/规则入口。
 - 验收命令：
 
 ```bash

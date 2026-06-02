@@ -291,7 +291,7 @@
   align-items: center;
   padding: 0.5em 1em;
   background: linear-gradient(135deg, var(--chat-code-header-from) 0%, var(--chat-code-header-to) 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--chat-code-header-border);
 }
 
 .markdown-content .code-block-lang {
@@ -319,7 +319,7 @@
   align-items: center;
   gap: 0.4em;
   padding: 0.4em 0.8em;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--chat-code-control-surface);
   border: none;
   border-radius: 6px;
   color: var(--chat-code-control-text);
@@ -329,8 +329,8 @@
 }
 
 .markdown-content .code-block-copy:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  background: var(--chat-code-control-surface-hover);
+  color: var(--chat-code-control-hover-text);
   transform: scale(1.02);
 }
 
@@ -351,7 +351,7 @@
   align-items: center;
   gap: 0.4em;
   padding: 0.4em 0.8em;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--chat-code-control-surface);
   border: none;
   border-radius: 6px;
   color: var(--chat-code-control-text);
@@ -361,8 +361,8 @@
 }
 
 .markdown-content .code-block-fullscreen:hover {
-  background: rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
+  background: var(--chat-code-control-primary-surface-hover);
+  color: var(--chat-code-control-primary-text-hover);
   transform: scale(1.02);
 }
 
@@ -405,7 +405,7 @@
 .markdown-content .code-block-lines {
   flex-shrink: 0;
   padding: 1.2em 0;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--chat-code-lines-surface);
   border-right: 1px solid var(--chat-code-subtle-border);
   text-align: right;
   user-select: none;
@@ -454,8 +454,8 @@
 .markdown-content .code-block-expand-hint {
   padding: 0.8em;
   text-align: center;
-  background: linear-gradient(to right, #1e293b, #334155);
-  color: #60a5fa;
+  background: linear-gradient(to right, var(--chat-code-expand-hint-from), var(--chat-code-expand-hint-to));
+  color: var(--chat-code-expand-hint-text);
   font-size: 0.85em;
   cursor: pointer;
   transition: all 0.2s;
@@ -463,8 +463,8 @@
 }
 
 .markdown-content .code-block-expand-hint:hover {
-  background: linear-gradient(to right, #334155, #475569);
-  color: #93c5fd;
+  background: linear-gradient(to right, var(--chat-code-expand-hint-hover-from), var(--chat-code-expand-hint-hover-to));
+  color: var(--chat-code-expand-hint-hover-text);
 }
 
 /* 展开按钮 */
@@ -473,18 +473,18 @@
   align-items: center;
   gap: 0.4em;
   padding: 0.4em 0.8em;
-  background: rgba(139, 92, 246, 0.2);
+  background: var(--chat-code-expand-surface);
   border: none;
   border-radius: 6px;
-  color: #a78bfa;
+  color: var(--chat-code-expand-text);
   font-size: 0.75em;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .markdown-content .code-block-expand:hover {
-  background: rgba(139, 92, 246, 0.3);
-  color: #c4b5fd;
+  background: var(--chat-code-expand-surface-hover);
+  color: var(--chat-code-expand-text-hover);
   transform: scale(1.02);
 }
 

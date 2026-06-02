@@ -83,6 +83,7 @@
     --chat-code-fullscreen-border: #30363d;
     --chat-code-control-text: #94a3b8;
     --chat-code-fullscreen-control-text: #c9d1d9;
+    --chat-code-subtle-border: rgba(255, 255, 255, 0.05);
     --chat-code-line-count: #64748b;
     --chat-code-line-number: #4a5568;
     --chat-code-inline-bg-from: rgba(236, 72, 153, 0.1);
@@ -97,6 +98,13 @@
     --chat-selection-hover-bg-from: rgba(59, 130, 246, 0.1);
     --chat-selection-hover-bg-to: rgba(139, 92, 246, 0.1);
     --chat-selection-hover-text: #3b82f6;
+
+    /* Chat renderer surface and border tokens */
+    --chat-table-cell-surface: var(--background-white-main);
+    --chat-table-row-alt-surface: rgba(0, 0, 0, 0.02);
+    --chat-kbd-surface-from: #f8f9fa;
+    --chat-kbd-surface-to: #e9ecef;
+    --chat-kbd-border: #dee2e6;
 
     /* Chat renderer diagram tokens */
     --chat-diagram-surface-from: #1e293b;
@@ -189,6 +197,7 @@
     --chat-code-fullscreen-border: #30363d;
     --chat-code-control-text: #94a3b8;
     --chat-code-fullscreen-control-text: #c9d1d9;
+    --chat-code-subtle-border: rgba(255, 255, 255, 0.05);
     --chat-code-line-count: #64748b;
     --chat-code-line-number: #4a5568;
     --chat-code-inline-bg-from: rgba(236, 72, 153, 0.15);
@@ -203,6 +212,13 @@
     --chat-selection-hover-bg-from: rgba(59, 130, 246, 0.1);
     --chat-selection-hover-bg-to: rgba(139, 92, 246, 0.1);
     --chat-selection-hover-text: #3b82f6;
+
+    /* Chat renderer surface and border tokens */
+    --chat-table-cell-surface: #1a1a1a;
+    --chat-table-row-alt-surface: rgba(255, 255, 255, 0.02);
+    --chat-kbd-surface-from: #374151;
+    --chat-kbd-surface-to: #1f2937;
+    --chat-kbd-border: #4b5563;
 
     /* Chat renderer diagram tokens */
     --chat-diagram-surface-from: #1a1a2e;

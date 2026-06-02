@@ -243,11 +243,7 @@
 .markdown-content td {
   padding: 0.7em 1em;
   border-bottom: 1px solid var(--border-light);
-  background: var(--background-white-main);
-}
-
-.dark .markdown-content td {
-  background: #1a1a1a;
+  background: var(--chat-table-cell-surface);
 }
 
 .markdown-content tr:last-child td {
@@ -255,11 +251,7 @@
 }
 
 .markdown-content tr:nth-child(even) td {
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.dark .markdown-content tr:nth-child(even) td {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--chat-table-row-alt-surface);
 }
 
 /* ===== 行内代码 ===== */
@@ -414,7 +406,7 @@
   flex-shrink: 0;
   padding: 1.2em 0;
   background: rgba(255, 255, 255, 0.03);
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  border-right: 1px solid var(--chat-code-subtle-border);
   text-align: right;
   user-select: none;
 }
@@ -467,7 +459,7 @@
   font-size: 0.85em;
   cursor: pointer;
   transition: all 0.2s;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--chat-code-subtle-border);
 }
 
 .markdown-content .code-block-expand-hint:hover {
@@ -562,18 +554,13 @@
   padding: 0.2em 0.5em;
   font-size: 0.85em;
   font-family: inherit;
-  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-  border: 1px solid #dee2e6;
+  background: linear-gradient(180deg, var(--chat-kbd-surface-from) 0%, var(--chat-kbd-surface-to) 100%);
+  border: 1px solid var(--chat-kbd-border);
   border-radius: 4px;
   box-shadow:
     0 1px 1px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
   color: var(--text-primary);
-}
-
-.dark .markdown-content kbd {
-  background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
-  border-color: #4b5563;
 }
 
 /* ===== KaTeX 数学公式 ===== */

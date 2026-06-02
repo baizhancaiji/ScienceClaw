@@ -355,6 +355,7 @@ import { listModels, type ModelConfig } from '../api/models';
 import { useSettingsDialog } from '../composables/useSettingsDialog';
 import { useSessionNotifications } from '../composables/useSessionNotifications';
 import { consumePendingChat } from '../composables/usePendingChat';
+import { findBestStepForFlush } from '../utils/planSteps';
 
 import { useMessageGrouper } from '../composables/useMessageGrouper';
 import { getSessionSearchMessageKey, useSessionSearch } from '../composables/useSessionSearch';
@@ -829,14 +830,6 @@ const flushPendingToolsToStep = (planStep: StepEventData) => {
   pendingToolCallIds.value = [];
 };
 
-// Find the best step to flush pending tools into (running > completed > first)
-const findBestStepForFlush = (): StepEventData | undefined => {
-  if (!plan.value?.steps.length) return undefined;
-  return plan.value.steps.find(s => s.status === 'running')
-    || plan.value.steps.find(s => s.status === 'completed')
-    || plan.value.steps[0];
-};
-
 // Handle step event
 const handleStepEvent = (stepData: StepEventData) => {
   const lastStep = getLastStep();
@@ -916,7 +909,7 @@ const handleDoneEvent = (doneData: DoneEventData) => {
 
   // Final flush: associate any remaining pending tools before snapshotting
   if (pendingToolCallIds.value.length > 0) {
-    const targetStep = findBestStepForFlush();
+    const targetStep = findBestStepForFlush(plan.value?.steps);
     if (targetStep) {
       flushPendingToolsToStep(targetStep);
       if (plan.value) plan.value = { ...plan.value };
@@ -990,7 +983,7 @@ const handlePlanEvent = (planData: PlanEventData) => {
 
   // Flush any pending tools into the best available step
   if (pendingToolCallIds.value.length > 0) {
-    const targetStep = findBestStepForFlush();
+    const targetStep = findBestStepForFlush(plan.value?.steps);
     if (targetStep) {
       flushPendingToolsToStep(targetStep);
       plan.value = { ...plan.value };

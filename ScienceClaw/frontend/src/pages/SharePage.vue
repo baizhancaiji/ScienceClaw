@@ -164,6 +164,7 @@ import { useSessionFileList } from '../composables/useSessionFileList'
 import { useFilePanel } from '../composables/useFilePanel'
 import { copyToClipboard } from '../utils/dom'
 import { smartMerge } from '../utils/smartMerge';
+import { findBestStepForFlush } from '../utils/planSteps';
 import { useMessageGrouper } from '../composables/useMessageGrouper';
 import type { ActivityItem } from '../components/ActivityPanel.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
@@ -396,13 +397,6 @@ const flushPendingToolsToStep = (planStep: StepEventData) => {
   pendingToolCallIds.value = [];
 };
 
-const findBestStepForFlush = (): StepEventData | undefined => {
-  if (!plan.value?.steps.length) return undefined;
-  return plan.value.steps.find(s => s.status === 'running')
-    || plan.value.steps.find(s => s.status === 'completed')
-    || plan.value.steps[0];
-};
-
 const handleStepEvent = (stepData: StepEventData) => {
   const lastStep = getLastStep();
 
@@ -463,7 +457,7 @@ const handleDoneEvent = (doneData: DoneEventData) => {
   }
 
   if (pendingToolCallIds.value.length > 0) {
-    const targetStep = findBestStepForFlush();
+    const targetStep = findBestStepForFlush(plan.value?.steps);
     if (targetStep) {
       flushPendingToolsToStep(targetStep);
       if (plan.value) plan.value = { ...plan.value };
@@ -505,7 +499,7 @@ const handlePlanEvent = (planData: PlanEventData) => {
   plan.value = planData;
 
   if (pendingToolCallIds.value.length > 0) {
-    const targetStep = findBestStepForFlush();
+    const targetStep = findBestStepForFlush(plan.value?.steps);
     if (targetStep) {
       flushPendingToolsToStep(targetStep);
       plan.value = { ...plan.value };

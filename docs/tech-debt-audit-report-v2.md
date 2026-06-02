@@ -199,6 +199,13 @@ npm --prefix ScienceClaw/frontend run build
 - 已有 task 和 webhook 页面行为保持不变。
 - `tooluniverse.ts` 仍保持 `return resp.data`。
 
+**执行记录**
+
+- 2026-06-02 已新增 `ScienceClaw/frontend/src/api/taskClient.ts`，统一 `/task-service` base URL、30s timeout、bearer token 注入、401 认证失效处理和 task-service 错误映射。
+- `ScienceClaw/frontend/src/api/tasks.ts` 与 `ScienceClaw/frontend/src/api/webhooks.ts` 已复用共享 `taskClient`；现有导出函数签名和响应解包保持不变。
+- `ScienceClaw/frontend/src/api/tooluniverse.ts` 未修改，仍保持 `return resp.data`。
+- 新增 `ScienceClaw/frontend/src/api/taskClient.spec.ts`，覆盖 token header、base URL、错误映射和 401 认证失效行为。
+
 ---
 
 ### 批次 4：核心类型边界收紧

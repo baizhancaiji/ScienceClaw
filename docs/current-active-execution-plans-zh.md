@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 2 已完成；下一批次为批次 3「Task Service 客户端整理」。
+- 状态：批次 3 已完成；下一批次为批次 4「核心类型边界收紧」。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -47,8 +47,11 @@ npm --prefix .\ScienceClaw\frontend run build
   - 新增 `ScienceClaw/task-service/tests/test_auth_isolation.py`，覆盖未授权、普通用户跨用户 404、管理员全量列表、创建时 owner 写入。
   - 新增 Vitest 前端测试基座：`ScienceClaw/frontend/vitest.config.ts`、`test`/`test:run`/`test:coverage` 脚本、`happy-dom` 环境和 V8 coverage provider。
   - 首批前端测试覆盖 `content.ts`、`fileType.ts`、`useSessionSearch.ts`，共 12 个单元测试；测试样例不依赖 Pinia 或未落地架构。
+  - 新增 `ScienceClaw/frontend/src/api/taskClient.ts`，统一 task-service 的 `/task-service` base URL、30s timeout、bearer token 注入、401 logout 事件和错误映射。
+  - `tasks.ts` 与 `webhooks.ts` 已复用共享 `taskClient`；既有导出函数和响应解包保持不变，`tooluniverse.ts` 未修改。
+  - 新增 `ScienceClaw/frontend/src/api/taskClient.spec.ts`，覆盖 base URL、token header、显式 Authorization 不覆盖、错误映射、401 清 token 和 `auth:logout`。
 - 下一批最小增量：
-  - 批次 3「Task Service 客户端整理」：新建共享 task-service API client，统一 `/task-service` base URL、超时、token 注入和错误映射，让 `tasks.ts` 与 `webhooks.ts` 复用同一边界。
+  - 批次 4「核心类型边界收紧」：先定义共享 JSON/unknown 类型边界，优先治理工具参数、工具结果和 Axios refresh queue 类型，不做全仓机械替换。
 - 验收命令：
 
 ```bash

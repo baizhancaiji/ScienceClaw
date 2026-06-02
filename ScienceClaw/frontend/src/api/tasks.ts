@@ -2,25 +2,7 @@
  * Task Scheduler Service API.
  * Base URL: VITE_TASK_SERVICE_URL or /task-service (proxied in dev).
  */
-import axios from 'axios';
-import { getStoredToken } from './auth';
-
-const TASK_SERVICE_BASE =
-  (import.meta as any).env?.VITE_TASK_SERVICE_URL ?? '';
-
-const taskClient = axios.create({
-  baseURL: TASK_SERVICE_BASE || '/task-service',
-  timeout: 30000,
-  headers: { 'Content-Type': 'application/json' },
-});
-
-taskClient.interceptors.request.use((config) => {
-  const token = getStoredToken();
-  if (token && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+import { isTaskServiceConfigured, taskClient } from './taskClient';
 
 export interface Task {
   id: string;
@@ -156,6 +138,4 @@ export async function listTaskRunsByOffset(
   };
 }
 
-export function isTaskServiceConfigured(): boolean {
-  return !!((import.meta as any).env?.VITE_TASK_SERVICE_URL || '/task-service');
-}
+export { isTaskServiceConfigured };

@@ -4,6 +4,7 @@ import {
   escapeCodeForCopyAttribute,
   getCodeBlockLayout,
   normalizeMarkdownCodeToken,
+  renderHighlightedCodeBlock,
   renderMarkdownLink,
 } from './markdownRenderer';
 
@@ -77,5 +78,36 @@ describe('getCodeBlockLayout', () => {
       shouldCollapse: true,
       collapseClass: 'code-block-collapsed',
     });
+  });
+});
+
+describe('renderHighlightedCodeBlock', () => {
+  it('renders the existing code block controls and line metadata', () => {
+    const html = renderHighlightedCodeBlock({
+      code: 'const value = "&";',
+      highlightedCode: '<span>const</span> value = "&amp;";',
+      lang: 'ts',
+    });
+
+    expect(html).toContain('class="code-block-wrapper " data-lines="1"');
+    expect(html).toContain('<span class="code-block-lang">ts</span>');
+    expect(html).toContain('<span class="code-block-line-count">1 行</span>');
+    expect(html).toContain('class="code-block-fullscreen"');
+    expect(html).toContain('class="code-block-copy"');
+    expect(html).toContain('decodeURIComponent(`const%20value%20%3D%20%26quot%3B%26amp%3B%26quot%3B%3B`)');
+    expect(html).toContain('<code class="hljs language-ts"><span>const</span> value = "&amp;";</code>');
+  });
+
+  it('renders collapse controls and expand hint for long blocks', () => {
+    const highlightedCode = Array.from({ length: 21 }, (_, i) => `line ${i + 1}`).join('\n');
+    const html = renderHighlightedCodeBlock({
+      code: highlightedCode,
+      highlightedCode,
+      lang: 'plaintext',
+    });
+
+    expect(html).toContain('code-block-wrapper code-block-collapsed');
+    expect(html).toContain('class="code-block-expand"');
+    expect(html).toContain('点击展开全部 21 行代码');
   });
 });

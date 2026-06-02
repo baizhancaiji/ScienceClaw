@@ -282,7 +282,9 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 新增 `chatMessageContent.spec.ts`，覆盖 HTML 合并、suggested questions 提取、special viewer source 转换和空内容回退。
 - 第二段 Markdown link renderer helper 增量已完成：新增 `frontend/src/utils/markdownRenderer.ts`，将 Markdown link renderer 规则抽成纯 helper。
 - 新增 `markdownRenderer.spec.ts`，覆盖 marked v15 token、旧 API 字符串参数、外链 target 和缺失 href 回退。
-- 以上增量不改变 Markdown 渲染、数学公式、Mermaid、代码块复制、消息展示或附件分支；下一段继续优先提取代码块 renderer helper。
+- 第三段 code block renderer helper 增量已完成：扩展 `frontend/src/utils/markdownRenderer.ts`，将代码块 token 归一化、复制 payload 转义和行号/折叠布局规则抽成纯 helper。
+- 扩展 `markdownRenderer.spec.ts`，覆盖 marked code token、旧 API 字符串参数、复制属性转义和折叠阈值。
+- 以上增量不改变 Markdown 渲染、数学公式、Mermaid、代码块复制、消息展示或附件分支；下一段继续优先提取完整 code block HTML renderer 或 Mermaid renderer helper。
 
 ---
 
@@ -428,4 +430,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content 和 Markdown link renderer helper 提取；下一批最小增量继续提取代码块 renderer helper。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer 和 code block renderer helper 提取；下一批最小增量继续提取完整 code block HTML renderer 或 Mermaid renderer helper。

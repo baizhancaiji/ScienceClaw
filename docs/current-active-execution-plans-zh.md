@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 6 `ChatMessage.vue` 渐进拆分已完成两段 helper；下一批最小增量继续提取代码块 renderer helper。
+- 状态：批次 6 `ChatMessage.vue` 渐进拆分已完成三段 helper；下一批最小增量继续提取完整 code block HTML renderer 或 Mermaid renderer helper。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -71,8 +71,10 @@ npm --prefix .\ScienceClaw\frontend run build
   - 新增 `chatMessageContent.spec.ts`，覆盖 HTML 合并、suggested questions 提取、special viewer source 转换和空内容回退。
   - 新增 `ScienceClaw/frontend/src/utils/markdownRenderer.ts`，将 Markdown link renderer 规则抽成纯 helper。
   - 新增 `markdownRenderer.spec.ts`，覆盖 marked v15 token、旧 API 字符串参数、外链 target 和缺失 href 回退。
+  - 扩展 `markdownRenderer.ts`，将代码块 token 归一化、复制 payload 转义和行号/折叠布局规则抽成纯 helper。
+  - 扩展 `markdownRenderer.spec.ts`，覆盖 marked code token、旧 API 字符串参数、复制属性转义和折叠阈值。
 - 下一批最小增量：
-  - 批次 6 后续段：继续从 `ChatMessage.vue` 提取代码块 renderer helper；优先保留现有代码块 HTML、复制、折叠、全屏接线和 Mermaid 占位符行为，配套单元测试，不改变消息展示、数学公式、Mermaid 或附件分支。
+  - 批次 6 后续段：继续从 `ChatMessage.vue` 提取完整 code block HTML renderer 或 Mermaid renderer helper；优先保留现有代码块 HTML、复制、折叠、全屏接线和 Mermaid 占位符行为，配套单元测试，不改变消息展示、数学公式、Mermaid 或附件分支。
 - 验收命令：
 
 ```bash

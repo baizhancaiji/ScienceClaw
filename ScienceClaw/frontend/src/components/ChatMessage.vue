@@ -181,7 +181,12 @@ import { formatMarkdown } from '../utils/markdownFormatter';
 import MarkdownEnhancements from './MarkdownEnhancements.vue';
 import { useFilePanel } from '../composables/useFilePanel';
 import { parseChatMessageContent } from '../utils/chatMessageContent';
-import { renderMarkdownLink } from '../utils/markdownRenderer';
+import {
+  escapeCodeForCopyAttribute,
+  getCodeBlockLayout,
+  normalizeMarkdownCodeToken,
+  renderMarkdownLink,
+} from '../utils/markdownRenderer';
 
 import RobotAvatar from './icons/RobotAvatar.vue';
 
@@ -391,28 +396,9 @@ renderer.code = function(token: { text: string; lang?: string } | string, langua
   let lang: string;
 
   try {
-    if (typeof token === 'object' && token !== null) {
-      // marked.js v15+ API - token 对象
-      const tokenObj = token as any;
-      // 确保获取有效的代码内容
-      code = tokenObj.text ?? tokenObj.raw ?? '';
-      // 尝试多个可能的属性名
-      lang = tokenObj.lang || tokenObj.language || 'plaintext';
-    } else if (typeof token === 'string') {
-      // 旧版 API - 字符串参数
-      code = token;
-      lang = language || 'plaintext';
-    } else {
-      // 未知类型，返回空内容
-      code = '';
-      lang = 'plaintext';
-    }
-
-    // 确保 code 是有效的字符串
-    if (code === null || code === undefined) {
-      code = '';
-    }
-    code = String(code);
+    const normalized = normalizeMarkdownCodeToken(token, language);
+    code = normalized.code;
+    lang = normalized.lang;
   } catch (e) {
     console.error('[Markdown] Code block render error:', e);
     code = '';
@@ -449,20 +435,8 @@ renderer.code = function(token: { text: string; lang?: string } | string, langua
   }
 
   // 转义 HTML 属性中的特殊字符
-  const escapedCode = code
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/`/g, '&#96;');
-
-  // 生成行号
-  const lines = highlightedCode.split('\n');
-  const lineCount = lines.length;
-  const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1).join('\n');
-
-  // 判断是否需要折叠（超过 20 行）
-  const shouldCollapse = lineCount > 20;
-  const collapseClass = shouldCollapse ? 'code-block-collapsed' : '';
+  const escapedCode = escapeCodeForCopyAttribute(code);
+  const { lineCount, lineNumbers, shouldCollapse, collapseClass } = getCodeBlockLayout(highlightedCode);
 
   return `<div class="code-block-wrapper ${collapseClass}" data-lines="${lineCount}">
     <div class="code-block-header">

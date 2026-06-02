@@ -357,6 +357,7 @@ import { useSessionNotifications } from '../composables/useSessionNotifications'
 import { consumePendingChat } from '../composables/usePendingChat';
 import { findBestStepForFlush } from '../utils/planSteps';
 import { createActivitySnapshot } from '../utils/activitySnapshot';
+import { flushPendingToolsIntoStep } from '../utils/pendingTools';
 
 import { useMessageGrouper } from '../composables/useMessageGrouper';
 import { getSessionSearchMessageKey, useSessionSearch } from '../composables/useSessionSearch';
@@ -816,19 +817,11 @@ const handleToolEvent = (toolData: ToolEventData) => {
 
 // Flush pending (unassociated) tools into a plan step
 const flushPendingToolsToStep = (planStep: StepEventData) => {
-  if (pendingToolCallIds.value.length === 0) return;
-  if (!planStep.tools) planStep.tools = [];
-
-  for (const toolCallId of pendingToolCallIds.value) {
-    if (planStep.tools.some(t => t.tool_call_id === toolCallId)) continue;
-    const activityItem = activityItems.value.find(
-      a => a.type === 'tool' && a.tool?.tool_call_id === toolCallId
-    );
-    if (activityItem?.tool) {
-      planStep.tools.push(activityItem.tool as unknown as ToolEventData);
-    }
-  }
-  pendingToolCallIds.value = [];
+  pendingToolCallIds.value = flushPendingToolsIntoStep({
+    planStep,
+    pendingToolCallIds: pendingToolCallIds.value,
+    activityItems: activityItems.value,
+  });
 };
 
 // Handle step event

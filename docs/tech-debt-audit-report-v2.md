@@ -412,6 +412,20 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 输出迁移决策：暂不迁移、单 store 试点，或分阶段迁移。
 - 决策有代码事实和测试结果支撑。
 
+**执行记录**
+
+- 跨组件共享状态 owner 已梳理：
+  - theme：`frontend/src/composables/useTheme.ts`，`App.vue` 初始化，负责 `scienceclaw-theme` localStorage 与 `<html>.dark`。
+  - left panel：`frontend/src/composables/useLeftPanel.ts`，由 `LeftPanel.vue`、`SessionItem.vue` 等调用，负责 `manus-left-panel-state` localStorage。
+  - right panel：`frontend/src/composables/useRightPanel.ts` 当前无调用点，保留为 dormant composable，不构成 store 迁移触发点。
+  - file panel：`frontend/src/composables/useFilePanel.ts`，由 Chat/Share/FilePanel/附件相关组件调用，通过 event bus 广播 panel 展示事件。
+  - session file list：`frontend/src/composables/useSessionFileList.ts`，由 Chat/Share/SessionFileList/附件入口共享 `visible/shared`。
+  - settings dialog：`frontend/src/composables/useSettingsDialog.ts`，由 Chat/Home/LeftPanel/UserMenu/Tasks/SettingsDialog 等共享打开状态与默认 tab。
+  - session notifications：`frontend/src/composables/useSessionNotifications.ts`，GitNexus context 显示调用点为 `ChatPage.vue` 与 `LeftPanel.vue`，内部负责订阅、重连 timer 与最后消费者卸载后的断开。
+- 新增 `frontend/src/composables/useSharedStateLifecycle.spec.ts`，覆盖 theme/left panel localStorage side effect、`useRelativeTime` interval 清理、`useSessionNotifications` active subscription cancel 和 reconnect timer 清理。
+- `npm --prefix ScienceClaw/frontend run test:run -- src/composables/useSharedStateLifecycle.spec.ts` 运行 5 个用例通过；`npm --prefix ScienceClaw/frontend run test:run` 运行 16 个测试文件/70 个用例通过；`npm --prefix ScienceClaw/frontend run lint` 保持 0 error/42 warning baseline；`npm --prefix ScienceClaw/frontend run type-check` 通过。
+- 迁移决策：暂不迁移 Pinia。当前共享状态均为小型 module-scope composable，缺少 DevTools 调试、复杂派生状态、跨页面一致性约束或 SSR 隔离等触发条件；若后续需要迁移，优先选择 Auth 或 Panel 单一 store 做试点。
+
 ---
 
 ### 批次 10：依赖升级
@@ -466,4 +480,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu、`chat-message-renderer.css` 表格/kbd surface-border 和 code block 控件色值的稳定 token 迁移，且全量验证已通过；批次 8 已建立 ESLint/Prettier baseline；下一批进入批次 9。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu、`chat-message-renderer.css` 表格/kbd surface-border 和 code block 控件色值的稳定 token 迁移，且全量验证已通过；批次 8 已建立 ESLint/Prettier baseline；批次 9 已完成 Pinia 适用性评估且决策为暂不迁移；下一批进入批次 10。

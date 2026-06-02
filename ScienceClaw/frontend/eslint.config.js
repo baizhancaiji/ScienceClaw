@@ -40,6 +40,7 @@ export default tseslint.config(
       "vue/multi-word-component-names": "off",
       "vue/no-dupe-keys": "warn",
       "vue/no-parsing-error": "warn",
+      "vue/one-component-per-file": "off",
       "vue/require-default-prop": "off",
       "vue/require-v-for-key": "warn",
       "vue/use-v-on-exact": "off",

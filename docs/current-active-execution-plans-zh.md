@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 8 ESLint/Prettier baseline 已完成；下一批最小增量进入批次 9 Pinia 适用性评估。
+- 状态：批次 9 Pinia 适用性评估已完成，决策为暂不迁移；下一批最小增量进入批次 10 依赖升级。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -97,8 +97,11 @@ npm --prefix .\ScienceClaw\frontend run build
   - 批次 8 已建立 ESLint 9 flat config baseline：`prettier` 和 `@types/dompurify` 已移入 devDependencies，新增 `lint` 与 `format:check` 脚本，暂不引入 Husky/lint-staged，也不新增 `lint:fix`。
   - `npm --prefix ScienceClaw/frontend run lint` 已可执行并通过，当前 baseline 保留 0 error/42 warning；`npm --prefix ScienceClaw/frontend run format:check` 已可执行并通过，当前检查范围为本批新增/变更入口 `eslint.config.js` 与 `package.json`。
   - `lint:fix` 机械范围已用 dry-run 评估：`npm exec eslint -- "src/**/*.{ts,vue}" "*.config.ts" --fix-dry-run` 在前端目录退出 0，dry-run 后仍剩 26 个 warning；不在本批写入自动修复脚本，避免生成大规模历史格式 diff。
+  - 批次 9 已完成 Pinia 适用性评估：theme owner 为 `useTheme`，left panel owner 为 `useLeftPanel`，right panel owner 为当前无调用点的 `useRightPanel`，file panel owner 为 `useFilePanel`，session file list owner 为 `useSessionFileList`，settings dialog owner 为 `useSettingsDialog`，session notifications owner 为 `useSessionNotifications`。
+  - 决策为暂不迁移 Pinia：当前共享状态均为小型 module-scope composable，尚未出现需要 DevTools、复杂派生状态、跨页面一致性约束或 SSR 隔离的 store 触发条件；若未来触发，优先用 Auth 或 Panel 单一 store 试点。
+  - 新增 `useSharedStateLifecycle.spec.ts`，覆盖 theme/left panel localStorage side effect、relative time interval 清理、session notification active subscription cancel 与 reconnect timer 清理；新增 spec 5 个用例通过，前端测试集 16 个文件/70 个用例通过。
 - 下一批最小增量：
-  - 批次 9：列出跨组件共享状态和当前 owner，判断是否需要 Pinia，而不是直接引入状态库。
+  - 批次 10：区分 patch/minor 与 major migration，先审计当前依赖版本、可安全升级范围和需要独立计划的 major 项。
 - 验收命令：
 
 ```bash

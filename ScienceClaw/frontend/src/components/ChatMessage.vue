@@ -61,82 +61,17 @@
       </div>
     </div>
 
-    <!-- Footer Bar - 操作按钮 + 统计信息 -->
-    <div class="msg-footer-bar" v-if="!(isLast && isLoading)">
-      <!-- 操作按钮组 - 圆角胶囊风格 -->
-      <div class="msg-actions-capsule">
-        <button
-          class="msg-action-btn"
-          :class="{ 'msg-action-btn--liked': feedback === 'like' }"
-          @click="toggleFeedback('like')"
-          :title="feedback === 'like' ? '取消' : '有帮助'"
-        >
-          <ThumbsUpIcon class="w-4 h-4" :class="{ 'fill-current': feedback === 'like' }" />
-        </button>
-        <button
-          class="msg-action-btn"
-          :class="{ 'msg-action-btn--disliked': feedback === 'dislike' }"
-          @click="toggleFeedback('dislike')"
-          :title="feedback === 'dislike' ? '取消' : '无帮助'"
-        >
-          <ThumbsDownIcon class="w-4 h-4" :class="{ 'fill-current': feedback === 'dislike' }" />
-        </button>
-        <div class="msg-action-divider"></div>
-        <button
-          class="msg-action-btn"
-          :class="{ 'msg-action-btn--copied': isCopied }"
-          @click="copyMessage"
-          :title="isCopied ? '已复制' : '复制'"
-        >
-          <CheckIcon v-if="isCopied" class="w-4 h-4" />
-          <CopyIcon v-else class="w-4 h-4" />
-        </button>
-        <button
-          class="msg-action-btn"
-          @click="handleConvertToPdf"
-          title="转成PDF"
-        >
-          <PdfIcon :size="16" />
-        </button>
-        <template v-if="roundFiles.length > 0">
-          <div class="msg-action-divider"></div>
-          <button
-            class="msg-action-btn msg-action-btn--files"
-            @click="showFileListPanel()"
-            :title="`查看本轮对话文件 (${roundFiles.length})`"
-          >
-            <FolderOpen class="w-4 h-4" />
-            <span class="text-[11px] font-medium ml-0.5 tabular-nums">{{ roundFiles.length }}</span>
-          </button>
-        </template>
-      </div>
-
-      <!-- 统计信息组 - 统一胶囊风格 -->
-      <div v-if="messageContent.statistics && (messageContent.statistics.total_duration_ms || messageContent.statistics.tool_call_count || messageContent.statistics.input_tokens || messageContent.statistics.output_tokens)" class="msg-stats-capsule">
-        <!-- Duration -->
-        <span v-if="messageContent.statistics?.total_duration_ms" class="msg-stat-tag msg-stat-tag--time msg-stat-with-tooltip" :data-tooltip="`耗时: ${formatDuration(messageContent.statistics.total_duration_ms)}`">
-          <ClockIcon class="w-3.5 h-3.5" />
-          <span class="tabular-nums">{{ formatDuration(messageContent.statistics.total_duration_ms) }}</span>
-        </span>
-        <!-- Divider after duration (if any item follows) -->
-        <div v-if="messageContent.statistics?.total_duration_ms && (messageContent.statistics?.tool_call_count || messageContent.statistics?.input_tokens || messageContent.statistics?.output_tokens)" class="msg-stat-divider"></div>
-        <!-- Tool calls -->
-        <span v-if="messageContent.statistics?.tool_call_count" class="msg-stat-tag msg-stat-tag--tools msg-stat-with-tooltip" :data-tooltip="`工具调用次数: ${messageContent.statistics.tool_call_count}次`">
-          <WrenchIcon class="w-3.5 h-3.5" />
-          <span class="tabular-nums">{{ messageContent.statistics.tool_call_count }}次</span>
-        </span>
-        <!-- Divider after tool_call (if tokens follow) -->
-        <div v-if="messageContent.statistics?.tool_call_count && (messageContent.statistics?.input_tokens || messageContent.statistics?.output_tokens)" class="msg-stat-divider"></div>
-        <!-- Tokens: Input ↓ / Output ↑ -->
-        <span v-if="messageContent.statistics?.input_tokens || messageContent.statistics?.output_tokens" class="msg-stat-tag msg-stat-tag--tokens msg-stat-with-tooltip" :data-tooltip="`输入Token: ${messageContent.statistics.input_tokens || 0} | 输出Token: ${messageContent.statistics.output_tokens || 0}`">
-          <ArrowDownIcon class="w-3.5 h-3.5 opacity-70" />
-          <span class="tabular-nums">{{ formatTokenCount(messageContent.statistics.input_tokens || 0) }}</span>
-          <span class="opacity-40 mx-0.5">·</span>
-          <ArrowUpIcon class="w-3.5 h-3.5 opacity-70" />
-          <span class="tabular-nums">{{ formatTokenCount(messageContent.statistics.output_tokens || 0) }}</span>
-        </span>
-      </div>
-    </div>
+    <MessageFooter
+      v-if="!(isLast && isLoading)"
+      :feedback="feedback"
+      :is-copied="isCopied"
+      :round-file-count="roundFiles.length"
+      :statistics="messageContent.statistics"
+      @toggle-feedback="toggleFeedback"
+      @copy="copyMessage"
+      @convert-to-pdf="handleConvertToPdf"
+      @show-files="showFileListPanel()"
+    />
   </div>
   <div v-else-if="message.type === 'tool'" class="hidden"></div>
   <div v-else-if="message.type === 'step'" class="hidden"></div>
@@ -164,8 +99,6 @@ import python from 'highlight.js/lib/languages/python';
 import shell from 'highlight.js/lib/languages/shell';
 import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
-import { CheckIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, ClockIcon, WrenchIcon, ArrowDownIcon, ArrowUpIcon, FolderOpen } from 'lucide-vue-next';
-import PdfIcon from './icons/PdfIcon.vue';
 import { computed, ref, onMounted, nextTick, watch } from 'vue';
 import { ToolContent } from '../types/message';
 import { useRelativeTime } from '../composables/useTime';
@@ -177,6 +110,7 @@ import SuggestedQuestions from './SuggestedQuestions.vue';
 import { transformSrc, domPurifyConfig } from '../utils/content';
 import { formatMarkdown } from '../utils/markdownFormatter';
 import MarkdownEnhancements from './MarkdownEnhancements.vue';
+import MessageFooter from './MessageFooter.vue';
 import { useFilePanel } from '../composables/useFilePanel';
 import { parseChatMessageContent } from '../utils/chatMessageContent';
 import {
@@ -368,21 +302,6 @@ const handleMarkdownClick = (event: MouseEvent) => {
     }
     return;
   }
-};
-
-// 格式化耗时
-const formatDuration = (ms: number): string => {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  const mins = Math.floor(ms / 60000);
-  const secs = ((ms % 60000) / 1000).toFixed(0);
-  return `${mins}m ${secs}s`;
-};
-
-// 格式化 token 数量
-const formatTokenCount = (count: number): string => {
-  if (count < 1000) return `${count}`;
-  return `${(count / 1000).toFixed(1)}K`;
 };
 
 // For backward compatibility

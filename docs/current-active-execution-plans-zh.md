@@ -1,6 +1,6 @@
 # 当前活跃执行计划台账
 
-更新时间：2026-06-01
+更新时间：2026-06-02
 
 本文档是 ScienceClaw 当前执行计划的唯一滚动入口。新任务进入执行态前先登记到这里；计划完成后从本台账移除，并移动到 `docs/archive/plans/`。
 
@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 9 Pinia 适用性评估已完成，决策为暂不迁移；下一批最小增量进入批次 10 依赖升级。
+- 状态：批次 10 依赖升级已完成；本施工单登记的批次 1-10 已全部完成，剩余只保留独立 major migration 候选项。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -100,8 +100,12 @@ npm --prefix .\ScienceClaw\frontend run build
   - 批次 9 已完成 Pinia 适用性评估：theme owner 为 `useTheme`，left panel owner 为 `useLeftPanel`，right panel owner 为当前无调用点的 `useRightPanel`，file panel owner 为 `useFilePanel`，session file list owner 为 `useSessionFileList`，settings dialog owner 为 `useSettingsDialog`，session notifications owner 为 `useSessionNotifications`。
   - 决策为暂不迁移 Pinia：当前共享状态均为小型 module-scope composable，尚未出现需要 DevTools、复杂派生状态、跨页面一致性约束或 SSR 隔离的 store 触发条件；若未来触发，优先用 Auth 或 Panel 单一 store 试点。
   - 新增 `useSharedStateLifecycle.spec.ts`，覆盖 theme/left panel localStorage side effect、relative time interval 清理、session notification active subscription cancel 与 reconnect timer 清理；新增 spec 5 个用例通过，前端测试集 16 个文件/70 个用例通过。
+  - 批次 10 已完成 Browserslist 数据更新：`npx update-browserslist-db@latest` 将 `caniuse-lite` 从 `1.0.30001713` 更新到 `1.0.30001793`，输出 `No target browser changes`，后续 build 不再出现既有 Browserslist 数据陈旧提示。
+  - 已完成当前主版本内的低风险安全/patch/minor 升级：`axios`、`dompurify`、`mermaid`、`postcss`、`vite`、`vue-i18n`、`@types/node`、`@vue/test-utils` 的声明版本和 lockfile 实装版本已同步记录到权威文档。
+  - `npm audit --json` 在默认 npmmirror registry 下因 audit endpoint 未实现失败；改用 `--registry=https://registry.npmjs.org` 后可审计。升级后官方 audit 剩余 13 项，主要进入 Vite/Vitest major、Vue I18n v11、Tailwind/Reka 传递链等独立迁移候选，不与本批混合提交。
+  - 批次 10 验证已通过：`npm --prefix ScienceClaw/frontend run type-check`、`build`、`test:run`、`lint`、`format:check` 均通过；本轮按用户要求不做浏览器验证。
 - 下一批最小增量：
-  - 批次 10：区分 patch/minor 与 major migration，先审计当前依赖版本、可安全升级范围和需要独立计划的 major 项。
+  - 本施工单无剩余批次；若继续处理依赖债务，应为 Vite/Vitest、Tailwind/Reka、Vue Router、Vue I18n v11 等 major migration 新建独立计划。
 - 验收命令：
 
 ```bash

@@ -449,6 +449,23 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 涉及样式或组件库时，完成 light/dark 浏览器 smoke。
 - major migration 不与功能重构同批提交。
 
+**执行记录**
+
+- Browserslist 数据已先行更新：在 `ScienceClaw/frontend` 运行 `npx update-browserslist-db@latest`，`caniuse-lite` 从 `1.0.30001713` 更新到 `1.0.30001793`，输出 `No target browser changes`。
+- npm audit 的默认 npmmirror registry endpoint 当前不可用；改用官方 registry 运行 `npm --prefix ScienceClaw/frontend audit --json --registry=https://registry.npmjs.org` 完成审计。
+- 已完成当前主版本内的安全/patch/minor 升级，并同步 `package.json` 声明版本与 `package-lock.json` 实装版本：
+  - `axios`：`^1.8.4` -> `^1.16.1`，实装 `1.16.1`。
+  - `dompurify`：`^3.2.5` -> `^3.4.7`，实装 `3.4.7`。
+  - `mermaid`：`^11.13.0` -> `^11.15.0`，实装 `11.15.0`。
+  - `postcss`：`^8.4.24` -> `^8.5.15`，实装 `8.5.15`。
+  - `vite`：`^4.3.9` -> `^4.5.14`，实装 `4.5.14`；剩余 Vite/esbuild audit 项需 Vite major migration，不在本批混合处理。
+  - `vue-i18n`：`^9.14.4` -> `^9.14.5`，实装 `9.14.5`；安装时提示 v9/v10 已进入维护弃用，应单独评估 v11 migration。
+  - `@types/node`：`^24.0.13` -> `^24.12.4`，实装 `24.12.4`。
+  - `@vue/test-utils`：`^2.4.9` -> `^2.4.10`，实装 `2.4.10`。
+- 升级后官方 audit 剩余 13 项：5 moderate、6 high、2 critical。直接 direct major 候选包括 `vitest`/`@vitest/coverage-v8` -> `4.1.8`，`vite` -> `8.0.16`；其余 `brace-expansion`、`defu`、`glob`、`lodash-es`、`minimatch`、`picomatch`、`rollup`、`uuid`、`yaml` 多为 Tailwind/Reka/Vite/Vitest 传递链，应拆到独立 migration 或 lockfile override 评估。
+- 本批未执行样式/组件库 major 升级，且本轮用户要求“不要浏览器验证”；浏览器 smoke 不作为本次提交证据。
+- 验证已通过：`npm --prefix ScienceClaw/frontend run type-check`、`npm --prefix ScienceClaw/frontend run build`、`npm --prefix ScienceClaw/frontend run test:run`、`npm --prefix ScienceClaw/frontend run lint`、`npm --prefix ScienceClaw/frontend run format:check`。
+
 ---
 
 ## 5. 风险与回滚
@@ -480,4 +497,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu、`chat-message-renderer.css` 表格/kbd surface-border 和 code block 控件色值的稳定 token 迁移，且全量验证已通过；批次 8 已建立 ESLint/Prettier baseline；批次 9 已完成 Pinia 适用性评估且决策为暂不迁移；下一批进入批次 10。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen/selection menu、`chat-message-renderer.css` 表格/kbd surface-border 和 code block 控件色值的稳定 token 迁移，且全量验证已通过；批次 8 已建立 ESLint/Prettier baseline；批次 9 已完成 Pinia 适用性评估且决策为暂不迁移；批次 10 已完成 Browserslist 更新、当前主版本内依赖安全/patch/minor 升级和 major migration 拆分记录。本施工单批次 1-10 已全部完成。

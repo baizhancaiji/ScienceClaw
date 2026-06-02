@@ -185,8 +185,8 @@ import {
   postprocessMath,
   preprocessMath,
   renderHighlightedCodeBlock,
-  renderMermaidError,
   renderMermaidPlaceholder,
+  renderMermaidWrapper,
   renderMarkdownLink,
 } from '../utils/markdownRenderer';
 
@@ -529,43 +529,13 @@ const renderMermaidDiagrams = async () => {
   const mermaid = await initMermaid();
 
   for (let i = 0; i < mermaidWrappers.length; i++) {
-    const wrapper = mermaidWrappers[i];
-    const code = decodeURIComponent(wrapper.getAttribute('data-mermaid-code') || '');
-    const contentEl = wrapper.querySelector('.mermaid-content') as HTMLElement;
-    const loadingEl = wrapper.querySelector('.mermaid-loading') as HTMLElement;
-
-    if (!code || !contentEl) {
-      console.warn(logPrefix, `Diagram ${i + 1}: missing code or content element`);
-      continue;
-    }
-
-    console.log(logPrefix, `Diagram ${i + 1}:`, code.substring(0, 50) + '...');
-
-    // 检查缓存
-    if (mermaidCache.has(code)) {
-      console.log(logPrefix, `Diagram ${i + 1}: using cache`);
-      contentEl.innerHTML = mermaidCache.get(code)!;
-      if (loadingEl) loadingEl.style.display = 'none';
-      contentEl.style.display = 'block';
-      continue;
-    }
-
-    try {
-      const startTime = performance.now();
-      // 使用 mermaid.render 渲染
-      const { svg } = await mermaid.render(`mermaid-svg-${Date.now()}-${i}`, code);
-      mermaidCache.set(code, svg);
-      contentEl.innerHTML = svg;
-      if (loadingEl) loadingEl.style.display = 'none';
-      contentEl.style.display = 'block';
-      const elapsed = (performance.now() - startTime).toFixed(2);
-      console.log(logPrefix, `Diagram ${i + 1}: rendered in ${elapsed}ms`);
-    } catch (e) {
-      console.error(logPrefix, `Diagram ${i + 1}: render error:`, e);
-      if (loadingEl) {
-        loadingEl.innerHTML = renderMermaidError(code);
-      }
-    }
+    await renderMermaidWrapper({
+      wrapper: mermaidWrappers[i],
+      index: i,
+      mermaid,
+      cache: mermaidCache,
+      logPrefix,
+    });
   }
 };
 

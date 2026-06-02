@@ -290,7 +290,9 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 扩展 `markdownRenderer.spec.ts`，覆盖 Mermaid wrapper/code encoding/loading text/content id，以及错误提示和 raw code 展示。
 - 第六段 math renderer helper 增量已完成：扩展 `frontend/src/utils/markdownRenderer.ts`，将 KaTeX render、公式预处理和公式占位符后处理抽成纯 helper，并继续由 `ChatMessage.vue` 提供原有占位符计数器。
 - 扩展 `markdownRenderer.spec.ts`，覆盖 KaTeX display render、块级/行内公式占位符、非公式文本跳过和公式 HTML 回填。
-- 以上增量不改变 Markdown 渲染、数学公式、Mermaid 动态加载/缓存/渲染、代码块复制、消息展示或附件分支；下一段继续优先提取 Mermaid render execution helper。
+- 第七段 Mermaid render execution helper 增量已完成：扩展 `frontend/src/utils/markdownRenderer.ts`，将单个 Mermaid wrapper 的 code decode、cache 命中、`mermaid.render`、loading/content DOM 更新和错误展示抽成 `renderMermaidWrapper` helper。
+- 扩展 `markdownRenderer.spec.ts`，覆盖 Mermaid SVG 渲染与缓存写入、缓存命中跳过 render，以及 render 失败时复用既有错误 HTML。
+- 以上增量不改变 Markdown 渲染、数学公式、Mermaid 动态 import/初始化/缓存/渲染、代码块复制、消息展示或附件分支；下一段继续优先提取 Mermaid loader/initialization helper。
 
 ---
 
@@ -436,4 +438,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper 和 math renderer helper 提取；下一批最小增量继续提取 Mermaid render execution helper。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper 和 Mermaid render execution helper 提取；下一批最小增量继续提取 Mermaid loader/initialization helper。

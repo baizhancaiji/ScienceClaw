@@ -10,6 +10,7 @@ import {
   renderKaTeX,
   renderMermaidError,
   renderMermaidPlaceholder,
+  renderMermaidWrapper,
   renderMarkdownLink,
 } from './markdownRenderer';
 
@@ -139,6 +140,93 @@ describe('renderMermaidError', () => {
     expect(html).toContain('class="mermaid-error"');
     expect(html).toContain('<span>图表渲染失败</span>');
     expect(html).toContain('<pre class="mermaid-raw-code">graph TD; A-->B;</pre>');
+  });
+});
+
+describe('renderMermaidWrapper', () => {
+  const createWrapper = (code: string) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mermaid-wrapper';
+    wrapper.setAttribute('data-mermaid-code', encodeURIComponent(code));
+    wrapper.innerHTML = `
+      <div class="mermaid-loading"></div>
+      <div class="mermaid-content"></div>
+    `;
+    return wrapper;
+  };
+
+  it('renders mermaid SVG and caches the result', async () => {
+    const wrapper = createWrapper('graph TD; A-->B;');
+    const cache = new Map<string, string>();
+    const mermaid = {
+      render: async (id: string, code: string) => ({
+        svg: `<svg data-id="${id}">${code}</svg>`,
+      }),
+    };
+
+    await renderMermaidWrapper({
+      wrapper,
+      index: 0,
+      mermaid,
+      cache,
+      now: (() => {
+        let value = 10;
+        return () => value += 5;
+      })(),
+      makeRenderId: index => `test-svg-${index}`,
+    });
+
+    const content = wrapper.querySelector('.mermaid-content') as HTMLElement;
+    const loading = wrapper.querySelector('.mermaid-loading') as HTMLElement;
+    expect(content.querySelector('svg')?.getAttribute('data-id')).toBe('test-svg-0');
+    expect(content.style.display).toBe('block');
+    expect(loading.style.display).toBe('none');
+    expect(cache.get('graph TD; A-->B;')).toBe('<svg data-id="test-svg-0">graph TD; A-->B;</svg>');
+  });
+
+  it('uses cached SVG without calling mermaid render', async () => {
+    const wrapper = createWrapper('graph TD; A-->B;');
+    const cache = new Map([['graph TD; A-->B;', '<svg>cached</svg>']]);
+    const mermaid = {
+      render: async () => {
+        throw new Error('should not render');
+      },
+    };
+
+    await renderMermaidWrapper({
+      wrapper,
+      index: 0,
+      mermaid,
+      cache,
+    });
+
+    const content = wrapper.querySelector('.mermaid-content') as HTMLElement;
+    const loading = wrapper.querySelector('.mermaid-loading') as HTMLElement;
+    expect(content.innerHTML).toBe('<svg>cached</svg>');
+    expect(content.style.display).toBe('block');
+    expect(loading.style.display).toBe('none');
+  });
+
+  it('shows the existing error HTML when mermaid render fails', async () => {
+    const wrapper = createWrapper('flowchart TD\nA');
+    const cache = new Map<string, string>();
+    const mermaid = {
+      render: async () => {
+        throw new Error('render failed');
+      },
+    };
+
+    await renderMermaidWrapper({
+      wrapper,
+      index: 0,
+      mermaid,
+      cache,
+    });
+
+    const loading = wrapper.querySelector('.mermaid-loading') as HTMLElement;
+    expect(loading.innerHTML).toContain('class="mermaid-error"');
+    expect(loading.innerHTML).toContain('<span>图表渲染失败</span>');
+    expect(loading.querySelector('.mermaid-raw-code')?.textContent).toBe('flowchart TD\nA');
   });
 });
 

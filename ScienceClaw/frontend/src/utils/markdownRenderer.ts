@@ -36,6 +36,20 @@ export interface MermaidPlaceholderOptions {
   code: string;
 }
 
+export interface MermaidRenderAdapter {
+  render: (id: string, code: string) => Promise<{ svg: string }>;
+}
+
+export interface RenderMermaidWrapperOptions {
+  wrapper: Element;
+  index: number;
+  mermaid: MermaidRenderAdapter;
+  cache: Map<string, string>;
+  logPrefix?: string;
+  now?: () => number;
+  makeRenderId?: (index: number) => string;
+}
+
 export type MathPlaceholderKind = 'block' | 'inline';
 
 export interface PreprocessMathResult {
@@ -150,6 +164,53 @@ export const renderMermaidError = (code: string): string => (
           </div>
           <pre class="mermaid-raw-code">${code}</pre>`
 );
+
+export const renderMermaidWrapper = async ({
+  wrapper,
+  index,
+  mermaid,
+  cache,
+  logPrefix = '[Mermaid]',
+  now = () => performance.now(),
+  makeRenderId = diagramIndex => `mermaid-svg-${Date.now()}-${diagramIndex}`,
+}: RenderMermaidWrapperOptions): Promise<void> => {
+  const code = decodeURIComponent(wrapper.getAttribute('data-mermaid-code') || '');
+  const contentEl = wrapper.querySelector('.mermaid-content') as HTMLElement;
+  const loadingEl = wrapper.querySelector('.mermaid-loading') as HTMLElement;
+
+  if (!code || !contentEl) {
+    console.warn(logPrefix, `Diagram ${index + 1}: missing code or content element`);
+    return;
+  }
+
+  console.log(logPrefix, `Diagram ${index + 1}:`, code.substring(0, 50) + '...');
+
+  // 检查缓存
+  if (cache.has(code)) {
+    console.log(logPrefix, `Diagram ${index + 1}: using cache`);
+    contentEl.innerHTML = cache.get(code)!;
+    if (loadingEl) loadingEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const startTime = now();
+    // 使用 mermaid.render 渲染
+    const { svg } = await mermaid.render(makeRenderId(index), code);
+    cache.set(code, svg);
+    contentEl.innerHTML = svg;
+    if (loadingEl) loadingEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    const elapsed = (now() - startTime).toFixed(2);
+    console.log(logPrefix, `Diagram ${index + 1}: rendered in ${elapsed}ms`);
+  } catch (e) {
+    console.error(logPrefix, `Diagram ${index + 1}: render error:`, e);
+    if (loadingEl) {
+      loadingEl.innerHTML = renderMermaidError(code);
+    }
+  }
+};
 
 export const renderKaTeX = (formula: string, displayMode: boolean = false): string => {
   try {

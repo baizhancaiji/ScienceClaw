@@ -164,7 +164,6 @@ import python from 'highlight.js/lib/languages/python';
 import shell from 'highlight.js/lib/languages/shell';
 import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
-import type mermaidType from 'mermaid';
 import { CheckIcon, ThumbsUpIcon, ThumbsDownIcon, CopyIcon, ClockIcon, WrenchIcon, ArrowDownIcon, ArrowUpIcon, FolderOpen } from 'lucide-vue-next';
 import PdfIcon from './icons/PdfIcon.vue';
 import { computed, ref, onMounted, nextTick, watch } from 'vue';
@@ -181,6 +180,7 @@ import MarkdownEnhancements from './MarkdownEnhancements.vue';
 import { useFilePanel } from '../composables/useFilePanel';
 import { parseChatMessageContent } from '../utils/chatMessageContent';
 import {
+  createMermaidLoader,
   normalizeMarkdownCodeToken,
   postprocessMath,
   preprocessMath,
@@ -215,63 +215,10 @@ hljs.registerLanguage('xml', xml);
 const markdownEnhancementsRef = ref<InstanceType<typeof MarkdownEnhancements> | null>(null);
 const markdownRef = ref<HTMLElement | null>(null);
 
-// Mermaid 是否已初始化
-let mermaidInitialized = false;
-let mermaidModule: typeof mermaidType | null = null;
-let mermaidModulePromise: Promise<typeof mermaidType> | null = null;
 // Mermaid 图表缓存（避免重复渲染）
 const mermaidCache = new Map<string, string>();
 let mermaidCounter = 0;
-
-async function loadMermaid() {
-  if (!mermaidModulePromise) {
-    mermaidModulePromise = import('mermaid').then(module => module.default);
-  }
-
-  mermaidModule = await mermaidModulePromise;
-  return mermaidModule;
-}
-
-/**
- * 初始化 Mermaid（延迟初始化，只在需要时执行）
- */
-async function initMermaid() {
-  if (mermaidInitialized) {
-    console.log('[Mermaid] Already initialized');
-    return loadMermaid();
-  }
-
-  console.log('[Mermaid] Initializing...');
-  const mermaid = await loadMermaid();
-
-  try {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: 'dark',
-      securityLevel: 'loose',
-      fontFamily: 'inherit',
-      flowchart: {
-        useMaxWidth: true,
-        htmlLabels: true,
-        curve: 'basis'
-      },
-      sequence: {
-        useMaxWidth: true,
-        diagramMarginX: 10,
-        diagramMarginY: 10
-      },
-      gantt: {
-        useMaxWidth: true
-      }
-    });
-    mermaidInitialized = true;
-    console.log('[Mermaid] Initialized successfully');
-  } catch (e) {
-    console.error('[Mermaid] Initialization failed:', e);
-  }
-
-  return mermaid;
-}
+const { initMermaid } = createMermaidLoader(() => import('mermaid').then(module => module.default));
 
 // 配置 marked
 const renderer = new marked.Renderer();

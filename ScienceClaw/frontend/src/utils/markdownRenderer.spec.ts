@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  createMermaidLoader,
   escapeCodeForCopyAttribute,
   getCodeBlockLayout,
   normalizeMarkdownCodeToken,
@@ -227,6 +228,61 @@ describe('renderMermaidWrapper', () => {
     expect(loading.innerHTML).toContain('class="mermaid-error"');
     expect(loading.innerHTML).toContain('<span>图表渲染失败</span>');
     expect(loading.querySelector('.mermaid-raw-code')?.textContent).toBe('flowchart TD\nA');
+  });
+});
+
+describe('createMermaidLoader', () => {
+  it('uses a single dynamic import promise and initializes mermaid once', async () => {
+    let importCount = 0;
+    const initializeCalls: Record<string, unknown>[] = [];
+    const mermaid = {
+      initialize: (config: Record<string, unknown>) => {
+        initializeCalls.push(config);
+      },
+      render: async () => ({ svg: '<svg></svg>' }),
+    };
+    const loader = createMermaidLoader(async () => {
+      importCount += 1;
+      return mermaid;
+    });
+
+    await Promise.all([loader.loadMermaid(), loader.loadMermaid()]);
+    await loader.initMermaid();
+    await loader.initMermaid();
+
+    expect(importCount).toBe(1);
+    expect(initializeCalls).toHaveLength(1);
+    expect(initializeCalls[0]).toMatchObject({
+      startOnLoad: false,
+      theme: 'dark',
+      securityLevel: 'loose',
+      fontFamily: 'inherit',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis',
+      },
+      sequence: {
+        useMaxWidth: true,
+        diagramMarginX: 10,
+        diagramMarginY: 10,
+      },
+      gantt: {
+        useMaxWidth: true,
+      },
+    });
+  });
+
+  it('returns mermaid even when initialization throws', async () => {
+    const mermaid = {
+      initialize: () => {
+        throw new Error('init failed');
+      },
+      render: async () => ({ svg: '<svg></svg>' }),
+    };
+    const loader = createMermaidLoader(async () => mermaid);
+
+    await expect(loader.initMermaid()).resolves.toBe(mermaid);
   });
 });
 

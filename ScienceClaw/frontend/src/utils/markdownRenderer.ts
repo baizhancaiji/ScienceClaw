@@ -40,6 +40,17 @@ export interface MermaidRenderAdapter {
   render: (id: string, code: string) => Promise<{ svg: string }>;
 }
 
+export interface MermaidLoaderAdapter extends MermaidRenderAdapter {
+  initialize: (config: Record<string, unknown>) => void;
+}
+
+export type ImportMermaid = () => Promise<MermaidLoaderAdapter>;
+
+export interface MermaidLoader {
+  loadMermaid: () => Promise<MermaidLoaderAdapter>;
+  initMermaid: () => Promise<MermaidLoaderAdapter>;
+}
+
 export interface RenderMermaidWrapperOptions {
   wrapper: Element;
   index: number;
@@ -210,6 +221,67 @@ export const renderMermaidWrapper = async ({
       loadingEl.innerHTML = renderMermaidError(code);
     }
   }
+};
+
+export const createMermaidLoader = (
+  importMermaid: ImportMermaid,
+  logPrefix = '[Mermaid]',
+): MermaidLoader => {
+  let mermaidInitialized = false;
+  let mermaidModule: MermaidLoaderAdapter | null = null;
+  let mermaidModulePromise: Promise<MermaidLoaderAdapter> | null = null;
+
+  const loadMermaid = async () => {
+    if (!mermaidModulePromise) {
+      mermaidModulePromise = importMermaid();
+    }
+
+    mermaidModule = await mermaidModulePromise;
+    return mermaidModule;
+  };
+
+  const initMermaid = async () => {
+    if (mermaidInitialized) {
+      console.log(logPrefix, 'Already initialized');
+      return loadMermaid();
+    }
+
+    console.log(logPrefix, 'Initializing...');
+    const mermaid = await loadMermaid();
+
+    try {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        securityLevel: 'loose',
+        fontFamily: 'inherit',
+        flowchart: {
+          useMaxWidth: true,
+          htmlLabels: true,
+          curve: 'basis',
+        },
+        sequence: {
+          useMaxWidth: true,
+          diagramMarginX: 10,
+          diagramMarginY: 10,
+        },
+        gantt: {
+          useMaxWidth: true,
+        },
+      });
+      mermaidInitialized = true;
+      console.log(logPrefix, 'Initialized successfully');
+    } catch (e) {
+      console.error(`${logPrefix} Initialization failed:`, e);
+    }
+
+    return mermaid;
+  };
+
+  return {
+    loadMermaid,
+    initMermaid,
+  };
 };
 
 export const renderKaTeX = (formula: string, displayMode: boolean = false): string => {

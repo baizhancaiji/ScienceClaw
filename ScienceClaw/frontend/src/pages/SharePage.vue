@@ -163,6 +163,7 @@ import { showErrorToast, showSuccessToast } from '../utils/toast';
 import { useSessionFileList } from '../composables/useSessionFileList'
 import { useFilePanel } from '../composables/useFilePanel'
 import { copyToClipboard } from '../utils/dom'
+import { smartMerge } from '../utils/smartMerge';
 import { useMessageGrouper } from '../composables/useMessageGrouper';
 import type { ActivityItem } from '../components/ActivityPanel.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
@@ -285,15 +286,6 @@ const showActivityForTurn = (turnIndex: number) => {
 
   selectedActivityTurn.value = targetTurn;
   activityPanelRef.value?.show();
-};
-
-const smartMerge = (target: any, source: any) => {
-  for (const key of Object.keys(source)) {
-    const val = source[key];
-    if (val === undefined || val === null) continue;
-    if (typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0) continue;
-    target[key] = val;
-  }
 };
 
 const handleMessageEvent = (messageData: MessageEventData) => {

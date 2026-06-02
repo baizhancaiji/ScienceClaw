@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 4「核心类型边界收紧」已完成 ToolUniverse JSON/unknown 边界、Axios refresh queue 类型收紧，以及消息协议工具 payload 边界；下一批最小增量为批次 5 `ChatPage.vue` 纯函数/helper 渐进拆分。
+- 状态：批次 5 `ChatPage.vue` 渐进拆分已完成第一段纯函数/helper 增量；下一批最小增量为继续提取事件归一化或 Plan/Activity helper。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -59,8 +59,10 @@ npm --prefix .\ScienceClaw\frontend run build
   - 新增 `ScienceClaw/frontend/src/types/toolPayload.ts`，定义 `ToolArgs`/`ToolResultContent` 和工具参数、工具结果字段访问 helper。
   - `ToolContent`/`ToolEventData` 已从宽泛 `any` 收紧到共享工具 payload 类型；ActivityPanel、ToolUse、各 tool view 和 ChatPage save prompt 调用点已改为显式 narrowing。
   - 新增 `toolPayload.spec.ts`，覆盖对象/string/null 参数、字段读取、预览生成和结果对象 narrowing。
+  - 新增 `ScienceClaw/frontend/src/utils/smartMerge.ts`，将 ChatPage/SharePage 重复的工具事件合并规则抽成纯函数。
+  - 新增 `smartMerge.spec.ts`，覆盖有效值覆盖、`undefined`/`null`/空对象跳过，以及数组、`0`、`false`、空字符串仍可覆盖。
 - 下一批最小增量：
-  - 批次 5：从 `ScienceClaw/frontend/src/pages/ChatPage.vue` 抽出一个低风险纯函数/helper，并为该 helper 增加单元测试；不改变 SSE 消息合并、计划工具关联或 UI 行为。
+  - 批次 5 后续段：继续从 `ChatPage.vue` 提取事件归一化或 Plan/Activity helper；先选纯函数，配套单元测试，不改变 SSE 消息合并、计划工具关联或 UI 行为。
 - 验收命令：
 
 ```bash

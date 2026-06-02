@@ -327,6 +327,7 @@ import ChatBox from '../components/ChatBox.vue';
 import * as agentApi from '../api/agent';
 import { Message, MessageContent, ToolContent, StepContent, AttachmentsContent } from '../types/message';
 import { getToolArgValue, getToolStringArg } from '../types/toolPayload';
+import { smartMerge } from '../utils/smartMerge';
 import {
   StepEventData,
   ToolEventData,
@@ -700,17 +701,6 @@ const handleMessageEvent = (messageData: MessageEventData) => {
     });
   }
 }
-
-// Smart merge: only overwrite fields that have actual values (not empty/null/undefined)
-const smartMerge = (target: any, source: any) => {
-  for (const key of Object.keys(source)) {
-    const val = source[key];
-    // Skip undefined, null, empty objects, empty strings
-    if (val === undefined || val === null) continue;
-    if (typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0) continue;
-    target[key] = val;
-  }
-};
 
 // Handle tool event
 const handleToolEvent = (toolData: ToolEventData) => {

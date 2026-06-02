@@ -264,6 +264,12 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 新抽出的纯函数有单元测试。
 - 浏览器长会话 smoke 覆盖至少一次 SSE 流式回复。
 
+**执行记录**
+
+- 第一段纯函数/helper 增量已完成：新增 `frontend/src/utils/smartMerge.ts`，将 ChatPage/SharePage 重复的工具事件合并规则抽成纯函数。
+- 新增 `smartMerge.spec.ts`，覆盖有效值覆盖、`undefined`/`null`/空对象跳过，以及数组、`0`、`false`、空字符串仍可覆盖。
+- 本增量不改变 SSE 连接、消息 append、Plan 工具关联或 UI 分支；下一段继续优先选择事件归一化或 Plan/Activity 纯 helper。
+
 ---
 
 ### 批次 6：`ChatMessage.vue` 渐进拆分
@@ -408,4 +414,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」；下一批最小增量为批次 5 `ChatPage.vue` 纯函数/helper 渐进拆分。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」，以及批次 5 第一段 `smartMerge` 纯函数/helper 提取；下一批最小增量为继续提取事件归一化或 Plan/Activity helper。

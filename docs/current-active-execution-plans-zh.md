@@ -37,7 +37,7 @@ npm --prefix .\ScienceClaw\frontend run build
 
 ### 前端技术债治理施工单 v2
 
-- 状态：批次 6 `ChatMessage.vue` 渐进拆分已完成九段 helper/component；下一批最小增量继续拆分或明确分区 footer 相关样式。
+- 状态：批次 6 `ChatMessage.vue` 渐进拆分已完成十段 helper/component/style；下一批最小增量继续拆分或明确分区剩余 Markdown/code/Mermaid 样式。
 - 权威文档：`docs/tech-debt-audit-report-v2.md`
 - 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
 - 已完成最小增量：
@@ -85,8 +85,9 @@ npm --prefix .\ScienceClaw\frontend run build
   - 扩展 `markdownRenderer.spec.ts`，覆盖动态 import 只执行一次、初始化只执行一次、初始化配置保持不变，以及初始化失败仍返回 mermaid module 的既有行为。
   - 新增 `MessageFooter.vue`，将反馈按钮、复制、PDF 转换、文件入口和统计信息展示从 `ChatMessage.vue` 提取为子组件，父组件继续持有交互行为和状态。
   - 新增 `MessageFooter.spec.ts`，覆盖反馈/复制/文件数/统计信息渲染，以及 like/dislike、copy、convertToPdf、showFiles 事件透传。
+  - 将 `MessageFooter.vue` 所需的 `.msg-footer-*`、`.msg-action-*`、`.msg-stat-*` 和对应移动端规则从 `ChatMessage.vue` 大样式块迁入 `MessageFooter.vue`。
 - 下一批最小增量：
-  - 批次 6 后续段：继续拆分或明确分区 footer 相关样式；优先把 `MessageFooter.vue` 所需样式从 `ChatMessage.vue` 大样式块中收口，同时不改变消息正文、Markdown、Mermaid、数学公式、代码块复制或附件分支。
+  - 批次 6 后续段：继续拆分或明确分区剩余 Markdown/code/Mermaid 样式；优先把已经有清晰职责的样式块从 `ChatMessage.vue` 大样式区收口，同时不改变消息正文、Markdown、Mermaid、数学公式、代码块复制或附件分支。
 - 验收命令：
 
 ```bash

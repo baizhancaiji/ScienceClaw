@@ -132,3 +132,146 @@ const formatTokenCount = (count: number): string => {
   return `${(count / 1000).toFixed(1)}K`;
 };
 </script>
+
+<style>
+/* 底部操作栏 */
+.msg-footer-bar {
+  @apply mt-1.5 flex items-center gap-2 opacity-60 transition-opacity duration-200;
+}
+
+.group:hover .msg-footer-bar {
+  @apply opacity-100;
+}
+
+.msg-actions-capsule {
+  @apply inline-flex items-center gap-0.5 h-9 px-1.5;
+  @apply bg-gray-100/80 dark:bg-gray-800/60;
+  @apply backdrop-blur-sm;
+  @apply border border-gray-200/50 dark:border-gray-700/50;
+  @apply rounded-full;
+}
+
+.msg-action-btn {
+  @apply relative flex items-center justify-center;
+  @apply w-7 h-7 rounded-md;
+  @apply text-gray-400 dark:text-gray-500;
+  @apply hover:bg-gray-200/60 dark:hover:bg-gray-700/60;
+  @apply hover:text-gray-600 dark:hover:text-gray-300;
+  @apply transition-all duration-150;
+  @apply active:scale-95;
+}
+
+.msg-action-btn--liked {
+  @apply bg-green-100/80 dark:bg-green-900/30;
+  @apply text-green-600 dark:text-green-400;
+  @apply hover:bg-green-200/80 dark:hover:bg-green-900/40;
+}
+
+.msg-action-btn--disliked {
+  @apply bg-red-100/80 dark:bg-red-900/30;
+  @apply text-red-600 dark:text-red-400;
+  @apply hover:bg-red-200/80 dark:hover:bg-red-900/40;
+}
+
+.msg-action-btn--copied {
+  @apply text-green-600 dark:text-green-400;
+}
+
+.msg-action-btn--files {
+  @apply flex items-center gap-0;
+  @apply w-auto px-1.5;
+  @apply text-blue-600 dark:text-blue-400;
+  @apply hover:bg-blue-100/80 dark:hover:bg-blue-900/30;
+}
+
+.msg-action-divider {
+  @apply w-px h-4 mx-0.5;
+  @apply bg-gray-300/60 dark:bg-gray-600/60;
+}
+
+.msg-stats-capsule {
+  @apply inline-flex items-center gap-0 h-9 px-2;
+  @apply bg-gray-100/80 dark:bg-gray-800/60;
+  @apply backdrop-blur-sm;
+  @apply border border-gray-200/50 dark:border-gray-700/50;
+  @apply rounded-full;
+}
+
+.msg-stat-tag {
+  @apply inline-flex items-center gap-1;
+  @apply text-[12px] font-medium;
+}
+
+.msg-stat-tag--time { @apply text-blue-600 dark:text-blue-400; }
+.msg-stat-tag--tools { @apply text-emerald-600 dark:text-emerald-400; }
+.msg-stat-tag--tokens { @apply text-violet-600 dark:text-violet-400; }
+
+.msg-stat-with-tooltip {
+  position: relative;
+  cursor: default;
+}
+
+.msg-stat-with-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: #fff;
+  background: rgba(30, 41, 59, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.dark .msg-stat-with-tooltip::after {
+  background: rgba(51, 65, 85, 0.95);
+}
+
+.msg-stat-with-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: rgba(30, 41, 59, 0.95);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 100;
+}
+
+.dark .msg-stat-with-tooltip::before {
+  border-top-color: rgba(51, 65, 85, 0.95);
+}
+
+.msg-stat-with-tooltip:hover::after,
+.msg-stat-with-tooltip:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+.msg-stat-divider {
+  @apply w-px h-3.5 mx-3;
+  @apply bg-gray-300/60 dark:bg-gray-600/60;
+}
+
+@media (max-width: 640px) {
+  .msg-footer-bar {
+    @apply opacity-100 flex-wrap;
+  }
+
+  .msg-action-btn { @apply w-8 h-8; }
+  .msg-stats-capsule { @apply mt-1; }
+}
+</style>

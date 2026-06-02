@@ -2,13 +2,13 @@
 
 **制定日期**：2026-06-01
 
-**执行状态**：待登记、待执行
+**执行状态**：已登记，按 `docs/current-active-execution-plans-zh.md` 最小增量推进
 
 **施工范围**：`ScienceClaw/frontend/src/`，以及会影响前端合同的 `ScienceClaw/backend/`、`ScienceClaw/task-service/` 和 Compose/文档配置
 
 **前置依据**：本施工单来自 2026-06-01 对前端技术债报告的源码复核；复核中已确认原报告包含若干错误方案，本文只保留可执行且已校正的治理项。
 
-**不在本文范围**：不把本文本身视为已进入执行态；真正开工前必须先登记到 `docs/current-active-execution-plans-zh.md`。
+**登记状态**：已登记到 `docs/current-active-execution-plans-zh.md`；当前执行批次以台账为准。
 
 ---
 
@@ -120,6 +120,12 @@ PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest <te
 - `ScienceClaw/task-service/app/api/tasks.py` 和 `ScienceClaw/task-service/app/api/webhooks.py` 当前没有按当前用户做认证依赖和列表过滤。
 - 任务 schema 有可选 `user_id`，但访问控制未闭环。
 
+**执行记录**
+
+- 2026-06-02 已确认 task-service 不是纯内部服务：前端通过 `/task-service` 代理访问，compose 同时暴露 `scheduler_api` 到宿主 `12002`。
+- 认证合同采用主后端 `user_sessions` 中的 bearer session id；task-service 独立查询同一 MongoDB 的 `user_sessions`，不跨服务导入主后端代码。
+- 普通用户只能访问 `user_id` 等于当前用户的 task/webhook；管理员 `role=admin` 可查看和管理全部 task/webhook。
+
 **施工项**
 
 1. 明确 task-service 信任模型：浏览器直连、主后端反向代理，或内部服务专用。
@@ -138,7 +144,7 @@ PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest <te
 **建议验证命令**
 
 ```bash
-PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest ScienceClaw/task-service/tests
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest discover -s ScienceClaw/task-service/tests -t ScienceClaw/task-service
 npm --prefix ScienceClaw/frontend run type-check
 npm --prefix ScienceClaw/frontend run build
 ```
@@ -376,4 +382,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”。下一步不是直接开工，而是先处理当前台账里的 VNC signed URL 剩余 smoke，然后把本文作为新的活跃计划登记或拆成多个独立活跃计划。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态，当前按台账继续推进批次 2「前端自动化测试基座」。

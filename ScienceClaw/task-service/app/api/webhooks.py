@@ -3,11 +3,12 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 import shortuuid
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel
 
 from app.core.db import db
+from app.auth import User, owner_filter, require_user
 from app.models.webhook import (
     WEBHOOK_TYPES,
     WebhookCreate,
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
 
 @router.post("", response_model=WebhookOut)
-async def create_webhook(body: WebhookCreate) -> WebhookOut:
+async def create_webhook(body: WebhookCreate, current_user: User = Depends(require_user)) -> WebhookOut:
     if body.type not in WEBHOOK_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid type. Must be one of: {', '.join(sorted(WEBHOOK_TYPES))}")
     if not body.url.strip():
@@ -35,6 +36,7 @@ async def create_webhook(body: WebhookCreate) -> WebhookOut:
         "name": body.name.strip(),
         "type": body.type,
         "url": body.url.strip(),
+        "user_id": current_user.id,
         "created_at": now,
         "updated_at": now,
     }
@@ -44,22 +46,27 @@ async def create_webhook(body: WebhookCreate) -> WebhookOut:
 
 
 @router.get("", response_model=List[WebhookOut])
-async def list_webhooks() -> List[WebhookOut]:
-    cursor = db.get_collection("webhooks").find({}).sort("created_at", -1)
+async def list_webhooks(current_user: User = Depends(require_user)) -> List[WebhookOut]:
+    cursor = db.get_collection("webhooks").find(owner_filter(current_user)).sort("created_at", -1)
     return [webhook_doc_to_out(d) async for d in cursor]
 
 
 @router.get("/{webhook_id}", response_model=WebhookOut)
-async def get_webhook(webhook_id: str) -> WebhookOut:
-    doc = await db.get_collection("webhooks").find_one({"_id": webhook_id})
+async def get_webhook(webhook_id: str, current_user: User = Depends(require_user)) -> WebhookOut:
+    doc = await db.get_collection("webhooks").find_one({"_id": webhook_id, **owner_filter(current_user)})
     if not doc:
         raise HTTPException(status_code=404, detail="Webhook not found")
     return webhook_doc_to_out(doc)
 
 
 @router.put("/{webhook_id}", response_model=WebhookOut)
-async def update_webhook(webhook_id: str, body: WebhookUpdate) -> WebhookOut:
-    doc = await db.get_collection("webhooks").find_one({"_id": webhook_id})
+async def update_webhook(
+    webhook_id: str,
+    body: WebhookUpdate,
+    current_user: User = Depends(require_user),
+) -> WebhookOut:
+    webhook_query = {"_id": webhook_id, **owner_filter(current_user)}
+    doc = await db.get_collection("webhooks").find_one(webhook_query)
     if not doc:
         raise HTTPException(status_code=404, detail="Webhook not found")
     update: Dict[str, Any] = {"updated_at": datetime.now(timezone.utc)}
@@ -75,14 +82,15 @@ async def update_webhook(webhook_id: str, body: WebhookUpdate) -> WebhookOut:
         if not body.url.strip():
             raise HTTPException(status_code=400, detail="URL is required")
         update["url"] = body.url.strip()
-    await db.get_collection("webhooks").update_one({"_id": webhook_id}, {"$set": update})
-    doc = await db.get_collection("webhooks").find_one({"_id": webhook_id})
+    await db.get_collection("webhooks").update_one(webhook_query, {"$set": update})
+    doc = await db.get_collection("webhooks").find_one(webhook_query)
     return webhook_doc_to_out(doc)
 
 
 @router.delete("/{webhook_id}")
-async def delete_webhook(webhook_id: str) -> None:
-    res = await db.get_collection("webhooks").delete_one({"_id": webhook_id})
+async def delete_webhook(webhook_id: str, current_user: User = Depends(require_user)) -> None:
+    webhook_query = {"_id": webhook_id, **owner_filter(current_user)}
+    res = await db.get_collection("webhooks").delete_one(webhook_query)
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Webhook not found")
     await db.get_collection("tasks").update_many(
@@ -98,8 +106,8 @@ class TestWebhookBody(BaseModel):
 
 
 @router.post("/{webhook_id}/test")
-async def test_webhook(webhook_id: str) -> dict:
-    doc = await db.get_collection("webhooks").find_one({"_id": webhook_id})
+async def test_webhook(webhook_id: str, current_user: User = Depends(require_user)) -> dict:
+    doc = await db.get_collection("webhooks").find_one({"_id": webhook_id, **owner_filter(current_user)})
     if not doc:
         raise HTTPException(status_code=404, detail="Webhook not found")
     ok, message = await send_test_message(

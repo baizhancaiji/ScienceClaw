@@ -21,6 +21,7 @@ The project heavily relies on Docker Compose for local environments. Never run c
 ## 📝 Conventions
 - **DO NOT** edit code directly inside the Docker containers. Edit local files and allow volume mounts or rebuilds to sync changes.
 - **Link, don't embed**: For detailed project initialization, always refer to [README_zh.md](README_zh.md) and [Deployment Guide](docs/deployment-guide-zh.md).
+- **Codex App in-app browser**: When a task explicitly requires the internal/in-app browser, follow [CODEX_IN_APP_BROWSER.md](CODEX_IN_APP_BROWSER.md); do not substitute `mcp__playwright__` evidence for in-app browser verification.
 - **Active plans ledger**: Current execution plans are tracked in [docs/current-active-execution-plans-zh.md](docs/current-active-execution-plans-zh.md). Completed plans are archived under `docs/archive/plans/`; do not execute directly from archived plans without re-registering a new active plan.
 - **GitNexus workflow**: This repository uses GitNexus for code-intelligence gates. Before non-trivial code changes, use GitNexus query/context/impact when symbol ownership or blast radius is unclear. Before each local commit that changes code, run `gitnexus detect-changes` and treat the result as required review input. After initializing GitNexus or after broad structural changes, refresh the index with `gitnexus analyze --force --index-only --name ScienceClaw`.
 - **Agents/Skills/Tools**:

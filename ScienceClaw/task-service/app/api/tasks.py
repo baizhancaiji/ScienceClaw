@@ -6,12 +6,13 @@ from zoneinfo import ZoneInfo
 
 import shortuuid
 from croniter import croniter
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from loguru import logger
 
 from app.core.config import settings
 from app.core.db import db
+from app.auth import User, owner_filter, require_user
 from app.models.task import (
     TaskCreate,
     TaskOut,
@@ -69,7 +70,10 @@ class ValidateScheduleBody(BaseModel):
 
 
 @router.post("/validate-schedule")
-async def validate_schedule(body: ValidateScheduleBody) -> dict:
+async def validate_schedule(
+    body: ValidateScheduleBody,
+    current_user: User = Depends(require_user),
+) -> dict:
     """Validate schedule description and return crontab + next run time."""
     desc = (body.schedule_desc or "").strip()
     if not desc:
@@ -99,7 +103,10 @@ async def validate_schedule(body: ValidateScheduleBody) -> dict:
 
 
 @router.post("/verify-webhook")
-async def verify_webhook(body: VerifyWebhookBody) -> dict:
+async def verify_webhook(
+    body: VerifyWebhookBody,
+    current_user: User = Depends(require_user),
+) -> dict:
     """Send a test message to the given Feishu webhook URL."""
     ok, message = await send_webhook_test(body.webhook_url, (body.task_name or "").strip())
     if not ok:
@@ -108,7 +115,7 @@ async def verify_webhook(body: VerifyWebhookBody) -> dict:
 
 
 @router.post("", response_model=TaskOut)
-async def create_task(body: TaskCreate) -> TaskOut:
+async def create_task(body: TaskCreate, current_user: User = Depends(require_user)) -> TaskOut:
     """Create a new scheduled task. Converts schedule_desc to crontab if needed."""
     crontab = body.crontab
     if not crontab and body.schedule_desc:
@@ -132,7 +139,7 @@ async def create_task(body: TaskCreate) -> TaskOut:
         "event_config": body.event_config or [],
         "model_config_id": (body.model_config_id or "").strip() or None,
         "status": body.status or "enabled",
-        "user_id": (body.user_id or "").strip() or None,
+        "user_id": current_user.id if not current_user.is_admin else ((body.user_id or "").strip() or current_user.id),
         "created_at": now,
         "updated_at": now,
     }
@@ -142,9 +149,9 @@ async def create_task(body: TaskCreate) -> TaskOut:
 
 
 @router.get("", response_model=List[TaskOut])
-async def list_tasks() -> List[TaskOut]:
+async def list_tasks(current_user: User = Depends(require_user)) -> List[TaskOut]:
     """List all tasks with stats: next_run, total_runs, success_rate, recent_runs."""
-    cursor = db.get_collection("tasks").find({}).sort("created_at", -1)
+    cursor = db.get_collection("tasks").find(owner_filter(current_user)).sort("created_at", -1)
     runs_coll = db.get_collection("task_runs")
     webhooks_coll = db.get_collection("webhooks")
     valid_wh_ids: set | None = None
@@ -157,7 +164,7 @@ async def list_tasks() -> List[TaskOut]:
         raw_wh_ids = data.get("webhook_ids") or []
         if raw_wh_ids:
             if valid_wh_ids is None:
-                valid_wh_ids = {doc["_id"] async for doc in webhooks_coll.find({}, {"_id": 1})}
+                valid_wh_ids = {doc["_id"] async for doc in webhooks_coll.find(owner_filter(current_user), {"_id": 1})}
             data["webhook_ids"] = [wid for wid in raw_wh_ids if wid in valid_wh_ids]
         data["next_run"] = _compute_next_run_str(d.get("crontab") or "")
         total = await runs_coll.count_documents({"task_id": tid})
@@ -172,18 +179,23 @@ async def list_tasks() -> List[TaskOut]:
 
 
 @router.get("/{task_id}", response_model=TaskOut)
-async def get_task(task_id: str) -> TaskOut:
+async def get_task(task_id: str, current_user: User = Depends(require_user)) -> TaskOut:
     """Get a task by id."""
-    doc = await db.get_collection("tasks").find_one({"_id": task_id})
+    doc = await db.get_collection("tasks").find_one({"_id": task_id, **owner_filter(current_user)})
     if not doc:
         raise HTTPException(status_code=404, detail="Task not found")
     return task_doc_to_out(doc)
 
 
 @router.put("/{task_id}", response_model=TaskOut)
-async def update_task(task_id: str, body: TaskUpdate) -> TaskOut:
+async def update_task(
+    task_id: str,
+    body: TaskUpdate,
+    current_user: User = Depends(require_user),
+) -> TaskOut:
     """Update a task."""
-    doc = await db.get_collection("tasks").find_one({"_id": task_id})
+    task_query = {"_id": task_id, **owner_filter(current_user)}
+    doc = await db.get_collection("tasks").find_one(task_query)
     if not doc:
         raise HTTPException(status_code=404, detail="Task not found")
     now = datetime.now(timezone.utc)
@@ -217,17 +229,17 @@ async def update_task(task_id: str, body: TaskUpdate) -> TaskOut:
         update["model_config_id"] = (body.model_config_id or "").strip() or None
     if body.status is not None:
         update["status"] = body.status
-    if body.user_id is not None:
+    if body.user_id is not None and current_user.is_admin:
         update["user_id"] = (body.user_id or "").strip() or None
-    await db.get_collection("tasks").update_one({"_id": task_id}, {"$set": update})
-    doc = await db.get_collection("tasks").find_one({"_id": task_id})
+    await db.get_collection("tasks").update_one(task_query, {"$set": update})
+    doc = await db.get_collection("tasks").find_one(task_query)
     return task_doc_to_out(doc)
 
 
 @router.delete("/{task_id}")
-async def delete_task(task_id: str) -> None:
+async def delete_task(task_id: str, current_user: User = Depends(require_user)) -> None:
     """Delete a task."""
-    res = await db.get_collection("tasks").delete_one({"_id": task_id})
+    res = await db.get_collection("tasks").delete_one({"_id": task_id, **owner_filter(current_user)})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Task not found")
     logger.info(f"Task deleted: {task_id}")
@@ -238,10 +250,14 @@ async def list_task_runs(
     task_id: str,
     limit: int = 20,
     offset: int = 0,
+    current_user: User = Depends(require_user),
 ) -> TaskRunsPage:
     """Get execution history for a task with pagination. Default 20 per page."""
     limit = max(1, min(100, limit))
     offset = max(0, offset)
+    task_doc = await db.get_collection("tasks").find_one({"_id": task_id, **owner_filter(current_user)})
+    if not task_doc:
+        raise HTTPException(status_code=404, detail="Task not found")
     coll = db.get_collection("task_runs")
     total = await coll.count_documents({"task_id": task_id})
     cursor = (

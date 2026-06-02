@@ -40,8 +40,10 @@ class MongoDB:
         if cls.db is None:
             return
         await cls.db.tasks.create_index("_id")
+        await cls.db.tasks.create_index("user_id")
         await cls.db.tasks.create_index("status")
         await cls.db.tasks.create_index([("updated_at", -1)])
+        await cls.db.webhooks.create_index("user_id")
         await cls.db.task_runs.create_index("task_id")
         await cls.db.task_runs.create_index([("start_time", -1)])
 

@@ -21,6 +21,10 @@
 
 ## API
 
+所有任务和 Webhook 管理接口都要求 `Authorization: Bearer <access_token>`。`access_token` 使用主后端登录后写入 `user_sessions` 的 session id；task-service 连接同一 MongoDB 校验该 session，不直接导入主后端代码。
+
+普通用户只能访问 `user_id` 等于当前用户的 task/webhook。`role=admin` 的用户保留全量列表、读取、更新和删除能力。
+
 - `POST /tasks` — 创建任务
 - `GET /tasks` — 任务列表
 - `GET /tasks/{id}` — 任务详情

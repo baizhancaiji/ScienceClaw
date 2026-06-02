@@ -15,7 +15,7 @@
 
 ### VNC signed URL 接口闭环
 
-- 状态：已补齐，待可用 session 浏览器 smoke。
+- 状态：已补齐，暂停为待 Codex App 内置浏览器 smoke；不再阻塞技术债治理登记。
 - 来源：前端 TypeScript 修复中发现 `VNCViewer.vue` 已消费 `getVNCUrl()` 返回的 `signed_url`，但当前审查未找到后端 `/sessions/{sessionId}/vnc/signed-url` 路由实现。
 - 关联归档计划：`docs/archive/plans/frontend-typescript-remediation-plan-zh.md`
 - 已完成最小增量：
@@ -23,6 +23,8 @@
   - 在 `ScienceClaw/backend/route/sessions.py` 新增 session 属主校验后的 `POST /sessions/{session_id}/vnc/signed-url`，返回 `{ signed_url, expires_in }`。
   - 新增 `GET /sessions/{session_id}/vnc/ws` WebSocket 签名校验与 sandbox `/websockify` 代理，避免前端直接裸连 sandbox。
   - 新增 `ScienceClaw/backend/tests/test_sessions_vnc_route.py` 覆盖认证、属主校验、404 和响应合同。
+  - 2026-06-01 复核 Docker 运行态时，backend、frontend、sandbox、MongoDB、Redis 等容器均在运行；普通 API signed-url 合同可在登录态下验证，但最终 takeover smoke 必须使用 Codex App 内置浏览器，不使用 Playwright MCP 结果替代。
+  - 2026-06-02 尝试通过 Codex App 内置浏览器打开 `http://localhost:5173/`；浏览器控制面在 `Page.navigate` 和 `Runtime.evaluate` 均超时，无法形成有效页面证据。
 - 已验证：
 
 ```powershell
@@ -31,7 +33,28 @@ npm --prefix .\ScienceClaw\frontend run type-check
 npm --prefix .\ScienceClaw\frontend run build
 ```
 
-- 剩余手工项：在可用 session 下做一次 `?vnc=1` 浏览器 smoke。
+- 剩余手工项：在可用 session 下用 Codex App 内置浏览器做一次 `?vnc=1` takeover smoke。当前阻塞点是 Codex App 内置浏览器控制面超时，而不是 VNC 代码或 Docker 运行态；该项保留为暂停手工验证项，不作为 `docs/tech-debt-audit-report-v2.md` 登记进入执行态的阻塞项。
+
+### 前端技术债治理施工单 v2
+
+- 状态：批次 1 已完成首个代码增量；下一批次为批次 2「前端自动化测试基座」。
+- 权威文档：`docs/tech-debt-audit-report-v2.md`
+- 登记原因：该施工单要求先处理 VNC signed URL 活跃计划；当前 VNC 剩余项已明确降级为待 Codex App 内置浏览器手工验证的暂停项，因此技术债治理可以进入执行态。
+- 已完成最小增量：
+  - 明确 task-service 信任模型：前端通过 `/task-service` 代理访问，compose 也暴露 `scheduler_api` 到宿主 `12002`，因此 task-service 自身必须验证 bearer session id。
+  - 新增 `ScienceClaw/task-service/app/auth.py`，按主后端 `user_sessions` session-id 合同解析 bearer token。
+  - `tasks.py` 和 `webhooks.py` 按普通用户 owner 过滤；管理员 `role=admin` 保留全量可见能力。
+  - 新增 `ScienceClaw/task-service/tests/test_auth_isolation.py`，覆盖未授权、普通用户跨用户 404、管理员全量列表、创建时 owner 写入。
+- 下一批最小增量：
+  - 批次 2「前端自动化测试基座」：新增 Vitest 最小基座和首批稳定工具/组合式函数测试。
+- 验收命令：
+
+```bash
+PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest discover -s ScienceClaw/task-service/tests -t ScienceClaw/task-service
+npm --prefix ScienceClaw/frontend run type-check
+npm --prefix ScienceClaw/frontend run build
+gitnexus detect-changes
+```
 
 ## 归档记录
 

@@ -22,6 +22,7 @@ class WebhookOut(BaseModel):
     name: str
     type: str
     url: str
+    user_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -38,6 +39,7 @@ def webhook_doc_to_out(doc: Dict[str, Any]) -> WebhookOut:
         name=doc.get("name", ""),
         type=doc.get("type", "feishu"),
         url=doc.get("url", ""),
+        user_id=doc.get("user_id"),
         created_at=doc.get("created_at"),
         updated_at=doc.get("updated_at"),
     )

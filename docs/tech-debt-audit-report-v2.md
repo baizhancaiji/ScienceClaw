@@ -353,7 +353,8 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 第二段 code fullscreen token 增量已完成：`MarkdownEnhancements.vue` 的 code fullscreen overlay/header/border/control/success/error 颜色已复用 chat renderer code 与 semantic-state token。
 - `npm --prefix ScienceClaw/frontend run type-check` 和 `npm --prefix ScienceClaw/frontend run build` 已通过；build 仅保留既有 Browserslist 数据陈旧提示。
 - 由于 Codex App in-app browser 当前返回 `iab` unavailable，Playwright 临时包在 PowerShell/npx 下无法解析 `playwright` 模块，本段使用 Node CSS token smoke 替代浏览器截图：light/dark 均检查 11 个 code fullscreen 所需 token，组件迁移目标无缺失 token 引用且无旧硬编码残留。
-- 本段不改变 Markdown、Mermaid、KaTeX、代码块复制、消息正文或附件分支；批次 7 后续若继续治理品牌、surface、border 或 selection menu 色值，应拆到新的最小增量。
+- 第三段 selection menu token 增量已完成：`MarkdownEnhancements.vue` 的 selection menu surface、border、text 和 hover 色值已迁移到 light/dark token，暗色样式不再需要组件局部 override。
+- 本段不改变 Markdown、Mermaid、KaTeX、代码块复制、消息正文或附件分支；批次 7 后续若继续治理 `chat-message-renderer.css` 的 surface/border 色值，应拆到新的最小增量，品牌/实验性渐变保持局部命名。
 
 ---
 
@@ -453,4 +454,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer 与 `MarkdownEnhancements.vue` code fullscreen 的 code/diagram/semantic-state token 迁移，下一批最小增量继续评估品牌、surface、border 或 selection menu 色值是否需要迁移。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成 chat renderer、`MarkdownEnhancements.vue` code fullscreen 与 selection menu 的稳定 token 迁移，下一批最小增量继续评估 `chat-message-renderer.css` 的 surface/border 色值是否需要迁移。

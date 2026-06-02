@@ -606,18 +606,13 @@ defineExpose({
   display: flex;
   gap: 2px;
   padding: 6px;
-  background: white;
+  background: var(--chat-selection-surface);
   border-radius: 10px;
   box-shadow:
     0 10px 25px -5px rgba(0, 0, 0, 0.15),
     0 4px 10px -3px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--chat-selection-border);
   animation: selectionMenuIn 0.15s ease-out;
-}
-
-.dark .selection-menu {
-  background: #1e293b;
-  border-color: rgba(255, 255, 255, 0.1);
 }
 
 @keyframes selectionMenuIn {
@@ -639,7 +634,7 @@ defineExpose({
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #475569;
+  color: var(--chat-selection-text);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -647,13 +642,9 @@ defineExpose({
   white-space: nowrap;
 }
 
-.dark .selection-menu-btn {
-  color: #94a3b8;
-}
-
 .selection-menu-btn:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
-  color: #3b82f6;
+  background: linear-gradient(135deg, var(--chat-selection-hover-bg-from), var(--chat-selection-hover-bg-to));
+  color: var(--chat-selection-hover-text);
 }
 
 .selection-menu-btn:active {

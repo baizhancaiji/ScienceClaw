@@ -346,6 +346,12 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 - 颜色迁移不改变交互语义。
 - 截图或浏览器 smoke 记录写入批次说明。
 
+**执行记录**
+
+- 第一段 code/diagram/semantic-state token 增量已完成：`frontend/src/assets/theme.css` 新增 chat renderer 专用的 code、diagram、semantic-state token 层。
+- `frontend/src/assets/chat-message-renderer.css` 已将稳定的 code block、inline code、Mermaid、KaTeX error 和删除线错误态颜色迁移到语义 token；标题、链接、列表、引用、表格等品牌/实验性渐变仍保留局部硬编码，避免一次性扩大视觉回归面。
+- 本段不改变 Markdown、Mermaid、KaTeX、代码块复制、消息正文或附件分支；批次 7 后续继续迁移 `MarkdownEnhancements.vue` 并补 light/dark 浏览器 smoke。
+
 ---
 
 ### 批次 8：ESLint 和 Prettier 基线
@@ -444,4 +450,4 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 ## 7. 当前状态
 
-本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；下一批最小增量进入批次 7 颜色 token 分层治理。
+本文已从“复核评估报告”改写为“标准施工单”，并已登记到 `docs/current-active-execution-plans-zh.md`。VNC signed URL 剩余 smoke 因 Codex App 内置浏览器控制面超时保留为暂停手工项；技术债治理已进入执行态。当前已完成批次 1、批次 2、批次 3、批次 4「核心类型边界收紧」、批次 5 的四段纯函数/helper 提取，以及批次 6 的 `ChatMessage.vue` parse-content、Markdown link renderer、code block renderer、code block HTML renderer、Mermaid renderer helper、math renderer helper、Mermaid render execution helper、Mermaid loader/initialization helper、`MessageFooter.vue` 提取、footer style 收口和 renderer style 外置；批次 7 已完成第一段 chat renderer code/diagram/semantic-state token 迁移，下一批最小增量继续迁移 `MarkdownEnhancements.vue` 并补 light/dark 浏览器 smoke。

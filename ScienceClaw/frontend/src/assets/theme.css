@@ -63,7 +63,33 @@
     --gradual-white-0: #ffffff00;
     --gradual-gray-100: #ffffff00;
     --gradual-gray-0: #ffffff00;
-    --gradual-dark-20: #00000033
+    --gradual-dark-20: #00000033;
+
+    /* Chat renderer semantic-state tokens */
+    --chat-state-error-text: #ef4444;
+    --chat-state-error-surface: rgba(239, 68, 68, 0.1);
+    --chat-state-error-decoration: rgba(239, 68, 68, 0.5);
+    --chat-state-success-from: #22c55e;
+    --chat-state-success-to: #16a34a;
+    --chat-state-success-shadow: rgba(34, 197, 94, 0.5);
+
+    /* Chat renderer code tokens */
+    --chat-code-surface: #0d1117;
+    --chat-code-text: #e6edf3;
+    --chat-code-header-from: #1e293b;
+    --chat-code-header-to: #334155;
+    --chat-code-control-text: #94a3b8;
+    --chat-code-line-count: #64748b;
+    --chat-code-line-number: #4a5568;
+    --chat-code-inline-bg-from: rgba(236, 72, 153, 0.1);
+    --chat-code-inline-bg-to: rgba(168, 85, 247, 0.1);
+    --chat-code-inline-border: rgba(236, 72, 153, 0.2);
+    --chat-code-inline-text: #db2777;
+
+    /* Chat renderer diagram tokens */
+    --chat-diagram-surface-from: #1e293b;
+    --chat-diagram-surface-to: #0f172a;
+    --chat-diagram-loading-text: #94a3b8
 }
 
 .dark {
@@ -131,7 +157,33 @@
     --gradual-white-0: #27272800;
     --gradual-gray-100: #444345;
     --gradual-gray-0: #44434500;
-    --gradual-dark-20: #ffffff33
+    --gradual-dark-20: #ffffff33;
+
+    /* Chat renderer semantic-state tokens */
+    --chat-state-error-text: #ef4444;
+    --chat-state-error-surface: rgba(239, 68, 68, 0.1);
+    --chat-state-error-decoration: rgba(239, 68, 68, 0.5);
+    --chat-state-success-from: #22c55e;
+    --chat-state-success-to: #16a34a;
+    --chat-state-success-shadow: rgba(34, 197, 94, 0.5);
+
+    /* Chat renderer code tokens */
+    --chat-code-surface: #0d1117;
+    --chat-code-text: #e6edf3;
+    --chat-code-header-from: #0f172a;
+    --chat-code-header-to: #1e293b;
+    --chat-code-control-text: #94a3b8;
+    --chat-code-line-count: #64748b;
+    --chat-code-line-number: #4a5568;
+    --chat-code-inline-bg-from: rgba(236, 72, 153, 0.15);
+    --chat-code-inline-bg-to: rgba(168, 85, 247, 0.15);
+    --chat-code-inline-border: rgba(236, 72, 153, 0.3);
+    --chat-code-inline-text: #f472b6;
+
+    /* Chat renderer diagram tokens */
+    --chat-diagram-surface-from: #1a1a2e;
+    --chat-diagram-surface-to: #16213e;
+    --chat-diagram-loading-text: #94a3b8
 }
 
 .dark,:root {

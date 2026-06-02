@@ -264,20 +264,14 @@
 
 /* ===== 行内代码 ===== */
 .markdown-content code:not(pre code) {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
-  border: 1px solid rgba(236, 72, 153, 0.2);
+  background: linear-gradient(135deg, var(--chat-code-inline-bg-from) 0%, var(--chat-code-inline-bg-to) 100%);
+  border: 1px solid var(--chat-code-inline-border);
   border-radius: 6px;
   padding: 0.2em 0.5em;
   font-size: 0.85em;
   font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Consolas, Monaco, monospace;
-  color: #db2777;
+  color: var(--chat-code-inline-text);
   font-weight: 500;
-}
-
-.dark .markdown-content code:not(pre code) {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
-  border-color: rgba(236, 72, 153, 0.3);
-  color: #f472b6;
 }
 
 /* ===== 代码块 ===== */
@@ -304,16 +298,12 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.5em 1em;
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: linear-gradient(135deg, var(--chat-code-header-from) 0%, var(--chat-code-header-to) 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.dark .markdown-content .code-block-header {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-}
-
 .markdown-content .code-block-lang {
-  color: #94a3b8;
+  color: var(--chat-code-control-text);
   text-transform: uppercase;
   font-size: 0.7em;
   font-weight: 600;
@@ -327,9 +317,9 @@
   content: '';
   width: 8px;
   height: 8px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  background: linear-gradient(135deg, var(--chat-state-success-from), var(--chat-state-success-to));
   border-radius: 50%;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 8px var(--chat-state-success-shadow);
 }
 
 .markdown-content .code-block-copy {
@@ -340,7 +330,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: none;
   border-radius: 6px;
-  color: #94a3b8;
+  color: var(--chat-code-control-text);
   font-size: 0.75em;
   cursor: pointer;
   transition: all 0.2s;
@@ -372,7 +362,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: none;
   border-radius: 6px;
-  color: #94a3b8;
+  color: var(--chat-code-control-text);
   font-size: 0.75em;
   cursor: pointer;
   transition: all 0.2s;
@@ -392,7 +382,7 @@
   margin: 0;
   padding: 1.2em;
   overflow-x: auto;
-  background: #0d1117 !important;
+  background: var(--chat-code-surface) !important;
   font-feature-settings: 'liga' 1, 'calt' 1;
 }
 
@@ -402,13 +392,13 @@
   line-height: 1.7;
   background: transparent !important;
   padding: 0 !important;
-  color: #e6edf3;
+  color: var(--chat-code-text);
 }
 
 /* 代码块行数标签 */
 .markdown-content .code-block-line-count {
   font-size: 0.65em;
-  color: #64748b;
+  color: var(--chat-code-line-count);
   margin-left: auto;
   margin-right: 0.5em;
 }
@@ -432,7 +422,7 @@
 .markdown-content .code-block-lines pre {
   margin: 0;
   padding: 0 0.8em 0 0.8em;
-  color: #4a5568;
+  color: var(--chat-code-line-number);
   font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Consolas, Monaco, monospace;
   font-size: 0.875em;
   line-height: 1.7;
@@ -444,7 +434,7 @@
   margin: 0;
   padding: 1.2em;
   overflow-x: auto;
-  background: #0d1117 !important;
+  background: var(--chat-code-surface) !important;
   font-feature-settings: 'liga' 1, 'calt' 1;
   flex: 1;
   min-width: 0;
@@ -464,7 +454,7 @@
   left: 0;
   right: 0;
   height: 100px;
-  background: linear-gradient(to bottom, transparent, #0d1117);
+  background: linear-gradient(to bottom, transparent, var(--chat-code-surface));
   pointer-events: none;
 }
 
@@ -563,7 +553,7 @@
 /* ===== 删除线 ===== */
 .markdown-content del {
   color: var(--text-tertiary);
-  text-decoration: line-through rgba(239, 68, 68, 0.5);
+  text-decoration: line-through var(--chat-state-error-decoration);
 }
 
 /* ===== 键盘按键 ===== */
@@ -623,10 +613,10 @@
 }
 
 .markdown-content .katex-error {
-  color: #ef4444;
+  color: var(--chat-state-error-text);
   font-family: 'Fira Code', monospace;
   font-size: 0.9em;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--chat-state-error-surface);
   padding: 0.5em;
   border-radius: 4px;
 }
@@ -634,16 +624,12 @@
 /* ===== Mermaid 图表 ===== */
 .markdown-content .mermaid-wrapper {
   margin: 1.2em 0;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, var(--chat-diagram-surface-from) 0%, var(--chat-diagram-surface-to) 100%);
   border-radius: 12px;
   padding: 1.5em;
   overflow: auto;
   border: 1px solid var(--border-main);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.dark .markdown-content .mermaid-wrapper {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
 }
 
 .markdown-content .mermaid-loading {
@@ -652,7 +638,7 @@
   justify-content: center;
   gap: 0.75em;
   padding: 2em;
-  color: #94a3b8;
+  color: var(--chat-diagram-loading-text);
   font-size: 0.9em;
 }
 
@@ -681,20 +667,20 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
-  color: #ef4444;
+  color: var(--chat-state-error-text);
   padding: 1em;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--chat-state-error-surface);
   border-radius: 8px;
 }
 
 .markdown-content .mermaid-raw-code {
   margin-top: 1em;
   padding: 1em;
-  background: #0d1117;
+  background: var(--chat-code-surface);
   border-radius: 8px;
   font-family: 'Fira Code', monospace;
   font-size: 0.85em;
-  color: #e6edf3;
+  color: var(--chat-code-text);
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;

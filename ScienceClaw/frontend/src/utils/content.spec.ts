@@ -24,11 +24,18 @@ describe('transformSrc', () => {
 describe('sanitizeHtml', () => {
   it('removes unsafe script tags while keeping allowed custom tags', () => {
     const sanitized = sanitizeHtml(
-      '<molecule-viewer src="/tmp/a.sdf"></molecule-viewer><script>alert("x")</script>',
+      '<molecule-viewer src="/api/v1/file/download?path=a.sdf"></molecule-viewer><script>alert("x")</script>',
     );
 
     expect(sanitized).toContain('molecule-viewer');
-    expect(sanitized).toContain('src="/tmp/a.sdf"');
+    expect(sanitized).toContain('src="/api/v1/file/download?path=a.sdf"');
     expect(sanitized).not.toContain('<script>');
+  });
+
+  it('removes unsafe molecule viewer sources through the shared purifier hook', () => {
+    const sanitized = sanitizeHtml('<molecule-viewer src="/tmp/a.sdf"></molecule-viewer>');
+
+    expect(sanitized).toContain('molecule-viewer');
+    expect(sanitized).not.toContain('src="/tmp/a.sdf"');
   });
 });

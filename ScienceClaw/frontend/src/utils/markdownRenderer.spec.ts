@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
 import {
   createMermaidLoader,
@@ -13,6 +13,7 @@ import {
   renderMermaidPlaceholder,
   renderMermaidWrapper,
   renderMarkdownLink,
+  resetMermaidLoader,
 } from './markdownRenderer';
 
 describe('renderMarkdownLink', () => {
@@ -156,8 +157,23 @@ describe('renderMermaidWrapper', () => {
     return wrapper;
   };
 
+  /** renderMermaidWrapper 内部用 wrapper.isConnected 校验 DOM 有效性，
+   *  脱离文档树的节点 isConnected === false，所以测试需要先挂载到 document */
+  const attachedWrappers: HTMLElement[] = [];
+  afterEach(() => {
+    attachedWrappers.forEach(w => {
+      if (w.parentNode) w.parentNode.removeChild(w);
+    });
+    attachedWrappers.length = 0;
+  });
+  const attachWrapper = (wrapper: HTMLElement) => {
+    document.body.appendChild(wrapper);
+    attachedWrappers.push(wrapper);
+    return wrapper;
+  };
+
   it('renders mermaid SVG and caches the result', async () => {
-    const wrapper = createWrapper('graph TD; A-->B;');
+    const wrapper = attachWrapper(createWrapper('graph TD; A-->B;'));
     const cache = new Map<string, string>();
     const mermaid = {
       render: async (id: string, code: string) => ({
@@ -170,10 +186,6 @@ describe('renderMermaidWrapper', () => {
       index: 0,
       mermaid,
       cache,
-      now: (() => {
-        let value = 10;
-        return () => value += 5;
-      })(),
       makeRenderId: index => `test-svg-${index}`,
     });
 
@@ -186,7 +198,7 @@ describe('renderMermaidWrapper', () => {
   });
 
   it('uses cached SVG without calling mermaid render', async () => {
-    const wrapper = createWrapper('graph TD; A-->B;');
+    const wrapper = attachWrapper(createWrapper('graph TD; A-->B;'));
     const cache = new Map([['graph TD; A-->B;', '<svg>cached</svg>']]);
     const mermaid = {
       render: async () => {
@@ -209,7 +221,7 @@ describe('renderMermaidWrapper', () => {
   });
 
   it('shows the existing error HTML when mermaid render fails', async () => {
-    const wrapper = createWrapper('flowchart TD\nA');
+    const wrapper = attachWrapper(createWrapper('flowchart TD\nA'));
     const cache = new Map<string, string>();
     const mermaid = {
       render: async () => {
@@ -229,9 +241,37 @@ describe('renderMermaidWrapper', () => {
     expect(loading.innerHTML).toContain('<span>图表渲染失败</span>');
     expect(loading.querySelector('.mermaid-raw-code')?.textContent).toBe('flowchart TD\nA');
   });
+
+  it('skips DOM write when wrapper is disconnected from the document', async () => {
+    // 不挂载到 document → isConnected === false
+    const wrapper = createWrapper('graph TD; A-->B;');
+    const cache = new Map<string, string>();
+    const mermaid = {
+      render: async (id: string, code: string) => ({
+        svg: `<svg data-id="${id}">${code}</svg>`,
+      }),
+    };
+
+    await renderMermaidWrapper({
+      wrapper,
+      index: 0,
+      mermaid,
+      cache,
+    });
+
+    // SVG 不写入脱离文档的 DOM
+    const content = wrapper.querySelector('.mermaid-content') as HTMLElement;
+    expect(content.innerHTML).toBe('');
+    // 但缓存应已填充，以便后续重连的 wrapper 可复用
+    expect(cache.has('graph TD; A-->B;')).toBe(true);
+  });
 });
 
 describe('createMermaidLoader', () => {
+  beforeEach(() => {
+    resetMermaidLoader();
+  });
+
   it('uses a single dynamic import promise and initializes mermaid once', async () => {
     let importCount = 0;
     const initializeCalls: Record<string, unknown>[] = [];
@@ -254,9 +294,15 @@ describe('createMermaidLoader', () => {
     expect(initializeCalls).toHaveLength(1);
     expect(initializeCalls[0]).toMatchObject({
       startOnLoad: false,
-      theme: 'dark',
+      theme: 'base',
       securityLevel: 'loose',
       fontFamily: 'inherit',
+      themeVariables: {
+        background: 'transparent',
+        primaryColor: '#f8fafc',
+        primaryTextColor: '#0f172a',
+        primaryBorderColor: '#64748b',
+      },
       flowchart: {
         useMaxWidth: true,
         htmlLabels: true,
@@ -315,6 +361,27 @@ describe('preprocessMath', () => {
     const result = preprocessMath('Cost is $100 and $$ok$$ stays.', createId());
 
     expect(result.text).toBe('Cost is $100 and $$ok$$ stays.');
+    expect(result.mathBlocks.size).toBe(0);
+  });
+
+  it('renders common single-letter inline formulas', () => {
+    const result = preprocessMath('Let $x$ be positive.', createId());
+
+    expect(result.text).toBe('Let MATH_INLINE_0 be positive.');
+    expect(result.mathBlocks.get('MATH_INLINE_0')).toContain('<span class="katex-inline">');
+  });
+
+  it('does not preprocess math inside fenced code blocks', () => {
+    const result = preprocessMath(['```md', 'inline $x$ stays literal', '```'].join('\n'), createId());
+
+    expect(result.text).toBe(['```md', 'inline $x$ stays literal', '```'].join('\n'));
+    expect(result.mathBlocks.size).toBe(0);
+  });
+
+  it('does not preprocess math inside tilde fenced code blocks', () => {
+    const result = preprocessMath(['~~~mermaid', 'inline $x$ stays literal', '~~~'].join('\n'), createId());
+
+    expect(result.text).toBe(['~~~mermaid', 'inline $x$ stays literal', '~~~'].join('\n'));
     expect(result.mathBlocks.size).toBe(0);
   });
 });

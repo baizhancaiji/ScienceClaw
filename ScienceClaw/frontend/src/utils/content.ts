@@ -40,7 +40,28 @@ export const domPurifyConfig = {
   ADD_URI_SAFE_ATTR: ['xlink:href']
 };
 
-export const sanitizeHtml = (html: string) => {
+let domPurifyConfigured = false;
+
+export const configureChatDomPurify = () => {
+  if (domPurifyConfigured) return;
+
   DOMPurify.setConfig(domPurifyConfig);
-  return DOMPurify.sanitize(html);
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName.toLowerCase() !== 'molecule-viewer') return;
+
+    if (!node.hasAttribute('src')) return;
+
+    const src = node.getAttribute('src');
+    if (src && (src.startsWith('/api/') || src.startsWith('http'))) {
+      node.setAttribute('src', src);
+    } else {
+      node.removeAttribute('src');
+    }
+  });
+  domPurifyConfigured = true;
+};
+
+export const sanitizeHtml = (html: string) => {
+  configureChatDomPurify();
+  return DOMPurify.sanitize(html, domPurifyConfig);
 };

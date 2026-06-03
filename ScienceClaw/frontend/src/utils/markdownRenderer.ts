@@ -57,7 +57,6 @@ export interface RenderMermaidWrapperOptions {
   mermaid: MermaidRenderAdapter;
   cache: Map<string, string>;
   logPrefix?: string;
-  now?: () => number;
   makeRenderId?: (index: number) => string;
 }
 
@@ -182,7 +181,6 @@ export const renderMermaidWrapper = async ({
   mermaid,
   cache,
   logPrefix = '[Mermaid]',
-  now = () => performance.now(),
   makeRenderId = diagramIndex => `mermaid-svg-${Date.now()}-${diagramIndex}`,
 }: RenderMermaidWrapperOptions): Promise<void> => {
   const code = decodeURIComponent(wrapper.getAttribute('data-mermaid-code') || '');
@@ -190,15 +188,13 @@ export const renderMermaidWrapper = async ({
   const loadingEl = wrapper.querySelector('.mermaid-loading') as HTMLElement;
 
   if (!code || !contentEl) {
-    console.warn(logPrefix, `Diagram ${index + 1}: missing code or content element`);
     return;
   }
 
-  console.log(logPrefix, `Diagram ${index + 1}:`, code.substring(0, 50) + '...');
-
   // 检查缓存
   if (cache.has(code)) {
-    console.log(logPrefix, `Diagram ${index + 1}: using cache`);
+    // DOM 有效性校验：节点已脱离文档树则跳过
+    if (!wrapper.isConnected) return;
     contentEl.innerHTML = cache.get(code)!;
     if (loadingEl) loadingEl.style.display = 'none';
     contentEl.style.display = 'block';
@@ -206,27 +202,42 @@ export const renderMermaidWrapper = async ({
   }
 
   try {
-    const startTime = now();
     // 使用 mermaid.render 渲染
     const { svg } = await mermaid.render(makeRenderId(index), code);
     cache.set(code, svg);
+    // 异步操作后再次校验：流式输出期间 DOM 可能已被 Vue 替换
+    // wrapper.isConnected 返回 false 说明节点已脱离文档树，无需写入
+    if (!wrapper.isConnected) return;
     contentEl.innerHTML = svg;
     if (loadingEl) loadingEl.style.display = 'none';
     contentEl.style.display = 'block';
-    const elapsed = (now() - startTime).toFixed(2);
-    console.log(logPrefix, `Diagram ${index + 1}: rendered in ${elapsed}ms`);
   } catch (e) {
     console.error(logPrefix, `Diagram ${index + 1}: render error:`, e);
-    if (loadingEl) {
+    if (loadingEl && wrapper.isConnected) {
       loadingEl.innerHTML = renderMermaidError(code);
     }
   }
+};
+
+/**
+ * 全局 Mermaid 模块加载器单例
+ * 避免每个 useMermaidRenderer 实例都创建独立的 loader，共享同一个 mermaid 初始化状态
+ */
+let globalMermaidLoader: MermaidLoader | null = null;
+
+/** 测试用：重置全局 mermaid loader 单例 */
+export const resetMermaidLoader = () => {
+  globalMermaidLoader = null;
 };
 
 export const createMermaidLoader = (
   importMermaid: ImportMermaid,
   logPrefix = '[Mermaid]',
 ): MermaidLoader => {
+  if (globalMermaidLoader) {
+    return globalMermaidLoader;
+  }
+
   let mermaidInitialized = false;
   let mermaidModule: MermaidLoaderAdapter | null = null;
   let mermaidModulePromise: Promise<MermaidLoaderAdapter> | null = null;
@@ -242,19 +253,30 @@ export const createMermaidLoader = (
 
   const initMermaid = async () => {
     if (mermaidInitialized) {
-      console.log(logPrefix, 'Already initialized');
       return loadMermaid();
     }
-
-    console.log(logPrefix, 'Initializing...');
     const mermaid = await loadMermaid();
 
     try {
       mermaid.initialize({
         startOnLoad: false,
-        theme: 'dark',
+        theme: 'base',
         securityLevel: 'loose',
         fontFamily: 'inherit',
+        themeVariables: {
+          background: 'transparent',
+          primaryColor: '#f8fafc',
+          primaryTextColor: '#0f172a',
+          primaryBorderColor: '#64748b',
+          lineColor: '#64748b',
+          secondaryColor: '#eef2ff',
+          tertiaryColor: '#f8fafc',
+          clusterBkg: '#f8fafc',
+          clusterBorder: '#cbd5e1',
+          edgeLabelBackground: '#ffffff',
+          nodeTextColor: '#0f172a',
+          fontFamily: 'inherit',
+        },
         flowchart: {
           useMaxWidth: true,
           htmlLabels: true,
@@ -270,7 +292,6 @@ export const createMermaidLoader = (
         },
       });
       mermaidInitialized = true;
-      console.log(logPrefix, 'Initialized successfully');
     } catch (e) {
       console.error(`${logPrefix} Initialization failed:`, e);
     }
@@ -278,10 +299,13 @@ export const createMermaidLoader = (
     return mermaid;
   };
 
-  return {
+  const loader = {
     loadMermaid,
     initMermaid,
   };
+
+  globalMermaidLoader = loader;
+  return loader;
 };
 
 export const renderKaTeX = (formula: string, displayMode: boolean = false): string => {
@@ -307,7 +331,54 @@ export const preprocessMath = (
   createPlaceholderId: CreateMathPlaceholderId,
 ): PreprocessMathResult => {
   const mathBlocks = new Map<string, string>();
+  const protectedSegments = new Map<string, string>();
+  let protectedCounter = 0;
+  const protectSegment = (segment: string) => {
+    const id = `__SCIENCECLAW_MARKDOWN_CODE_${protectedCounter++}__`;
+    protectedSegments.set(id, segment);
+    return id;
+  };
+  const restoreProtectedSegments = (value: string) => {
+    let restored = value;
+    protectedSegments.forEach((segment, id) => {
+      restored = restored.replace(id, segment);
+    });
+    return restored;
+  };
+
+  // 先保护代码块，防止其中的 $ 被误识别为数学公式
+  // 使用分段处理避免回溯爆炸：先按行扫描定位代码块边界，再整体替换
   let result = text;
+  const fenceRegex = /^(```|~~~)/gm;
+  let fenceMatch: RegExpExecArray | null;
+  const fencePositions: { start: number; end: number; fence: string }[] = [];
+  while ((fenceMatch = fenceRegex.exec(text)) !== null) {
+    const fence = fenceMatch[1];
+    const startPos = fenceMatch.index;
+    // 查找匹配的闭合 fence
+    const closeRegex = new RegExp(`^${fence}`, 'gm');
+    closeRegex.lastIndex = startPos + fence.length;
+    const closeMatch = closeRegex.exec(text);
+    if (closeMatch) {
+      fencePositions.push({ start: startPos, end: closeMatch.index + closeMatch[0].length, fence });
+      fenceRegex.lastIndex = closeMatch.index + closeMatch[0].length;
+    } else {
+      // 未闭合的代码块，保护到末尾
+      fencePositions.push({ start: startPos, end: text.length, fence });
+      break;
+    }
+  }
+
+  // 从后往前替换代码块，避免位移问题
+  for (let i = fencePositions.length - 1; i >= 0; i--) {
+    const { start, end } = fencePositions[i];
+    const segment = text.substring(start, end);
+    const id = protectSegment(segment);
+    result = result.substring(0, start) + id + result.substring(end);
+  }
+
+  // 保护行内代码
+  result = result.replace(/`[^`\n]+`/g, protectSegment);
 
   try {
     // 处理块级公式 $$...$$
@@ -326,7 +397,6 @@ export const preprocessMath = (
       const id = createPlaceholderId('block');
       const rendered = renderKaTeX(trimmed, true);
       mathBlocks.set(id, `<div class="katex-display">${rendered}</div>`);
-      console.log('[KaTeX] Block formula:', trimmed.substring(0, 50));
       return id;
     });
 
@@ -346,7 +416,7 @@ export const preprocessMath = (
       if (trimmed.includes('**') || trimmed.includes('__') || trimmed.includes('##')) {
         return fullMatch; // Markdown 语法，保留原样
       }
-      if (trimmed.length < 2 && !/[\^\\\_]/.test(trimmed)) {
+      if (trimmed.length < 2 && !/[\^\\\_]/.test(trimmed) && !/^[a-zA-Z]$/.test(trimmed)) {
         return fullMatch; // 太短且不是数学符号
       }
 
@@ -354,8 +424,9 @@ export const preprocessMath = (
       const hasMathChars = /[\^\\\_\/\+\-\=\<\>\(\)\[\]\{\}]/.test(trimmed);
       const hasGreekLetters = /alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|omega|infty|frac|sqrt/i.test(trimmed);
       const hasSubscript = /[a-zA-Z]_[a-zA-Z0-9]/.test(trimmed);
+      const hasSingleLetterVariable = /^[a-zA-Z]$/.test(trimmed);
 
-      if (!hasMathChars && !hasGreekLetters && !hasSubscript) {
+      if (!hasMathChars && !hasGreekLetters && !hasSubscript && !hasSingleLetterVariable) {
         // 不像数学公式，保留原样
         return fullMatch;
       }
@@ -364,7 +435,6 @@ export const preprocessMath = (
       try {
         const rendered = renderKaTeX(trimmed, false);
         mathBlocks.set(id, `<span class="katex-inline">${rendered}</span>`);
-        console.log('[KaTeX] Inline formula:', trimmed.substring(0, 30));
         return id;
       } catch (e) {
         console.warn('[KaTeX] Failed to render:', trimmed);
@@ -373,7 +443,7 @@ export const preprocessMath = (
     });
 
     if (mathBlocks.size > 0) {
-      console.log('[KaTeX] Preprocessed', mathBlocks.size, 'formulas');
+      // KaTeX preprocessed formulas (log removed for performance)
     }
   } catch (e) {
     console.error('[KaTeX] Preprocess error:', e);
@@ -381,7 +451,7 @@ export const preprocessMath = (
     return { text: text, mathBlocks: new Map() };
   }
 
-  return { text: result, mathBlocks };
+  return { text: restoreProtectedSegments(result), mathBlocks };
 };
 
 export const postprocessMath = (text: string, mathBlocks: Map<string, string>): string => {

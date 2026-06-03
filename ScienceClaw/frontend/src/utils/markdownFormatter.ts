@@ -28,49 +28,88 @@ export function formatMarkdownSync(text: string): string {
 function preprocessMarkdown(text: string): string {
   let result = text;
 
-  // 1. 移除开头的 ```markdown 或 ``` 标记（LLM 有时会错误地包裹整个输出）
-  result = result.replace(/^```(?:markdown|md)?\s*\n?/i, '');
-  result = result.replace(/\n?```\s*$/i, '');
+  // 先将代码块和行内代码保护起来，避免后续正则误改代码内容
+  const codeSegments: string[] = [];
+  let codeSegCounter = 0;
+  const protectCode = (segment: string) => {
+    const id = `__SCFMT_CODE_${codeSegCounter++}__`;
+    codeSegments.push(segment);
+    return id;
+  };
 
-  // 2. 修复连续的空行（超过2个空行压缩为2个）
+  // 保护围栏代码块
+  const fenceRegex = /^(```|~~~)/gm;
+  let fenceMatch: RegExpExecArray | null;
+  const fencePositions: { start: number; end: number }[] = [];
+  while ((fenceMatch = fenceRegex.exec(result)) !== null) {
+    const fence = fenceMatch[1];
+    const startPos = fenceMatch.index;
+    const closeRegex = new RegExp(`^${fence}`, 'gm');
+    closeRegex.lastIndex = startPos + fence.length;
+    const closeMatch = closeRegex.exec(result);
+    if (closeMatch) {
+      fencePositions.push({ start: startPos, end: closeMatch.index + closeMatch[0].length });
+      fenceRegex.lastIndex = closeMatch.index + closeMatch[0].length;
+    } else {
+      fencePositions.push({ start: startPos, end: result.length });
+      break;
+    }
+  }
+
+  // 从后往前替换代码块
+  for (let i = fencePositions.length - 1; i >= 0; i--) {
+    const { start, end } = fencePositions[i];
+    const segment = result.substring(start, end);
+    result = result.substring(0, start) + protectCode(segment) + result.substring(end);
+  }
+
+  // 保护行内代码
+  result = result.replace(/`[^`\n]+`/g, protectCode);
+
+  // 1. 修复连续的空行（超过2个空行压缩为2个）
   result = result.replace(/\n{3,}/g, '\n\n');
 
-  // 3. 统一列表标记为 -
+  // 2. 统一列表标记为 -
   result = result.replace(/^(\s*)[*+]\s/gm, '$1- ');
 
-  // 4. 修复列表项的多余空格
+  // 3. 修复列表项的多余空格
   result = result.replace(/^(\s*)-\s{2,}/gm, '$1- ');
 
-  // 5. 修复有序列表的空格
+  // 4. 修复有序列表的空格
   result = result.replace(/^(\s*)(\d+)\.\s{2,}/gm, '$1$2. ');
 
-  // 6. 确保标题前后有适当的空行
+  // 5. 确保标题前后有适当的空行
   result = result.replace(/([^\n])\n(#{1,6}\s)/g, '$1\n\n$2');
   result = result.replace(/(^#{1,6}\s[^\n]+)\n([^\n#])/gm, '$1\n\n$2');
 
-  // 7. 修复代码块的语言标识符
+  // 6. 修复代码块的语言标识符（在保护段内已被保护，此步仅处理未被保护的场景）
   result = result.replace(/```(\w+)(\s*)\n/g, (_, lang) => '```' + lang.toLowerCase() + '\n');
 
-  // 8. 修复行内代码的多余空格
+  // 7. 修复行内代码的多余空格
   result = result.replace(/`\s+([^`]+?)\s+`/g, '`$1`');
 
-  // 9. 修复链接格式
+  // 8. 修复链接格式
   result = result.replace(/\[([^\]]+)\]\s*\(\s*([^)\s]+)\s*\)/g, '[$1]($2)');
 
-  // 10. 确保代码块闭合
+  // 9. 确保代码块闭合
   const codeBlockCount = (result.match(/```/g) || []).length;
   if (codeBlockCount % 2 !== 0) {
     result += '\n```';
   }
 
-  // 11. 移除标点符号前的多余空格
+  // 10. 移除标点符号前的多余空格
   result = result.replace(/\s+([.,!?;:])/g, '$1');
 
-  // 12. 修复表格格式
+  // 11. 修复表格格式
   result = normalizeTables(result);
 
-  // 13. 确保引用块格式正确
+  // 12. 确保引用块格式正确
   result = result.replace(/^>(\s*)(\S)/gm, '> $2');
+
+  // 恢复代码段
+  for (let i = codeSegments.length - 1; i >= 0; i--) {
+    result = result.replace(`__SCFMT_CODE_${i}__`, codeSegments[i]);
+  }
 
   return result.trim();
 }

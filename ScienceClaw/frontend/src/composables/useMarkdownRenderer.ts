@@ -14,7 +14,7 @@ import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
 import { marked } from "marked";
 
-import { domPurifyConfig } from "../utils/content";
+import { configureChatDomPurify, domPurifyConfig } from "../utils/content";
 import { formatMarkdown } from "../utils/markdownFormatter";
 import {
   normalizeMarkdownCodeToken,
@@ -29,6 +29,7 @@ export interface UseMarkdownRendererOptions {
   createMermaidPlaceholderId: () => string;
   createMathPlaceholderId?: CreateMathPlaceholderId;
   logPrefix?: string;
+  renderMermaid?: boolean;
 }
 
 const registerHighlightLanguages = () => {
@@ -53,11 +54,42 @@ const registerHighlightLanguages = () => {
 };
 
 registerHighlightLanguages();
+configureChatDomPurify();
+
+const MERMAID_DIAGRAM_LANGUAGES = new Set(["mermaid", "mmd"]);
+const MERMAID_SOURCE_LANGUAGES = new Set([
+  "mermaid-source",
+  "mmd-source",
+  "literal-mermaid",
+]);
+
+/**
+ * 全局 Markdown 渲染结果缓存
+ * - 历史会话加载时，同一消息多次进入页面不会重复走 marked.parse + hljs.highlight + DOMPurify
+ * - LRU 策略，避免内存泄漏
+ * - key 格式: `{renderMermaid}:{text}` — 同文本不同渲染模式（user/assistant）分开缓存
+ */
+const MARKDOWN_CACHE_MAX_SIZE = 200;
+const markdownRenderCache = new Map<string, string>();
+
+const getCacheKey = (text: string, renderMermaid: boolean) =>
+  `${renderMermaid ? 1 : 0}:${text}`;
+
+const getCachedMarkdown = (key: string): string | undefined => markdownRenderCache.get(key);
+const setCachedMarkdown = (key: string, html: string): void => {
+  if (markdownRenderCache.size >= MARKDOWN_CACHE_MAX_SIZE) {
+    // 删除最早的条目（Map 保持插入顺序）
+    const firstKey = markdownRenderCache.keys().next().value;
+    if (firstKey !== undefined) markdownRenderCache.delete(firstKey);
+  }
+  markdownRenderCache.set(key, html);
+};
 
 export function useMarkdownRenderer({
   createMermaidPlaceholderId,
   createMathPlaceholderId,
   logPrefix = "[Markdown]",
+  renderMermaid = true,
 }: UseMarkdownRendererOptions) {
   let mathCounter = 0;
   const { postprocessMarkdownMath, preprocessMarkdownMath } = useMathRenderer({
@@ -89,11 +121,17 @@ export function useMarkdownRenderer({
       lang = "plaintext";
     }
 
-    if (lang === "mermaid") {
+    const normalizedLang = lang.trim().toLowerCase();
+
+    if (renderMermaid && MERMAID_DIAGRAM_LANGUAGES.has(normalizedLang)) {
       return renderMermaidPlaceholder({
         id: createMermaidPlaceholderId(),
         code,
       });
+    }
+
+    if (MERMAID_SOURCE_LANGUAGES.has(normalizedLang)) {
+      lang = "mermaid";
     }
 
     let highlightedCode = code;
@@ -104,9 +142,9 @@ export function useMarkdownRenderer({
       } catch {
         // Keep the raw code if highlight.js cannot parse a registered language.
       }
-    } else {
-      highlightedCode = hljs.highlightAuto(code).value;
     }
+    // 不再对未知语言调用 highlightAuto — 它对大段代码非常耗时，
+    // 且结果对未注册语言通常没有实质改善
 
     return renderHighlightedCodeBlock({ code, highlightedCode, lang });
   };
@@ -122,6 +160,11 @@ export function useMarkdownRenderer({
   const renderMarkdown = (text: string): string => {
     if (typeof text !== "string") return "";
 
+    // 全局缓存命中：相同 markdown 文本 + 相同渲染模式直接返回已渲染 HTML
+    const cacheKey = getCacheKey(text, renderMermaid);
+    const cached = getCachedMarkdown(cacheKey);
+    if (cached !== undefined) return cached;
+
     try {
       let formatted = formatMarkdown(text);
       const { text: preprocessed, mathBlocks } =
@@ -135,10 +178,14 @@ export function useMarkdownRenderer({
       }) as string;
 
       html = postprocessMarkdownMath(html, mathBlocks);
-      return DOMPurify.sanitize(html, domPurifyConfig);
+      const result = DOMPurify.sanitize(html, domPurifyConfig);
+      setCachedMarkdown(cacheKey, result);
+      return result;
     } catch (e) {
       console.error(logPrefix, "Markdown rendering failed:", e);
-      return DOMPurify.sanitize(text, domPurifyConfig);
+      const fallback = DOMPurify.sanitize(text, domPurifyConfig);
+      setCachedMarkdown(cacheKey, fallback);
+      return fallback;
     }
   };
 

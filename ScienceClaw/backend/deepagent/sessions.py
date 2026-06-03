@@ -279,7 +279,25 @@ async def async_list_science_sessions(user_id: Optional[str] = None) -> List[Sci
     if user_id:
         query["user_id"] = user_id
 
-    cursor = db.get_collection("sessions").find(query).sort("updated_at", -1)
+    projection = {
+        "_id": 1,
+        "thread_id": 1,
+        "vm_root_dir": 1,
+        "mode": 1,
+        "user_id": 1,
+        "selected_skill_names": 1,
+        "title": 1,
+        "status": 1,
+        "created_at": 1,
+        "updated_at": 1,
+        "unread_message_count": 1,
+        "is_shared": 1,
+        "latest_message": 1,
+        "latest_message_at": 1,
+        "pinned": 1,
+        "source": 1,
+    }
+    cursor = db.get_collection("sessions").find(query, projection).sort("updated_at", -1)
     sessions = []
 
     async with _sessions_lock:

@@ -1,463 +1,727 @@
-# 方案 A 实现细则：Playwright 后端 PDF 导出
+# PDF 导出施工单：大内容浅色打印 + 5 分钟缓存 + 完整国际化
 
 **执行状态**：已登记到 `docs/current-active-execution-plans-zh.md`，按当前活跃施工单推进。
-
 **登记日期**：2026-06-03
+**当前结论**：采用后端 `sessions` 路由编排 sandbox 现有 REST 能力，不新增 sandbox 镜像内路由。
 
 ---
 
-## 0. 现状确认
+## 0. 硬性要求
 
-| 项 | 状态 |
-|---|---|
-| 后端容器 Python Playwright | ✅ 已安装 `playwright==1.58.0` |
-| 后端容器 Chromium 二进制 | ❌ 未安装（需 `playwright install chromium`） |
-| Sandbox 容器 Python Playwright | ✅ 已安装 `playwright==1.58.0` |
-| Sandbox 容器 Chromium 二进制 | ✅ `/usr/bin/chromium-browser`，PDF 生成已验证（5812 bytes） |
-| 前端 CSS（chat-message-renderer.css） | ✅ 679 行，含 KaTeX/Mermaid/代码块/表格样式 |
-| 前端 ChatMessage.vue markdownRef | ✅ `ref<HTMLElement | null>`，指向已渲染 DOM |
-| 前端现有"转PDF"按钮 | ✅ 当前仅注入 `inputMessage = '转成pdf'` |
-
-**关键决策**：PDF 渲染服务放在 **sandbox 容器**而非 backend 容器——sandbox 已有 Chromium + Playwright + CJK 字体，零额外安装。
+1. 支持较大内容导出，前端提交的 `html + css` UTF-8 总体积上限为 50MB。
+2. PDF 打印主题固定为浅色，不跟随当前深色主题。
+3. PDF 页眉显示被导出的会话标题，最多 15 个字符，超出追加省略号。
+4. PDF 页脚显示导出时间，精确到秒。
+5. 同内容导出缓存保留 5 分钟，到期销毁。
+6. 前后端必须完整国际化，用户可见文案必须走 i18n key。
+7. 不允许把后端 `detail`、sandbox stderr、异常字符串、英文原始错误、接口原始返回直接展示给用户。
 
 ---
 
-## 1. 架构总览
+## 1. 当前代码基线
 
+| 模块 | 当前实际情况 | 施工要求 |
+|---|---|---|
+| 前端入口 | `ScienceClaw/frontend/src/components/MessageFooter.vue` 已有 PDF 按钮，emit `convertToPdf` | 增加导出中/禁用态，所有 title/aria/toast 走 i18n |
+| 消息 DOM | `ScienceClaw/frontend/src/components/ChatMessage.vue` 已有 `markdownRef`，指向渲染后的 `.markdown-content` | 读取 `markdownRef.innerHTML`，导出时只提交浅色打印 CSS |
+| sessionId | `ChatMessage.vue` 已声明 `sessionId?: string`，`ChatPage.vue` 当前未传 | `ChatPage.vue` 传 `:session-id="sessionId"` |
+| 旧占位行为 | `ChatPage.vue` 当前 `handleConvertToPdf()` 写入 `inputMessage.value = '转成pdf'` | 删除旧逻辑，不再把 PDF 请求发给 LLM |
+| 前端样式 | `main.ts` 本地 import KaTeX/highlight CSS，`ChatMessage.vue` 引入 `chat-message-renderer.css` | 从同源 styleSheets 收集规则，过滤/覆盖 `.dark` 规则 |
+| 后端路由 | `ScienceClaw/backend/route/sessions.py` 已有 `require_user`、`async_get_science_session()`、`_get_sandbox_rest_base()`、`Response` | 在同文件新增 PDF 端点、缓存、错误码和 sandbox 编排 |
+| sandbox REST | 运行态已有 `/v1/file/write`、`/v1/shell/exec`、`/v1/file/download` | 复用现有接口写 HTML/脚本、执行 Playwright、下载 PDF |
+| sandbox 浏览器 | 容器内 Playwright 可用，Chromium 路径为 `/usr/bin/chromium-browser` | 渲染脚本固定优先使用该路径 |
+
+---
+
+## 2. 架构
+
+```text
+ChatMessage.vue
+  提取已渲染 HTML + 浅色 CSS + locale
+        |
+        v
+POST /api/v1/sessions/{session_id}/export-pdf
+        |
+        v
+sessions.py
+  校验 session 归属
+  计算 payload hash
+  命中 5 分钟缓存则直接返回 PDF
+  未命中则构造浅色 HTML
+  写入 sandbox workspace
+  执行 Playwright 生成 PDF
+  保存 5 分钟缓存
+        |
+        v
+Response(application/pdf)
+        |
+        v
+前端 Blob 下载
 ```
-前端 (ChatMessage.vue)
-  │  点击"转为PDF"
-  │  提取 markdownRef.innerHTML + computed styles
-  ▼
-后端 (sessions.py)
-  │  POST /sessions/{id}/export-pdf
-  │  转发 HTML+CSS 到 sandbox
-  ▼
-Sandbox (sandbox:8080)
-  │  POST /v1/render-pdf
-  │  Playwright chromium → page.pdf()
-  │  返回 PDF binary
-  ▼
-后端 → 前端
-  │  StreamingResponse(pdf_bytes)
-  ▼
-前端：自动下载 PDF 文件
+
+---
+
+## 3. 后端施工
+
+### 3.1 修改文件
+
+`ScienceClaw/backend/route/sessions.py`
+
+### 3.2 请求模型
+
+```python
+class ExportPdfRequest(BaseModel):
+    html: str = Field(..., min_length=1, description="Rendered assistant message innerHTML")
+    css: str = Field(default="", description="Collected light print CSS")
+    locale: str = Field(default="zh", description="Current UI locale")
+```
+
+要求：
+
+1. 移除 `dark` 字段，不允许前端控制打印深浅主题。
+2. `locale` 只接受 `zh`、`en`；未知值按 `en` 处理。
+
+### 3.3 常量
+
+```python
+_PDF_EXPORT_MAX_PAYLOAD_BYTES = 50 * 1024 * 1024
+_PDF_EXPORT_CACHE_TTL_SECONDS = 5 * 60
+_PDF_EXPORT_TIMEOUT_SECONDS = 120.0
+_PDF_EXPORT_CACHE_DIRNAME = "_pdf_export_cache"
+_PDF_EXPORT_WORK_DIRNAME = "_pdf_export_work"
+```
+
+体积规则：
+
+1. `len(body.html.encode("utf-8")) + len(body.css.encode("utf-8")) <= 50MB`。
+2. 超限返回统一错误码 `PDF_EXPORT_PAYLOAD_TOO_LARGE`。
+3. 不在错误响应中返回实际 HTML、CSS、stderr 或异常字符串。
+
+### 3.4 错误响应规范
+
+PDF 端点的非 PDF 响应必须统一为 JSON，不允许原始返回。
+
+```json
+{
+  "code": "PDF_EXPORT_PAYLOAD_TOO_LARGE",
+  "msg": "pdf_export.payload_too_large",
+  "data": null
+}
+```
+
+错误码清单：
+
+| HTTP | code | msg i18n key |
+|---|---|---|
+| 401 | 由现有鉴权处理 | 前端映射现有登录文案 |
+| 403 | `PDF_EXPORT_ACCESS_DENIED` | `pdf_export.access_denied` |
+| 404 | `PDF_EXPORT_SESSION_NOT_FOUND` | `pdf_export.session_not_found` |
+| 413 | `PDF_EXPORT_PAYLOAD_TOO_LARGE` | `pdf_export.payload_too_large` |
+| 502 | `PDF_EXPORT_RENDER_FAILED` | `pdf_export.render_failed` |
+| 502 | `PDF_EXPORT_INVALID_PDF` | `pdf_export.invalid_pdf` |
+| 504 | `PDF_EXPORT_TIMEOUT` | `pdf_export.timeout` |
+| 500 | `PDF_EXPORT_UNKNOWN_ERROR` | `pdf_export.unknown_error` |
+
+后端日志可以记录调试信息，但用户响应只能返回 code 和 i18n key。
+
+### 3.5 端点
+
+路径：
+
+```text
+POST /api/v1/sessions/{session_id}/export-pdf
+```
+
+实现要求：
+
+1. `current_user: User = Depends(require_user)`。
+2. `session = await async_get_science_session(session_id)`。
+3. 非 owner 返回 `PDF_EXPORT_ACCESS_DENIED`。
+4. session 不存在返回 `PDF_EXPORT_SESSION_NOT_FOUND`。
+5. 体积超过 50MB 返回 `PDF_EXPORT_PAYLOAD_TOO_LARGE`。
+6. 导出时间在后端生成，使用当前服务器时区并精确到秒。
+7. 会话标题从 `session.title` 取值，空标题使用 i18n key 对应默认标题。
+8. 标题截断使用 `_truncate_pdf_header_title(title, limit=15)`。
+9. 缓存 key 使用 `sha256(session_id + title + html + css + "light-v1")`。
+10. 缓存命中且未过期时直接返回缓存 PDF。
+11. 缓存未命中时调用 `_render_pdf_in_sandbox(...)`。
+12. PDF 返回前校验首字节 `%PDF`。
+13. 返回 `fastapi.responses.Response`，`media_type="application/pdf"`。
+
+响应头：
+
+```python
+{
+    "Content-Disposition": f'attachment; filename="scienceclaw-{session_id}.pdf"',
+    "X-PDF-Export-Cache": "hit" 或 "miss",
+}
+```
+
+### 3.6 HTML 包装函数
+
+新增：
+
+```python
+def _build_pdf_html(
+    html: str,
+    css: str,
+    *,
+    header_title: str,
+    exported_at_text: str,
+    locale: str,
+) -> str:
+    ...
+```
+
+必须包含：
+
+1. `<!doctype html>`。
+2. `<html lang="{locale}">`。
+3. 不出现 `class="dark"`。
+4. CSP：`default-src 'self' data: blob:; img-src 'self' data: blob: http: https:; style-src 'unsafe-inline' 'self'; script-src 'none';`
+5. 浅色固定变量：
+   - `color-scheme: light`
+   - `background: #ffffff`
+   - `color: #111827`
+6. `@page` 设置页眉页脚边距空间。
+7. 文档内容包裹在 `<main class="markdown-content pdf-export-root">`。
+
+禁止：
+
+1. 使用用户当前 dark mode。
+2. 默认引入 CDN。
+3. 执行脚本。
+4. 把原始错误、stderr 或异常内容注入 HTML。
+
+### 3.7 页眉页脚
+
+页眉页脚由 Playwright `page.pdf()` 的 `display_header_footer=True` 实现。
+
+Header template：
+
+```html
+<div style="font-size:9px;width:100%;padding:0 14mm;color:#4b5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+  {escaped_header_title}
+</div>
+```
+
+Footer template：
+
+```html
+<div style="font-size:9px;width:100%;padding:0 14mm;color:#6b7280;text-align:right;">
+  {escaped_exported_at_text}
+</div>
+```
+
+标题截断规则：
+
+1. Python 按 Unicode 字符计数。
+2. `len(title) <= 15` 原样。
+3. `len(title) > 15` 使用 `title[:15] + "..."`。
+4. HTML 输出必须转义。
+
+导出时间：
+
+1. 后端生成。
+2. 精确到秒。
+3. 文案走后端小型 locale 字典：
+   - zh：`导出时间：YYYY-MM-DD HH:mm:ss`
+   - en：`Exported at: YYYY-MM-DD HH:mm:ss`
+4. 前端不得自行拼接页脚时间。
+
+### 3.8 5 分钟缓存
+
+缓存目录：
+
+```text
+/home/scienceclaw/{session_id}/_pdf_export_cache/{cache_key}.pdf
+/home/scienceclaw/{session_id}/_pdf_export_cache/{cache_key}.json
+```
+
+metadata：
+
+```json
+{
+  "created_at": 1780470000,
+  "expires_at": 1780470300,
+  "session_id": "..."
+}
+```
+
+缓存规则：
+
+1. 每次导出前调用 `_cleanup_expired_pdf_cache(session_id)`。
+2. 命中未过期缓存时直接通过 sandbox `/v1/file/download` 下载 PDF。
+3. 未命中时生成 PDF 并写入缓存目录。
+4. 响应返回后注册 `BackgroundTasks`，在 5 分钟后删除本次 cache key 对应 PDF 和 metadata。
+5. 若后端进程重启导致 background task 丢失，下一次导出必须通过懒清理删除过期缓存。
+6. 临时工作目录 `_pdf_export_work/{nonce}` 在本次导出结束后清理，不保留 5 分钟。
+
+### 3.9 sandbox 编排
+
+新增 `_render_pdf_in_sandbox(...) -> bytes`。
+
+输入：
+
+1. `session_id`
+2. `full_html`
+3. `header_title`
+4. `exported_at_text`
+5. `cache_pdf_path`
+
+流程：
+
+1. `base = _get_sandbox_rest_base()`。
+2. 写入 HTML 到 `_pdf_export_work/{nonce}/message.html`。
+3. 写入渲染脚本到 `_pdf_export_work/{nonce}/render_pdf.py`。
+4. `/v1/shell/exec` 执行：
+   ```json
+   {
+     "command": "python <script_path> <html_path> <cache_pdf_path> <header_json_path>",
+     "exec_dir": "/home/scienceclaw/{session_id}",
+     "async_mode": false,
+     "timeout": 120
+   }
+   ```
+5. `/v1/file/download` 下载 `cache_pdf_path`。
+6. 校验 `%PDF`。
+7. 清理 `_pdf_export_work/{nonce}`。
+
+### 3.10 Playwright 脚本
+
+要求：
+
+1. 使用 `playwright.sync_api.sync_playwright`。
+2. Chromium executable 优先 `/usr/bin/chromium-browser`。
+3. 启动参数：
+   - `--no-sandbox`
+   - `--disable-dev-shm-usage`
+   - `--disable-gpu`
+4. `page.emulate_media(media="print", color_scheme="light")`。
+5. `page.set_content(html, wait_until="load")`。
+6. 等待 `document.fonts.ready`。
+7. 等待 500ms。
+8. `page.pdf(...)`：
+   - `format="A4"`
+   - `print_background=True`
+   - `display_header_footer=True`
+   - `header_template=<escaped header template>`
+   - `footer_template=<escaped footer template>`
+   - margin 至少 top/bottom `18mm`，left/right `14mm`
+9. finally 关闭 page/browser/playwright。
+10. 脚本 stdout/stderr 只用于后端日志，不进入用户响应。
+
+### 3.11 后端测试
+
+新增：
+
+`ScienceClaw/backend/tests/test_sessions_pdf_export.py`
+
+覆盖：
+
+1. 未认证返回 401。
+2. 非 owner 返回 `PDF_EXPORT_ACCESS_DENIED`。
+3. session 不存在返回 `PDF_EXPORT_SESSION_NOT_FOUND`。
+4. `html + css` 超过 50MB 返回 `PDF_EXPORT_PAYLOAD_TOO_LARGE`。
+5. 标题 15 字符截断。
+6. 页脚时间精确到秒。
+7. `dark` 不存在于请求模型和 HTML root。
+8. cache miss 首次生成 PDF。
+9. 5 分钟内相同 payload 命中缓存。
+10. 过期缓存会被删除并重新生成。
+11. sandbox timeout 返回 `PDF_EXPORT_TIMEOUT`。
+12. 非 PDF 返回 `PDF_EXPORT_INVALID_PDF`。
+13. 所有错误响应不包含 stderr、traceback、HTML、CSS、异常原文。
+
+命令：
+
+```powershell
+$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_sessions_pdf_export
 ```
 
 ---
 
-## 2. 前端改动（4 个文件）
+## 4. 前端施工
 
-### 2.1 `src/api/agent.ts` — 新增 API 调用
+### 4.1 API 层
 
-```typescript
+修改：
+
+`ScienceClaw/frontend/src/api/agent.ts`
+
+新增：
+
+```ts
+export interface ExportPdfPayload {
+  html: string;
+  css: string;
+  locale: 'zh' | 'en';
+}
+
 export async function exportMessagePdf(
   sessionId: string,
-  payload: { html: string; css: string; dark: boolean }
+  payload: ExportPdfPayload,
 ): Promise<Blob> {
   const response = await apiClient.post(
     `/sessions/${sessionId}/export-pdf`,
     payload,
-    { responseType: 'blob' }
+    {
+      responseType: 'blob',
+      timeout: 150000,
+    },
   );
   return response.data as Blob;
 }
 ```
 
-### 2.2 `src/composables/usePdfExport.ts` — 新增 composable（核心）
+要求：
 
-```typescript
-// 职责：
-// 1. 从 markdownRef 提取 innerHTML
-// 2. 收集渲染所需的 CSS（内联关键样式）
-// 3. 调用 API 生成 PDF
-// 4. 触发浏览器下载
+1. 导出接口单独设置 150 秒 timeout，不使用全局 30 秒超时。
+2. Blob 错误响应必须解析 JSON code，不允许直接 toast Blob 文本。
 
-export function usePdfExport() {
-  const exporting = ref(false);
+### 4.2 新增 composable
 
-  const extractMessageHtml = (markdownRef: HTMLElement): { html: string; css: string } => {
-    // 1. 克隆 markdownRef.innerHTML（已渲染的 DOM，含 SVG mermaid 图表）
-    const html = markdownRef.innerHTML;
+新增：
 
-    // 2. 收集 CSS：提取 <style> 标签中 .markdown-content 相关规则
-    //    + chat-message-renderer.css 中的规则
-    //    + KaTeX CSS（从 <link> 或 <style> 中提取）
-    //    + hljs 代码高亮 CSS
-    const css = collectRenderCss();
+`ScienceClaw/frontend/src/composables/usePdfExport.ts`
 
-    return { html, css };
-  };
+职责：
 
-  const collectRenderCss = (): string => {
-    // 策略：遍历 document.styleSheets，收集包含以下选择器的规则：
-    //   .markdown-content, .katex, .hljs, .mermaid, pre, code, table
-    // 去重合并为一个 CSS 字符串
-  };
+1. 接收 `sessionId`、`markdownRef`、`locale`。
+2. 提取 `markdownRef.innerHTML`。
+3. 收集浅色打印 CSS。
+4. 计算 `html + css` UTF-8 总体积，超过 50MB 前端直接提示 i18n 文案。
+5. 调用 `exportMessagePdf()`。
+6. 下载 Blob。
+7. 暴露 `exporting` 与 `exportPdf()`。
 
-  const exportPdf = async (sessionId: string, markdownRef: HTMLElement, dark: boolean) => {
-    exporting.value = true;
-    try {
-      const { html, css } = extractMessageHtml(markdownRef);
-      const blob = await exportMessagePdf(sessionId, { html, css, dark });
-      // 触发下载
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chat-${sessionId}-${Date.now()}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      exporting.value = false;
-    }
-  };
+CSS 规则：
 
-  return { exporting, exportPdf };
+1. 遍历 `document.styleSheets`。
+2. 只读取同源可访问 `cssRules`。
+3. 保留 `.markdown-content`、`.katex`、`.hljs`、`.mermaid`、`pre`、`code`、`table`、`img`、`svg`、`.code-block` 相关规则。
+4. 跳过或覆盖 `.dark` 专用规则。
+5. 追加浅色 fallback：
+   - body/background 白色
+   - 文本深色
+   - 代码块浅灰背景
+   - 表格边框浅灰
+   - 图片/SVG 最大宽度 100%
+   - 避免代码块、表格、图片被分页切断
+
+错误处理：
+
+1. 后端 code 映射到 i18n key。
+2. 未识别 code 使用 `pdf_export.unknown_error`。
+3. 不显示 `error.message`、`error.details`、接口 `detail`、Blob 原文。
+
+下载要求：
+
+1. 文件名：`scienceclaw-${sessionId}-${Date.now()}.pdf`。
+2. 下载按钮重复点击时直接忽略。
+3. `URL.revokeObjectURL(url)` 必须执行。
+
+### 4.3 ChatMessage 集成
+
+修改：
+
+`ScienceClaw/frontend/src/components/ChatMessage.vue`
+
+要求：
+
+1. 引入 `usePdfExport`。
+2. 引入 `useI18n`，读取 `locale` 和 `t`。
+3. 不再读取 `useTheme` 参与 PDF 打印。
+4. `handleConvertToPdf`：
+   - 无 `props.sessionId` 或无 `markdownRef.value` 时 toast `t('pdf_export.unavailable')`。
+   - 调用 `pdfExport.exportPdf(props.sessionId, markdownRef.value, locale.value)`。
+5. `MessageFooter` 传入：
+   - `:pdf-exporting="pdfExport.exporting.value"`
+   - `:pdf-disabled="!props.sessionId || pdfExport.exporting.value"`
+6. 所有新增 title、aria、toast 使用 i18n key。
+
+### 4.4 MessageFooter 状态与国际化
+
+修改：
+
+`ScienceClaw/frontend/src/components/MessageFooter.vue`
+
+新增 props：
+
+```ts
+pdfExporting?: boolean;
+pdfDisabled?: boolean;
+```
+
+新增 i18n 使用：
+
+```ts
+const { t } = useI18n();
+```
+
+PDF 按钮要求：
+
+1. `:disabled="pdfDisabled || pdfExporting"`。
+2. `:title="pdfExporting ? t('pdf_export.exporting') : t('pdf_export.action')"`。
+3. `:aria-label="pdfExporting ? t('pdf_export.exporting') : t('pdf_export.action')"`。
+4. 导出中显示 loading 图标或现有 spinner。
+5. 不再出现硬编码“转成PDF”“正在导出PDF”等中文原文。
+
+### 4.5 ChatPage 接线
+
+修改：
+
+`ScienceClaw/frontend/src/pages/ChatPage.vue`
+
+要求：
+
+1. 给 `ChatMessage` 增加 `:session-id="sessionId"`。
+2. 删除 `@convertToPdf="handleConvertToPdf"`。
+3. 删除旧 `handleConvertToPdf()`。
+4. 不再写入 `inputMessage.value = '转成pdf'`。
+
+### 4.6 locales
+
+修改：
+
+1. `ScienceClaw/frontend/src/locales/zh.ts`
+2. `ScienceClaw/frontend/src/locales/en.ts`
+
+新增 key：
+
+```ts
+{
+  'pdf_export.action': '导出 PDF',
+  'pdf_export.exporting': '正在导出 PDF',
+  'pdf_export.unavailable': '当前消息无法导出 PDF',
+  'pdf_export.payload_too_large': '导出内容超过 50MB，无法生成 PDF',
+  'pdf_export.access_denied': '无权导出该会话',
+  'pdf_export.session_not_found': '会话不存在或已删除',
+  'pdf_export.render_failed': 'PDF 生成失败，请稍后重试',
+  'pdf_export.invalid_pdf': 'PDF 文件生成异常，请稍后重试',
+  'pdf_export.timeout': 'PDF 生成超时，请稍后重试',
+  'pdf_export.unknown_error': 'PDF 导出失败，请稍后重试',
+  'pdf_export.success': 'PDF 已开始下载'
 }
 ```
 
-**CSS 收集策略**（详细）：
+英文同 key 补英文文案。
 
-```
-收集优先级：
-1. document.styleSheets 中含 .markdown-content 选择器的规则 → 必选
-2. 含 .katex 选择器的规则 → 必选（公式）
-3. 含 .hljs 选择器的规则 → 必选（代码高亮）
-4. 含 .mermaid 选择器的规则 → 必选（图表）
-5. 通用 reset/base 规则 → 可选（Playwright 自带默认样式）
+### 4.7 前端测试
 
-实现方式：
-- 遍历 document.styleSheets
-- 对每个 sheet，尝试 sheet.cssRules（同源可访问）
-- 跨域 stylesheet（CDN）跳过，改用硬编码的必要规则
-- KaTeX CSS 如果是 CDN 加载的，需要硬编码一份或改为本地引入
-```
+新增或扩展：
 
-### 2.3 `src/components/ChatMessage.vue` — 改动极小
+1. `ScienceClaw/frontend/src/components/MessageFooter.spec.ts`
+2. `ScienceClaw/frontend/src/components/ChatMessage.spec.ts`
+3. 新增 `ScienceClaw/frontend/src/composables/usePdfExport.spec.ts`
 
-```diff
-- const handleConvertToPdf = () => {
--   emit("convertToPdf");
-- };
+覆盖：
 
-+ const handleConvertToPdf = async () => {
-+   if (!markdownRef.value) return;
-+   await pdfExport.exportPdf(sessionId, markdownRef.value, isDark.value);
-+ };
-```
+1. PDF 按钮 title/aria 使用 i18n。
+2. 导出中按钮 disabled。
+3. 超过 50MB 时不调用 API。
+4. 后端错误 code 映射到 i18n key。
+5. Blob 错误不原样显示。
+6. 不传 dark。
 
-需要：
-- 注入 `sessionId` prop（从 ChatPage 传入）
-- 引入 `usePdfExport` composable
-- 引入 `isDark` 状态（从主题 composable 或 CSS 媒体查询判断）
+命令：
 
-### 2.4 `src/pages/ChatPage.vue` — 传递 sessionId
-
-```diff
-  <ChatMessage
-    :message="group.message"
-+   :session-id="sessionId"
-    ...
-  />
-```
-
-移除 `handleConvertToPdf` 中的 `inputMessage.value = '转成pdf'`。
-
----
-
-## 3. 后端改动（2 个文件）
-
-### 3.1 `route/sessions.py` — 新增 PDF 导出端点
-
-```python
-@router.post("/{session_id}/export-pdf")
-async def export_message_pdf(
-    session_id: str,
-    body: ExportPdfRequest,
-    current_user: User = Depends(get_current_user),
-):
-    """
-    将前端提交的单条助手消息 HTML+CSS 渲染为 PDF。
-    实际渲染委托给 sandbox 容器的 Playwright 服务。
-    """
-    # 1. 权限校验
-    session = await async_get_science_session(session_id)
-    if session.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    # 2. 构造完整 HTML 文档
-    full_html = build_pdf_html(body.html, body.css, body.dark)
-
-    # 3. 调用 sandbox 渲染服务
-    pdf_bytes = await call_sandbox_render_pdf(full_html)
-
-    # 4. 流式返回 PDF
-    return StreamingResponse(
-        io.BytesIO(pdf_bytes),
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="chat-{session_id}.pdf"'
-        },
-    )
-```
-
-**Pydantic Model**：
-
-```python
-class ExportPdfRequest(BaseModel):
-    html: str = Field(..., description="助手消息的 innerHTML")
-    css: str = Field("", description="渲染所需的 CSS")
-    dark: bool = Field(False, description="是否暗色主题")
-```
-
-**HTML 模板构建**：
-
-```python
-def build_pdf_html(html: str, css: str, dark: bool) -> str:
-    theme_class = "dark" if dark else ""
-    return f"""<!DOCTYPE html>
-<html lang="zh-CN" class="{theme_class}">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    /* Base reset */
-    *, *::before, *::after {{ box-sizing: border-box; }}
-    body {{
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      margin: 20px;
-      line-height: 1.6;
-      color: {'#e5e7eb' if dark else '#1f2937'};
-      background: {'#1e1e1e' if dark else '#ffffff'};
-    }}
-    /* App CSS */
-    {css}
-  </style>
-</head>
-<body>
-  <div class="markdown-content" style="padding: 0;">
-    {html}
-  </div>
-</body>
-</html>"""
-```
-
-### 3.2 `route/sessions.py` — Sandbox API 调用
-
-```python
-async def call_sandbox_render_pdf(html: str) -> bytes:
-    """调用 sandbox 的 Playwright PDF 渲染接口"""
-    import httpx
-
-    sandbox_url = settings.SANDBOX_REST_URL  # http://sandbox:8080
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(
-            f"{sandbox_url}/v1/render-pdf",
-            json={"html": html},
-        )
-        resp.raise_for_status()
-        return resp.content
+```powershell
+npm --prefix ScienceClaw/frontend run type-check
+npm --prefix ScienceClaw/frontend run test:run -- MessageFooter ChatMessage usePdfExport
+npm --prefix ScienceClaw/frontend run build
 ```
 
 ---
 
-## 4. Sandbox 改动（1 个文件）
+## 5. 集成验收
 
-### 4.1 Sandbox API 新增端点
+### 5.1 sandbox 能力复核
 
-**位置**：sandbox 的 FastAPI/Flask 路由文件
-
-```python
+```powershell
+docker exec scienceclaw-sandbox-1 sh -lc "python - <<'PY'
 from playwright.sync_api import sync_playwright
-from fastapi import APIRouter
-from pydantic import BaseModel, Field
-
-router = APIRouter()
-
-class RenderPdfRequest(BaseModel):
-    html: str = Field(..., description="完整 HTML 文档")
-
-# 全局 Playwright 浏览器实例（懒加载单例）
-_browser = None
-
-def _get_browser():
-    global _browser
-    if _browser is None or not _browser.is_connected():
-        pw = sync_playwright().start()
-        _browser = pw.chromium.launch(
-            headless=True,
-            executable_path="/usr/bin/chromium-browser",
-            args=["--no-sandbox", "--disable-gpu"],
-        )
-    return _browser
-
-@router.post("/v1/render-pdf")
-def render_pdf(body: RenderPdfRequest):
-    """接收 HTML，返回 PDF bytes"""
-    browser = _get_browser()
-    page = browser.new_page()
-
-    try:
-        page.set_content(body.html, wait_until="networkidle")
-        # 等待 Mermaid/图片等异步渲染完成
-        page.wait_for_timeout(500)
-
-        pdf_bytes = page.pdf(
-            format="A4",
-            margin={"top": "20mm", "bottom": "20mm", "left": "15mm", "right": "15mm"},
-            print_background=True,
-            display_header_footer=False,
-        )
-    finally:
-        page.close()
-
-    from fastapi.responses import Response
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-    )
+import shutil
+print('playwright-ok')
+print(shutil.which('chromium-browser') or shutil.which('chromium') or shutil.which('google-chrome'))
+PY"
 ```
 
-**关键细节**：
+期望输出包含：
 
-| 项 | 说明 |
-|---|---|
-| 浏览器单例 | 避免每次请求启动 Chromium（冷启动 ~2s，复用 <100ms） |
-| `executable_path` | sandbox 中 Chromium 在 `/usr/bin/chromium-browser` |
-| `--no-sandbox` | 容器内以 root 运行，必须禁用 Chromium 沙箱 |
-| `wait_until="networkidle"` | 等待异步资源加载完成 |
-| `wait_for_timeout(500)` | 额外 500ms 等待 Mermaid/图片渲染 |
-| `print_background=True` | 保留代码块/表格背景色 |
-| 内存泄漏防护 | `page.close()` 在 finally 中确保执行 |
-
----
-
-## 5. 样式处理（关键难点）
-
-### 5.1 KaTeX CSS
-
-**问题**：KaTeX CSS 通常从 CDN 加载（`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@x.x.x/dist/katex.min.css">`），前端 `document.styleSheets` 无法读取跨域 CSS 规则。
-
-**解决方案**：
-
-```
-方案 A（推荐）：将 KaTeX CSS 改为本地引入
-  - npm install katex → node_modules/katex/dist/katex.min.css
-  - 在 main.ts 或 chat-message-renderer.css 中 @import
-  - 好处：前端可读取，PDF 可内联
-
-方案 B：硬编码一份 KaTeX CSS 到 build_pdf_html()
-  - 从 node_modules/katex/dist/katex.min.css 读取
-  - 写入后端模板
-  - 好处：零前端改动，但需同步版本
-
-方案 C：PDF 渲染时从 CDN 加载
-  - 在 build_pdf_html 的 <head> 中加 <link>
-  - Playwright wait_until="networkidle" 会等待加载
-  - 好处：最简单，但依赖网络，sandbox 容器需能访问外网
+```text
+playwright-ok
+/usr/bin/chromium-browser
 ```
 
-**推荐方案 C**：最简单，sandbox 容器已有外网访问能力（`WEBSEARCH_URL` 配置说明可联网）。如果 CDN 不可达再切方案 A。
+### 5.2 真实接口 smoke
 
-### 5.2 hljs 代码高亮 CSS
-
-同 KaTeX——如果当前是 CDN 引入，PDF HTML 中加 `<link>` 让 Playwright 加载即可。
-
-### 5.3 暗色主题
-
-`build_pdf_html()` 的 `<html class="dark">` 会匹配 CSS 中的 `.dark .xxx` 选择器，样式自动切换。
-
----
-
-## 6. 交互流程（UX）
-
+```powershell
+Invoke-WebRequest `
+  -Method POST `
+  -Uri "http://127.0.0.1:12001/api/v1/sessions/<sessionId>/export-pdf" `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body (@{
+    html = "<h1>PDF Smoke</h1><pre><code>print('ok')</code></pre>"
+    css = ".markdown-content{font-family:Arial,sans-serif} pre{background:#f3f4f6;padding:12px;color:#111827}"
+    locale = "zh"
+  } | ConvertTo-Json) `
+  -OutFile ".\workspace\pdf-smoke.pdf"
 ```
-1. 用户点击助手消息底部的"转为PDF"按钮
-2. 按钮变为 loading 状态（exporting = true）
-3. 前端提取 innerHTML + CSS → 发送到后端
-4. 后端转发到 sandbox → Playwright 渲染 → 返回 PDF
-5. 前端收到 Blob → 自动下载 PDF 文件
-6. 按钮恢复常态
 
-预估延迟：
-  - 首次请求（冷启动浏览器）：~3s
-  - 后续请求（复用浏览器实例）：~1-2s
-  - 网络传输：~200ms（单条消息 HTML 体积小）
-  - 总计：~1.5-3s
+验收：
+
+1. `workspace/pdf-smoke.pdf` 文件头为 `%PDF`。
+2. PDF 页眉包含 15 字符以内标题。
+3. PDF 页脚包含秒级导出时间。
+4. 打印内容为浅色主题。
+5. 5 分钟内重复请求响应头 `X-PDF-Export-Cache` 为 `hit`。
+6. 5 分钟后缓存文件被删除或下一次请求触发懒清理删除。
+
+### 5.3 总体验证命令
+
+```powershell
+$env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_sessions_pdf_export
+npm --prefix ScienceClaw/frontend run type-check
+npm --prefix ScienceClaw/frontend run test:run -- MessageFooter ChatMessage usePdfExport
+npm --prefix ScienceClaw/frontend run build
 ```
 
 ---
 
-## 7. 文件变更清单
+## 6. 实施顺序
 
-| 文件 | 变更类型 | 行数估算 |
+### Step 1：后端错误码、请求模型和 50MB 限制
+
+修改 `ScienceClaw/backend/route/sessions.py`：
+
+1. 新增 `ExportPdfRequest`。
+2. 新增 PDF 错误响应 helper。
+3. 新增 50MB payload 校验。
+4. 确保非 PDF 响应不包含原始异常或 stderr。
+
+停止条件：
+
+1. 401/403/404/413 单测通过。
+2. 错误响应只包含 code、msg、data。
+
+### Step 2：页眉页脚与浅色 HTML
+
+实现：
+
+1. `_truncate_pdf_header_title()`。
+2. `_format_pdf_exported_at()`。
+3. `_build_pdf_html()`。
+4. Playwright header/footer template。
+5. `page.emulate_media(media="print", color_scheme="light")`。
+
+停止条件：
+
+1. 标题 15 字符截断测试通过。
+2. 页脚秒级时间测试通过。
+3. HTML 不含 dark root。
+
+### Step 3：5 分钟缓存
+
+实现：
+
+1. cache key。
+2. cache metadata。
+3. cache hit/miss。
+4. background cleanup。
+5. lazy cleanup。
+
+停止条件：
+
+1. 5 分钟内相同 payload 命中缓存。
+2. 过期缓存被删除。
+3. 临时 work 目录导出后清理。
+
+### Step 4：sandbox 真实渲染
+
+实现：
+
+1. 写 HTML。
+2. 写渲染脚本。
+3. 执行 Playwright。
+4. 下载 PDF。
+5. 校验 `%PDF`。
+
+停止条件：
+
+1. 真实 PDF 可下载。
+2. 页眉页脚存在。
+3. 浅色打印生效。
+
+### Step 5：前端 API 与 composable
+
+实现：
+
+1. `exportMessagePdf()`，timeout 150 秒。
+2. `usePdfExport.ts`。
+3. 50MB 前端校验。
+4. Blob 错误 code 解析和 i18n 映射。
+
+停止条件：
+
+1. 超限不发请求。
+2. 所有错误 toast 都来自 i18n key。
+3. 不传 `dark`。
+
+### Step 6：前端组件与 locales
+
+实现：
+
+1. `ChatMessage.vue` 接线。
+2. `MessageFooter.vue` loading/disabled/i18n。
+3. `ChatPage.vue` 删除旧占位事件。
+4. `zh.ts`、`en.ts` 补全 key。
+
+停止条件：
+
+1. 页面不再出现硬编码“转成PDF”新增文案。
+2. `inputMessage.value = '转成pdf'` 不存在。
+3. type-check/build 通过。
+
+### Step 7：端到端验收
+
+执行：
+
+1. 后端单测。
+2. 前端单测。
+3. 前端 type-check/build。
+4. 真实浏览器点击下载。
+5. 复测缓存命中和 5 分钟销毁。
+
+停止条件：
+
+1. PDF 下载成功。
+2. 最大 50MB payload 路径可处理或给出 i18n 错误。
+3. 页眉页脚符合要求。
+4. 用户界面无任何原始错误返回。
+
+---
+
+## 7. 风险与处理
+
+| 风险 | 等级 | 处理 |
 |---|---|---|
-| `frontend/src/composables/usePdfExport.ts` | **新增** | ~100 行 |
-| `frontend/src/api/agent.ts` | 修改（+1 函数） | +10 行 |
-| `frontend/src/components/ChatMessage.vue` | 修改（替换 handleConvertToPdf） | +15 -5 行 |
-| `frontend/src/pages/ChatPage.vue` | 修改（传 sessionId，删旧逻辑） | +3 -5 行 |
-| `backend/route/sessions.py` | 修改（+1 端点 + 2 辅助函数） | +80 行 |
-| `sandbox/api.py`（或等效路由文件） | 修改（+1 端点 + 浏览器单例） | +60 行 |
-| **总计** | | **~260 行** |
+| 50MB payload 导致超时 | 中 | 导出接口独立 150 秒前端 timeout，后端/sandbox 120 秒 timeout |
+| 缓存未及时删除 | 中 | BackgroundTasks + 每次导出前懒清理 |
+| 暗色 CSS 泄漏到打印 | 中 | 前端过滤 `.dark`，后端强制浅色变量，Playwright 强制 light media |
+| 页眉标题含 HTML | 中 | 后端截断后 HTML escape |
+| 用户看到原始错误 | 高 | 后端只返回 code/i18n key，前端只展示映射文案 |
+| 大 PDF 非法或损坏 | 中 | 后端校验 `%PDF`，失败返回 `PDF_EXPORT_INVALID_PDF` |
 
 ---
 
-## 8. 实现步骤（按顺序）
+## 8. 不做事项
 
-### Step 1：Sandbox PDF 渲染端点（后端基础设施）
-- 找到 sandbox API 路由文件
-- 新增 `POST /v1/render-pdf` 端点
-- 实现浏览器单例 + PDF 生成
-- 手动 curl 测试：发送 HTML → 返回 PDF
-- **验收**：curl 发送含 Mermaid+代码块的 HTML → 下载的 PDF 文本可选中
-
-### Step 2：后端 Sessions 端点
-- `route/sessions.py` 新增 `POST /{session_id}/export-pdf`
-- 实现 `build_pdf_html()` + `call_sandbox_render_pdf()`
-- 权限校验 + 流式返回
-- **验收**：httpie/POSTMAN 发送 HTML+CSS → 下载 PDF
-
-### Step 3：前端 API 层
-- `agent.ts` 新增 `exportMessagePdf()`
-- **验收**：无（被后续步骤覆盖）
-
-### Step 4：前端 usePdfExport composable
-- 新增 `usePdfExport.ts`
-- 实现 `extractMessageHtml()` + `collectRenderCss()`
-- 实现 `exportPdf()` 下载逻辑
-- **验收**：console.log 输出提取的 HTML/CSS 内容正确
-
-### Step 5：前端组件集成
-- ChatMessage.vue 替换 handleConvertToPdf
-- ChatPage.vue 传 sessionId + 移除旧逻辑
-- **验收**：点击"转为PDF" → 浏览器自动下载 PDF → PDF 中 Mermaid 图表/代码块/公式/表格正常显示 → 文本可选中复制
-
-### Step 6：边界处理
-- exporting 状态：按钮 loading 态
-- 错误处理：sandbox 不可达、超时、渲染失败 → toast 提示
-- 大消息处理：HTML 超过 5MB 时提示"内容过长"
-- 并发控制：同一消息不重复提交
-
----
-
-## 9. 风险与对策
-
-| 风险 | 概率 | 影响 | 对策 |
-|---|---|---|---|
-| Sandbox Chromium 崩溃/内存泄漏 | 中 | PDF 生成失败 | 浏览器单例 + 健康检查 + 超时重启 |
-| CDN CSS 在 sandbox 中加载失败 | 低 | 公式/代码样式缺失 | 回退方案 A：本地引入 CSS |
-| 超长消息 HTML 过大 | 低 | 传输/渲染超时 | 限制 5MB，超限时提示 |
-| Mermaid SVG 内含外部资源 | 低 | 图表不完整 | sandbox 已可访问外网 |
-| 并发请求导致 Chromium 卡死 | 中 | 服务不可用 | 队列化：同一时刻只允许 1 个渲染任务 |
-
----
-
-## 10. 后续可选优化
-
-| 优化 | 优先级 | 说明 |
-|---|---|---|
-| 浏览器实例健康检查 | P1 | 定期检查 is_connected()，断连自动重启 |
-| 渲染队列 | P2 | 多请求排队，避免并发 OOM |
-| PDF 元数据 | P3 | 添加标题、作者、创建时间等 PDF metadata |
-| 自定义 PDF 样式 | P3 | 允许用户选择 A4/Letter、边距、是否含页眉页脚 |
-| 缓存已生成的 PDF | P3 | 同一消息不重复渲染（消息内容不变则复用） |
+1. 不新增 `ScienceClaw/sandbox/api.py`。
+2. 不修改 AIO sandbox 基础镜像内部 FastAPI 源码。
+3. 不默认依赖 CDN。
+4. 不把“转成pdf”发送给 LLM。
+5. 不在 PDF 中执行任意脚本。
+6. 不支持暗色打印主题。
+7. 不把缓存保留超过 5 分钟。

@@ -441,6 +441,9 @@ const {
 const { groupedMessages } = useMessageGrouper(messages);
 // ── Streaming state for message_chunk ──
 const _streamingMsgIndex = ref<number | null>(null);
+let _pendingChunkText = '';
+let _chunkFlushFrame: number | null = null;
+let _chunkFlushUsesRaf = false;
 const sessionSearchExcludedIndexes = computed(() =>
   _streamingMsgIndex.value === null ? [] : [_streamingMsgIndex.value],
 );
@@ -641,6 +644,49 @@ const showActivityForTurn = (turnIndex: number) => {
 let _unmounted = false;
 const _processedEventIds = new Set<string>();
 
+const appendPendingMessageChunks = () => {
+  if (!_pendingChunkText || _streamingMsgIndex.value === null) return;
+
+  const msg = messages.value[_streamingMsgIndex.value];
+  if (msg?.content) {
+    (msg.content as any).content += _pendingChunkText;
+  }
+  _pendingChunkText = '';
+};
+
+const cancelScheduledChunkFlush = () => {
+  if (_chunkFlushFrame === null) return;
+
+  if (_chunkFlushUsesRaf) {
+    window.cancelAnimationFrame(_chunkFlushFrame);
+  } else {
+    window.clearTimeout(_chunkFlushFrame);
+  }
+  _chunkFlushFrame = null;
+};
+
+const flushPendingMessageChunks = () => {
+  cancelScheduledChunkFlush();
+  appendPendingMessageChunks();
+};
+
+const schedulePendingChunkFlush = () => {
+  if (_chunkFlushFrame !== null) return;
+
+  const flush = () => {
+    _chunkFlushFrame = null;
+    appendPendingMessageChunks();
+  };
+
+  if (typeof window.requestAnimationFrame === 'function') {
+    _chunkFlushUsesRaf = true;
+    _chunkFlushFrame = window.requestAnimationFrame(flush);
+  } else {
+    _chunkFlushUsesRaf = false;
+    _chunkFlushFrame = window.setTimeout(flush, 16);
+  }
+};
+
 // Handle message_chunk event (token-by-token streaming)
 const handleMessageChunkEvent = (data: any) => {
   const token = data.content || '';
@@ -653,23 +699,21 @@ const handleMessageChunkEvent = (data: any) => {
       content: {
         event_id: data.event_id || '',
         timestamp: data.timestamp || 0,
-        content: token,
+        content: '',
         role: 'assistant',
         attachments: [],
       } as MessageContent,
     });
     _streamingMsgIndex.value = messages.value.length - 1;
-  } else {
-    // Subsequent chunks: append to existing message
-    const msg = messages.value[_streamingMsgIndex.value];
-    if (msg && msg.content) {
-      (msg.content as any).content += token;
-    }
   }
+
+  _pendingChunkText += token;
+  schedulePendingChunkFlush();
 };
 
 // Handle message_chunk_done event
 const handleMessageChunkDoneEvent = () => {
+  flushPendingMessageChunks();
   _streamingMsgIndex.value = null;
 };
 
@@ -677,6 +721,7 @@ const handleMessageChunkDoneEvent = () => {
 const handleMessageEvent = (messageData: MessageEventData) => {
   // If streaming was active, finalize it first
   if (_streamingMsgIndex.value !== null) {
+    flushPendingMessageChunks();
     _streamingMsgIndex.value = null;
   }
 
@@ -881,6 +926,7 @@ const handleThinkingEvent = (thinkingData: ThinkingEventData) => {
 
 // Handle done event with statistics
 const handleDoneEvent = (doneData: DoneEventData) => {
+  flushPendingMessageChunks();
   _streamingMsgIndex.value = null;
   isLoading.value = false;
 
@@ -921,6 +967,7 @@ const handleDoneEvent = (doneData: DoneEventData) => {
 
 // Handle error event
 const handleErrorEvent = (errorData: ErrorEventData) => {
+  flushPendingMessageChunks();
   lastTurnHadError.value = true;
   isLoading.value = false;
   // 防御性：将当前 plan 中 running/in_progress 步骤标为 failed，避免任务进度一直旋转
@@ -1039,6 +1086,8 @@ const handleSubmit = () => {
 const chat = async (message: string = '', files: FileInfo[] = [], reconnect: boolean = false) => {
   console.log('[chat] called, sessionId:', sessionId.value, 'reconnect:', reconnect, 'message:', message?.slice(0, 30), 'files:', files?.length, '_unmounted:', _unmounted);
   if (!sessionId.value || _unmounted) { console.log('[chat] aborted: no sessionId or unmounted'); return; }
+
+  flushPendingMessageChunks();
 
   if (cancelCurrentChat.value) {
     cancelCurrentChat.value();
@@ -1330,6 +1379,8 @@ watch(isSettingsDialogOpen, async (newVal, oldVal) => {
 onUnmounted(() => {
   console.log('[ChatPage] onUnmounted, sessionId:', sessionId.value);
   _unmounted = true;
+  cancelScheduledChunkFlush();
+  _pendingChunkText = '';
   if (cancelCurrentChat.value) {
     cancelCurrentChat.value();
     cancelCurrentChat.value = null;

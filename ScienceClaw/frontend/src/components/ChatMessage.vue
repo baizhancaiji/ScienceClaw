@@ -19,37 +19,10 @@
       <div
         class="relative flex flex-col items-center rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-3.5 ltr:rounded-br-sm rtl:rounded-bl-sm shadow-lg shadow-blue-500/15"
       >
-        <template
-          v-for="(part, index) in parseContent(messageContent.content)"
-          :key="index"
-        >
-          <div
-            v-if="part.type === 'html'"
-            v-html="part.content"
-            class="w-full text-white/95 [&_a]:text-white [&_a]:underline [&_code]:bg-white/20 [&_code]:rounded [&_code]:px-1"
-          ></div>
-          <molecule-viewer
-            v-else-if="part.type === 'molecule'"
-            :src="part.src || ''"
-            class="w-full my-2"
-          />
-          <image-viewer
-            v-else-if="part.type === 'image'"
-            :src="part.src || ''"
-            :alt="part.alt"
-            class="w-full my-2"
-          />
-          <html-viewer
-            v-else-if="part.type === 'html-file'"
-            :src="part.src || ''"
-            class="w-full my-2"
-          />
-          <suggested-questions
-            v-else-if="part.type === 'questions'"
-            :questions="part.questions || []"
-            @click="emit('suggestionClick', $event)"
-          />
-        </template>
+        <div
+          v-html="escapeUserText(messageContent.content)"
+          class="w-full text-white/95 whitespace-pre-wrap break-words"
+        ></div>
       </div>
     </div>
   </div>
@@ -152,7 +125,6 @@
 
 <script setup lang="ts">
 import { Message, MessageContent, AttachmentsContent } from "../types/message";
-import DOMPurify from "dompurify";
 import { computed, ref } from "vue";
 import { ToolContent } from "../types/message";
 import { useRelativeTime } from "../composables/useTime";
@@ -163,7 +135,7 @@ import ImageViewer from "./ImageViewer.vue";
 import HtmlViewer from "./HtmlViewer.vue";
 import MoleculeViewer from "./MoleculeViewer.vue";
 import SuggestedQuestions from "./SuggestedQuestions.vue";
-import { transformSrc, domPurifyConfig } from "../utils/content";
+import { transformSrc } from "../utils/content";
 import MarkdownEnhancements from "./MarkdownEnhancements.vue";
 import MessageFooter from "./MessageFooter.vue";
 import { useFilePanel } from "../composables/useFilePanel";
@@ -285,36 +257,46 @@ const messageKeysAttr = computed(
 
 const { relativeTime } = useRelativeTime();
 
-// DOMPurify 配置
-DOMPurify.setConfig(domPurifyConfig);
-
-// 添加 DOMPurify hook 处理 molecule-viewer
-DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-  if (node.tagName.toLowerCase() === "molecule-viewer") {
-    if (node.hasAttribute("src")) {
-      const src = node.getAttribute("src");
-      if (src && (src.startsWith("/api/") || src.startsWith("http"))) {
-        node.setAttribute("src", src);
-      } else {
-        node.removeAttribute("src");
-      }
-    }
-  }
-});
+// 只有 assistant 消息才需要 Mermaid 渲染能力（autoRender = true）
+// user/tool/step 消息不需要，避免创建无用的 MutationObserver 和 watcher
+const isAssistant = props.message.type === "assistant";
 
 const { createMermaidPlaceholderId } = useMermaidRenderer({
   markdownRef,
-  getContent: () => messageContent.value?.content,
-});
-const { renderMarkdown } = useMarkdownRenderer({
-  createMermaidPlaceholderId,
+  getContent: isAssistant ? () => messageContent.value?.content : undefined,
+  autoRender: isAssistant,
 });
 
-const parseContent = (markdown: string) =>
-  parseChatMessageContent(markdown, {
+// 共用一个 markdown 渲染器，assistant 消息渲染 mermaid，user 消息不渲染
+const { renderMarkdown } = useMarkdownRenderer({
+  createMermaidPlaceholderId,
+  renderMermaid: isAssistant,
+});
+
+// 用户消息：纯文本显示，不渲染 Markdown/Mermaid/公式
+// 只做 HTML 转义 + 换行保留，避免用户输入的语法被误渲染
+const escapeUserText = (text: string): string => {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML.replace(/\n/g, '<br>');
+};
+
+// assistant 消息解析：走完整 Markdown 渲染管线
+let _lastParsedContent = "";
+let _lastParsedResult: ReturnType<typeof parseChatMessageContent> | null = null;
+
+const parseContent = (markdown: string) => {
+  if (markdown === _lastParsedContent && _lastParsedResult) {
+    return _lastParsedResult;
+  }
+  const result = parseChatMessageContent(markdown, {
     renderMarkdown,
     transformSrc,
   });
+  _lastParsedContent = markdown;
+  _lastParsedResult = result;
+  return result;
+};
 </script>
 
 <style src="../assets/chat-message-renderer.css"></style>

@@ -30,10 +30,13 @@
       </button>
       <button
         class="msg-action-btn"
+        :disabled="pdfDisabled || pdfExporting"
         @click="emit('convertToPdf')"
-        title="转成PDF"
+        :title="pdfExporting ? t('pdf_export.exporting') : t('pdf_export.action')"
+        :aria-label="pdfExporting ? t('pdf_export.exporting') : t('pdf_export.action')"
       >
-        <PdfIcon :size="16" />
+        <LoaderCircleIcon v-if="pdfExporting" class="w-4 h-4 animate-spin" />
+        <PdfIcon v-else :size="16" />
       </button>
       <template v-if="roundFileCount > 0">
         <div class="msg-action-divider"></div>
@@ -85,10 +88,12 @@ import {
   ClockIcon,
   CopyIcon,
   FolderOpen,
+  LoaderCircleIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
   WrenchIcon,
 } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import PdfIcon from './icons/PdfIcon.vue';
 import type { StatisticsData } from '../types/event';
 
@@ -99,7 +104,11 @@ const props = defineProps<{
   isCopied: boolean;
   roundFileCount: number;
   statistics?: StatisticsData;
+  pdfExporting?: boolean;
+  pdfDisabled?: boolean;
 }>();
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   (e: 'toggleFeedback', feedback: FeedbackType): void;

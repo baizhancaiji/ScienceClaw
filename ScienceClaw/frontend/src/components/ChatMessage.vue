@@ -106,6 +106,8 @@
       :is-copied="isCopied"
       :round-file-count="roundFiles.length"
       :statistics="messageContent.statistics"
+      :pdf-exporting="pdfExport.exporting.value"
+      :pdf-disabled="!props.sessionId || pdfExport.exporting.value"
       @toggle-feedback="toggleFeedback"
       @copy="copyMessage"
       @convert-to-pdf="handleConvertToPdf"
@@ -126,6 +128,7 @@
 <script setup lang="ts">
 import { Message, MessageContent, AttachmentsContent } from "../types/message";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { ToolContent } from "../types/message";
 import { useRelativeTime } from "../composables/useTime";
 import { useMarkdownRenderer } from "../composables/useMarkdownRenderer";
@@ -139,7 +142,9 @@ import { transformSrc } from "../utils/content";
 import MarkdownEnhancements from "./MarkdownEnhancements.vue";
 import MessageFooter from "./MessageFooter.vue";
 import { useFilePanel } from "../composables/useFilePanel";
+import { usePdfExport } from "../composables/usePdfExport";
 import { parseChatMessageContent } from "../utils/chatMessageContent";
+import { showErrorToast } from "../utils/toast";
 
 import RobotAvatar from "./icons/RobotAvatar.vue";
 
@@ -148,6 +153,8 @@ const markdownEnhancementsRef = ref<InstanceType<
   typeof MarkdownEnhancements
 > | null>(null);
 const markdownRef = ref<HTMLElement | null>(null);
+const { locale, t } = useI18n();
+const pdfExport = usePdfExport(t);
 
 const props = defineProps<{
   message: Message;
@@ -170,7 +177,6 @@ const botName = computed(() => {
 const emit = defineEmits<{
   (e: "toolClick", tool: ToolContent): void;
   (e: "suggestionClick", question: string): void;
-  (e: "convertToPdf"): void;
 }>();
 
 // Feedback state
@@ -200,8 +206,12 @@ const copyMessage = async () => {
 };
 
 // 转成PDF
-const handleConvertToPdf = () => {
-  emit("convertToPdf");
+const handleConvertToPdf = async () => {
+  if (!props.sessionId || !markdownRef.value) {
+    showErrorToast(t("pdf_export.unavailable"));
+    return;
+  }
+  await pdfExport.exportPdf(props.sessionId, markdownRef.value, String(locale.value));
 };
 
 // 本轮文件

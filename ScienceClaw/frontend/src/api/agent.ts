@@ -24,6 +24,12 @@ export interface ChatRequest {
   selected_skill_names?: string[];
 }
 
+export interface ExportPdfPayload {
+  html: string;
+  css: string;
+  locale: 'zh' | 'en';
+}
+
 export async function createSession(data: CreateSessionRequest): Promise<Session> {
   const response = await apiClient.put<ApiResponse<Session>>('/sessions', data);
   return response.data.data;
@@ -90,6 +96,21 @@ export async function getSharedSession(sessionId: string): Promise<SessionDetail
 
 export async function clearUnreadMessageCount(sessionId: string): Promise<void> {
   await apiClient.post(`/sessions/${sessionId}/clear_unread_message_count`);
+}
+
+export async function exportMessagePdf(
+  sessionId: string,
+  payload: ExportPdfPayload,
+): Promise<Blob> {
+  const response = await apiClient.post(
+    `/sessions/${sessionId}/export-pdf`,
+    payload,
+    {
+      responseType: 'blob',
+      timeout: 150000,
+    },
+  );
+  return response.data as Blob;
 }
 
 // Tool Views

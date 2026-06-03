@@ -226,7 +226,8 @@
               </div>
             </div>
             <ChatMessage v-else-if="group.type === 'single' && group.message" :message="group.message"
-              @toolClick="handleToolClick" @suggestionClick="handleSuggestionClick" @convertToPdf="handleConvertToPdf" :mode="mode"
+              :sessionId="sessionId"
+              @toolClick="handleToolClick" @suggestionClick="handleSuggestionClick" :mode="mode"
               :isLast="index === lastProcessGroupIndex" :isLoading="isLoading"
               :messageKey="getPrimaryMessageKey(group)"
               :messageKeys="getGroupMessageKeys(group)"
@@ -1428,10 +1429,6 @@ const handleSuggestionClick = (question: string) => {
   chat(question);
 }
 
-const handleConvertToPdf = () => {
-  inputMessage.value = '转成pdf';
-}
-
 const handleSaveSkill = async () => {
   if (!sessionId.value || !pendingSkillSave.value) return;
   savingSkill.value = true;
@@ -1495,7 +1492,7 @@ const handleScroll = (_: Event) => {
   follow.value = simpleBarRef.value?.isScrolledToBottom() ?? false;
 
   // Update timeline active index: find the user message nearest to viewport center
-  if (!chatContainerRef.value || simpleBarRef.value === null) return;
+  if (!chatContainerRef.value || !simpleBarRef.value) return;
   const container = simpleBarRef.value.contentWrapperRef;
   if (!container) return;
   const viewportCenter = container.scrollTop + container.clientHeight / 2;

@@ -18,6 +18,7 @@ Sessions 路由。
 from __future__ import annotations
 
 import asyncio
+import html as html_lib
 import hmac
 import hashlib
 import json
@@ -25,6 +26,7 @@ import os
 import re
 import secrets
 import time
+import textwrap
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 from urllib.parse import urlencode
@@ -37,6 +39,7 @@ import yaml as _yaml
 
 import shortuuid
 from fastapi import APIRouter, HTTPException, Query, Request, Depends, UploadFile, File as FastAPIFile, WebSocket
+from fastapi.background import BackgroundTasks
 from fastapi.responses import FileResponse, Response
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -137,11 +140,36 @@ class VncSignedUrlData(BaseModel):
     expires_in: int = Field(..., description="Lifetime in seconds")
 
 
+class ExportPdfRequest(BaseModel):
+    html: str = Field(..., min_length=1, description="Rendered assistant message innerHTML")
+    css: str = Field(default="", description="Collected light print CSS")
+    locale: str = Field(default="zh", description="Current UI locale")
+
+
 # ═══════════════════════════════════════════════════════════════════
 # 内部辅助函数
 # ═══════════════════════════════════════════════════════════════════
 
 _VNC_SIGNING_SECRET = os.environ.get("VNC_SIGNING_SECRET") or secrets.token_urlsafe(32)
+_PDF_EXPORT_MAX_PAYLOAD_BYTES = 50 * 1024 * 1024
+_PDF_EXPORT_CACHE_TTL_SECONDS = 5 * 60
+_PDF_EXPORT_TIMEOUT_SECONDS = 120.0
+_PDF_EXPORT_CACHE_DIRNAME = "_pdf_export_cache"
+_PDF_EXPORT_WORK_DIRNAME = "_pdf_export_work"
+
+_PDF_EXPORT_DEFAULT_TITLE = {
+    "zh": "未命名会话",
+    "en": "Untitled session",
+}
+_PDF_EXPORT_ERROR_STATUS = {
+    "PDF_EXPORT_ACCESS_DENIED": 403,
+    "PDF_EXPORT_SESSION_NOT_FOUND": 404,
+    "PDF_EXPORT_PAYLOAD_TOO_LARGE": 413,
+    "PDF_EXPORT_RENDER_FAILED": 502,
+    "PDF_EXPORT_INVALID_PDF": 502,
+    "PDF_EXPORT_TIMEOUT": 504,
+    "PDF_EXPORT_UNKNOWN_ERROR": 500,
+}
 
 
 def _now_ts() -> int:
@@ -158,6 +186,375 @@ def _wrap_event(event: str, data: Dict[str, Any]) -> Dict[str, Any]:
 
 def _json_dumps(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def _normalize_pdf_locale(locale: str) -> str:
+    return "zh" if locale == "zh" else "en"
+
+
+def _pdf_error_response(code: str) -> Response:
+    status_code = _PDF_EXPORT_ERROR_STATUS.get(code, 500)
+    payload = {"code": code, "msg": f"pdf_export.{code.removeprefix('PDF_EXPORT_').lower()}", "data": None}
+    return Response(
+        content=json.dumps(payload, ensure_ascii=False),
+        status_code=status_code,
+        media_type="application/json",
+    )
+
+
+def _pdf_payload_size_bytes(body: ExportPdfRequest) -> int:
+    return len(body.html.encode("utf-8")) + len(body.css.encode("utf-8"))
+
+
+def _truncate_pdf_header_title(title: str, limit: int = 15) -> str:
+    if len(title) <= limit:
+        return title
+    return title[:limit] + "..."
+
+
+def _format_pdf_exported_at(exported_at: datetime, locale: str) -> str:
+    timestamp = exported_at.strftime("%Y-%m-%d %H:%M:%S")
+    if _normalize_pdf_locale(locale) == "zh":
+        return f"导出时间：{timestamp}"
+    return f"Exported at: {timestamp}"
+
+
+def _build_pdf_html(
+    html: str,
+    css: str,
+    *,
+    header_title: str,
+    exported_at_text: str,
+    locale: str,
+) -> str:
+    lang = _normalize_pdf_locale(locale)
+    escaped_title = html_lib.escape(header_title, quote=True)
+    escaped_exported_at = html_lib.escape(exported_at_text, quote=True)
+    return f"""<!doctype html>
+<html lang="{lang}">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; img-src 'self' data: blob: http: https:; style-src 'unsafe-inline' 'self'; script-src 'none';">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escaped_title}</title>
+  <style>
+    @page {{
+      size: A4;
+      margin: 18mm 14mm;
+    }}
+    :root {{
+      color-scheme: light;
+      background: #ffffff;
+      color: #111827;
+    }}
+    html,
+    body {{
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #111827;
+    }}
+    .pdf-export-root {{
+      background: #ffffff;
+      color: #111827;
+    }}
+    .pdf-export-meta {{
+      display: none;
+    }}
+    {css}
+  </style>
+</head>
+<body>
+  <main class="markdown-content pdf-export-root">{html}</main>
+  <div class="pdf-export-meta" aria-hidden="true">
+    <span>{escaped_title}</span>
+    <span>{escaped_exported_at}</span>
+  </div>
+</body>
+</html>"""
+
+
+def _pdf_session_root(session_id: str) -> str:
+    return f"/home/scienceclaw/{session_id}"
+
+
+def _pdf_cache_dir(session_id: str) -> str:
+    return f"{_pdf_session_root(session_id)}/{_PDF_EXPORT_CACHE_DIRNAME}"
+
+
+def _pdf_work_dir(session_id: str, nonce: str) -> str:
+    return f"{_pdf_session_root(session_id)}/{_PDF_EXPORT_WORK_DIRNAME}/{nonce}"
+
+
+def _build_pdf_cache_key(session_id: str, title: str, html: str, css: str) -> str:
+    digest = hashlib.sha256()
+    digest.update(session_id.encode("utf-8"))
+    digest.update(title.encode("utf-8"))
+    digest.update(html.encode("utf-8"))
+    digest.update(css.encode("utf-8"))
+    digest.update(b"light-v1")
+    return digest.hexdigest()
+
+
+def _pdf_cache_pdf_path(session_id: str, cache_key: str) -> str:
+    return f"{_pdf_cache_dir(session_id)}/{cache_key}.pdf"
+
+
+def _pdf_cache_meta_path(session_id: str, cache_key: str) -> str:
+    return f"{_pdf_cache_dir(session_id)}/{cache_key}.json"
+
+
+def _pdf_headers(session_id: str, cache_state: str) -> Dict[str, str]:
+    return {
+        "Content-Disposition": f'attachment; filename="scienceclaw-{session_id}.pdf"',
+        "X-PDF-Export-Cache": cache_state,
+    }
+
+
+def _pdf_response(session_id: str, content: bytes, cache_state: str) -> Response:
+    return Response(content=content, media_type="application/pdf", headers=_pdf_headers(session_id, cache_state))
+
+
+def _is_pdf_bytes(content: bytes) -> bool:
+    return content.startswith(b"%PDF")
+
+
+def _pdf_header_template(header_title: str) -> str:
+    escaped_header_title = html_lib.escape(header_title, quote=True)
+    return (
+        '<div style="font-size:9px;width:100%;padding:0 14mm;color:#4b5563;'
+        'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+        f"{escaped_header_title}</div>"
+    )
+
+
+def _pdf_footer_template(exported_at_text: str) -> str:
+    escaped_exported_at_text = html_lib.escape(exported_at_text, quote=True)
+    return (
+        '<div style="font-size:9px;width:100%;padding:0 14mm;color:#6b7280;text-align:right;">'
+        f"{escaped_exported_at_text}</div>"
+    )
+
+
+def _build_pdf_render_script() -> str:
+    return textwrap.dedent(
+        r'''
+        import json
+        import shutil
+        import sys
+        import time
+        from pathlib import Path
+
+        from playwright.sync_api import sync_playwright
+
+
+        def main() -> int:
+            html_path = Path(sys.argv[1])
+            pdf_path = Path(sys.argv[2])
+            header_json_path = Path(sys.argv[3])
+            config = json.loads(header_json_path.read_text(encoding="utf-8"))
+            pdf_path.parent.mkdir(parents=True, exist_ok=True)
+            html = html_path.read_text(encoding="utf-8")
+
+            playwright = None
+            browser = None
+            page = None
+            try:
+                playwright = sync_playwright().start()
+                executable = "/usr/bin/chromium-browser"
+                if not Path(executable).exists():
+                    executable = shutil.which("chromium-browser") or shutil.which("chromium") or shutil.which("google-chrome")
+                browser = playwright.chromium.launch(
+                    executable_path=executable,
+                    args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+                )
+                page = browser.new_page()
+                page.emulate_media(media="print", color_scheme="light")
+                page.set_content(html, wait_until="load")
+                page.evaluate("() => document.fonts && document.fonts.ready")
+                time.sleep(0.5)
+                page.pdf(
+                    path=str(pdf_path),
+                    format="A4",
+                    print_background=True,
+                    display_header_footer=True,
+                    header_template=config["header_template"],
+                    footer_template=config["footer_template"],
+                    margin={"top": "18mm", "bottom": "18mm", "left": "14mm", "right": "14mm"},
+                )
+                return 0
+            finally:
+                if page is not None:
+                    page.close()
+                if browser is not None:
+                    browser.close()
+                if playwright is not None:
+                    playwright.stop()
+
+
+        if __name__ == "__main__":
+            raise SystemExit(main())
+        '''
+    ).strip()
+
+
+async def _sandbox_write_file(client: httpx.AsyncClient, base: str, path: str, content: str) -> None:
+    response = await client.post(f"{base}/v1/file/write", json={"file": path, "content": content})
+    response.raise_for_status()
+
+
+async def _sandbox_download_file(client: httpx.AsyncClient, base: str, path: str) -> bytes:
+    response = await client.get(f"{base}/v1/file/download", params={"path": path}, timeout=60)
+    response.raise_for_status()
+    return response.content
+
+
+async def _sandbox_exec(
+    client: httpx.AsyncClient,
+    base: str,
+    *,
+    command: str,
+    exec_dir: str,
+    timeout: float,
+) -> Dict[str, Any]:
+    response = await client.post(
+        f"{base}/v1/shell/exec",
+        json={
+            "command": command,
+            "exec_dir": exec_dir,
+            "async_mode": False,
+            "timeout": int(timeout),
+        },
+        timeout=timeout + 5,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    data = payload.get("data", payload)
+    return data if isinstance(data, dict) else {"output": str(data), "exit_code": 0}
+
+
+async def _sandbox_remove_path(client: httpx.AsyncClient, base: str, path: str) -> None:
+    command = f"rm -rf {json.dumps(path)}"
+    try:
+        await _sandbox_exec(
+            client,
+            base,
+            command=command,
+            exec_dir=path.rsplit("/", 1)[0] or "/home/scienceclaw",
+            timeout=15,
+        )
+    except Exception:
+        logger.warning("sandbox cleanup failed for {}", path, exc_info=True)
+
+
+async def _cleanup_expired_pdf_cache(session_id: str) -> None:
+    base = _get_sandbox_rest_base()
+    cache_dir = _pdf_cache_dir(session_id)
+    command = (
+        "python - <<'PY'\n"
+        "import json, time\n"
+        "from pathlib import Path\n"
+        f"cache_dir = Path({json.dumps(cache_dir)})\n"
+        "now = time.time()\n"
+        "if cache_dir.exists():\n"
+        "    for meta_path in cache_dir.glob('*.json'):\n"
+        "        try:\n"
+        "            meta = json.loads(meta_path.read_text(encoding='utf-8'))\n"
+        "            if float(meta.get('expires_at', 0)) <= now:\n"
+        "                pdf_path = meta_path.with_suffix('.pdf')\n"
+        "                pdf_path.unlink(missing_ok=True)\n"
+        "                meta_path.unlink(missing_ok=True)\n"
+        "        except Exception:\n"
+        "            meta_path.unlink(missing_ok=True)\n"
+        "PY"
+    )
+    async with httpx.AsyncClient() as client:
+        await _sandbox_exec(client, base, command=command, exec_dir=_pdf_session_root(session_id), timeout=20)
+
+
+async def _delete_pdf_cache_key_later(session_id: str, cache_key: str, delay_seconds: int) -> None:
+    await asyncio.sleep(delay_seconds)
+    base = _get_sandbox_rest_base()
+    async with httpx.AsyncClient() as client:
+        await _sandbox_remove_path(client, base, _pdf_cache_pdf_path(session_id, cache_key))
+        await _sandbox_remove_path(client, base, _pdf_cache_meta_path(session_id, cache_key))
+
+
+async def _download_pdf_cache_if_fresh(session_id: str, cache_key: str) -> Optional[bytes]:
+    base = _get_sandbox_rest_base()
+    meta_path = _pdf_cache_meta_path(session_id, cache_key)
+    pdf_path = _pdf_cache_pdf_path(session_id, cache_key)
+    async with httpx.AsyncClient() as client:
+        try:
+            meta_bytes = await _sandbox_download_file(client, base, meta_path)
+            meta = json.loads(meta_bytes.decode("utf-8"))
+            if float(meta.get("expires_at", 0)) <= time.time():
+                await _sandbox_remove_path(client, base, meta_path)
+                await _sandbox_remove_path(client, base, pdf_path)
+                return None
+            pdf = await _sandbox_download_file(client, base, pdf_path)
+            return pdf
+        except Exception:
+            return None
+
+
+async def _write_pdf_cache_metadata(session_id: str, cache_key: str) -> None:
+    base = _get_sandbox_rest_base()
+    now = int(time.time())
+    metadata = {
+        "created_at": now,
+        "expires_at": now + _PDF_EXPORT_CACHE_TTL_SECONDS,
+        "session_id": session_id,
+    }
+    async with httpx.AsyncClient() as client:
+        await _sandbox_write_file(
+            client,
+            base,
+            _pdf_cache_meta_path(session_id, cache_key),
+            json.dumps(metadata, ensure_ascii=False),
+        )
+
+
+async def _render_pdf_in_sandbox(
+    session_id: str,
+    full_html: str,
+    header_title: str,
+    exported_at_text: str,
+    cache_pdf_path: str,
+) -> bytes:
+    base = _get_sandbox_rest_base()
+    nonce = secrets.token_urlsafe(12)
+    work_dir = _pdf_work_dir(session_id, nonce)
+    html_path = f"{work_dir}/message.html"
+    script_path = f"{work_dir}/render_pdf.py"
+    header_json_path = f"{work_dir}/header_footer.json"
+    exec_dir = _pdf_session_root(session_id)
+    header_config = {
+        "header_template": _pdf_header_template(header_title),
+        "footer_template": _pdf_footer_template(exported_at_text),
+    }
+    async with httpx.AsyncClient() as client:
+        try:
+            await _sandbox_write_file(client, base, html_path, full_html)
+            await _sandbox_write_file(client, base, script_path, _build_pdf_render_script())
+            await _sandbox_write_file(client, base, header_json_path, json.dumps(header_config, ensure_ascii=False))
+            result = await _sandbox_exec(
+                client,
+                base,
+                command=f"python {json.dumps(script_path)} {json.dumps(html_path)} {json.dumps(cache_pdf_path)} {json.dumps(header_json_path)}",
+                exec_dir=exec_dir,
+                timeout=_PDF_EXPORT_TIMEOUT_SECONDS,
+            )
+            exit_code = result.get("exit_code", result.get("returncode", 0))
+            if exit_code not in (0, None):
+                logger.warning("PDF sandbox render failed for session {}: {}", session_id, result)
+                raise RuntimeError("pdf render failed")
+            pdf = await _sandbox_download_file(client, base, cache_pdf_path)
+            if not _is_pdf_bytes(pdf):
+                raise ValueError("invalid pdf")
+            return pdf
+        finally:
+            await _sandbox_remove_path(client, base, work_dir)
 
 
 def _session_to_list_item(session) -> ListSessionItem:
@@ -1560,6 +1957,81 @@ async def get_vnc_signed_url(
     except Exception as exc:
         logger.exception("get_vnc_signed_url failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/export-pdf")
+async def export_session_pdf(
+    session_id: str,
+    body: ExportPdfRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_user),
+) -> Response:
+    locale = _normalize_pdf_locale(body.locale)
+    try:
+        session = await async_get_science_session(session_id)
+    except ScienceSessionNotFoundError:
+        return _pdf_error_response("PDF_EXPORT_SESSION_NOT_FOUND")
+    except Exception:
+        logger.exception("export_session_pdf session lookup failed")
+        return _pdf_error_response("PDF_EXPORT_UNKNOWN_ERROR")
+
+    if session.user_id != current_user.id:
+        return _pdf_error_response("PDF_EXPORT_ACCESS_DENIED")
+
+    if _pdf_payload_size_bytes(body) > _PDF_EXPORT_MAX_PAYLOAD_BYTES:
+        return _pdf_error_response("PDF_EXPORT_PAYLOAD_TOO_LARGE")
+
+    title = (getattr(session, "title", None) or _PDF_EXPORT_DEFAULT_TITLE[locale]).strip()
+    header_title = _truncate_pdf_header_title(title or _PDF_EXPORT_DEFAULT_TITLE[locale])
+    exported_at_text = _format_pdf_exported_at(datetime.now().astimezone().replace(microsecond=0), locale)
+    cache_key = _build_pdf_cache_key(session_id, title, body.html, body.css)
+    full_html = _build_pdf_html(
+        body.html,
+        body.css,
+        header_title=header_title,
+        exported_at_text=exported_at_text,
+        locale=locale,
+    )
+
+    try:
+        await _cleanup_expired_pdf_cache(session_id)
+        cached_pdf = await _download_pdf_cache_if_fresh(session_id, cache_key)
+        if cached_pdf is not None:
+            if not _is_pdf_bytes(cached_pdf):
+                return _pdf_error_response("PDF_EXPORT_INVALID_PDF")
+            return _pdf_response(session_id, cached_pdf, "hit")
+
+        pdf = await _render_pdf_in_sandbox(
+            session_id,
+            full_html,
+            header_title,
+            exported_at_text,
+            _pdf_cache_pdf_path(session_id, cache_key),
+        )
+        if not _is_pdf_bytes(pdf):
+            return _pdf_error_response("PDF_EXPORT_INVALID_PDF")
+        await _write_pdf_cache_metadata(session_id, cache_key)
+        background_tasks.add_task(
+            _delete_pdf_cache_key_later,
+            session_id,
+            cache_key,
+            _PDF_EXPORT_CACHE_TTL_SECONDS,
+        )
+        return _pdf_response(session_id, pdf, "miss")
+    except httpx.TimeoutException:
+        logger.warning("export_session_pdf timed out for session {}", session_id)
+        return _pdf_error_response("PDF_EXPORT_TIMEOUT")
+    except asyncio.TimeoutError:
+        logger.warning("export_session_pdf timed out for session {}", session_id)
+        return _pdf_error_response("PDF_EXPORT_TIMEOUT")
+    except ValueError as exc:
+        if str(exc) == "invalid pdf":
+            return _pdf_error_response("PDF_EXPORT_INVALID_PDF")
+        logger.warning("export_session_pdf value error for session {}", session_id, exc_info=True)
+        return _pdf_error_response("PDF_EXPORT_RENDER_FAILED")
+    except Exception:
+        logger.exception("export_session_pdf render failed")
+        return _pdf_error_response("PDF_EXPORT_RENDER_FAILED")
 
 
 @router.websocket("/{session_id}/vnc/ws")

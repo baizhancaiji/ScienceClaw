@@ -1,10 +1,15 @@
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createI18n } from 'vue-i18n';
 
 import ChatMessage from './ChatMessage.vue';
 import type { Message, MessageContent } from '../types/message';
 
 const mermaidRendererCalls = vi.hoisted(() => [] as Array<{ autoRender?: boolean }>);
+const pdfExportMock = vi.hoisted(() => ({
+  exporting: { value: false },
+  exportPdf: vi.fn(),
+}));
 
 vi.mock('../composables/useMermaidRenderer', () => ({
   useMermaidRenderer: (options: { autoRender?: boolean }) => {
@@ -22,9 +27,28 @@ vi.mock('../composables/useTime', () => ({
   }),
 }));
 
+vi.mock('../composables/usePdfExport', () => ({
+  usePdfExport: () => pdfExportMock,
+}));
+
+vi.mock('../utils/toast', () => ({
+  showErrorToast: vi.fn(),
+}));
+
+const i18n = createI18n({
+  legacy: false,
+  locale: 'zh',
+  messages: {
+    zh: {
+      'pdf_export.action': '导出 PDF',
+      'pdf_export.unavailable': '当前消息无法导出 PDF',
+    },
+  },
+});
+
 const mermaidContent = ['```mermaid', 'graph TD; A-->B;', '```'].join('\n');
 
-const mountMessage = (type: 'user' | 'assistant') => mount(ChatMessage, {
+const mountMessage = (type: 'user' | 'assistant', props: Record<string, unknown> = {}) => mount(ChatMessage, {
   props: {
     message: {
       type,
@@ -33,8 +57,10 @@ const mountMessage = (type: 'user' | 'assistant') => mount(ChatMessage, {
         content: mermaidContent,
       } as MessageContent,
     } satisfies Message,
+    ...props,
   },
   global: {
+    plugins: [i18n],
     stubs: {
       AttachmentsMessage: true,
       ImageViewer: true,
@@ -42,7 +68,6 @@ const mountMessage = (type: 'user' | 'assistant') => mount(ChatMessage, {
       MoleculeViewer: true,
       SuggestedQuestions: true,
       MarkdownEnhancements: true,
-      MessageFooter: true,
       RobotAvatar: true,
     },
   },
@@ -51,6 +76,8 @@ const mountMessage = (type: 'user' | 'assistant') => mount(ChatMessage, {
 describe('ChatMessage markdown rendering', () => {
   beforeEach(() => {
     mermaidRendererCalls.length = 0;
+    pdfExportMock.exportPdf.mockReset();
+    pdfExportMock.exporting.value = false;
   });
 
   it('displays user messages as plain text (no markdown rendering)', () => {
@@ -71,5 +98,17 @@ describe('ChatMessage markdown rendering', () => {
     expect(wrapper.find('.msg-enter-left .mermaid-wrapper').exists()).toBe(true);
     expect(wrapper.find('.msg-enter-left .code-block-wrapper').exists()).toBe(false);
     expect(mermaidRendererCalls).toEqual([{ autoRender: true }]);
+  });
+
+  it('exports assistant markdown DOM through the pdf composable', async () => {
+    const wrapper = mountMessage('assistant', { sessionId: 'session-1' });
+
+    await wrapper.find('button[aria-label="导出 PDF"]').trigger('click');
+
+    expect(pdfExportMock.exportPdf).toHaveBeenCalledTimes(1);
+    const [sessionId, markdownEl, locale] = pdfExportMock.exportPdf.mock.calls[0];
+    expect(sessionId).toBe('session-1');
+    expect(markdownEl).toBe(wrapper.find('.markdown-content').element);
+    expect(locale).toBe('zh');
   });
 });

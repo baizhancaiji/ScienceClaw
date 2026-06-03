@@ -13,54 +13,18 @@
 
 ## 活跃计划
 
-### VNC signed URL 接口闭环
+（当前无活跃计划。）
 
-- 状态：已补齐，暂停为待 Codex App 内置浏览器 smoke；不再阻塞技术债治理登记。
-- 来源：前端 TypeScript 修复中发现 `VNCViewer.vue` 已消费 `getVNCUrl()` 返回的 `signed_url`，但当前审查未找到后端 `/sessions/{sessionId}/vnc/signed-url` 路由实现。
-- 关联归档计划：`docs/archive/plans/frontend-typescript-remediation-plan-zh.md`
-- 已完成最小增量：
-  - 确认后端此前不存在 `/sessions/{sessionId}/vnc/signed-url` 路由；sandbox 实际 noVNC WebSocket 入口为 `/websockify`。
-  - 在 `ScienceClaw/backend/route/sessions.py` 新增 session 属主校验后的 `POST /sessions/{session_id}/vnc/signed-url`，返回 `{ signed_url, expires_in }`。
-  - 新增 `GET /sessions/{session_id}/vnc/ws` WebSocket 签名校验与 sandbox `/websockify` 代理，避免前端直接裸连 sandbox。
-  - 新增 `ScienceClaw/backend/tests/test_sessions_vnc_route.py` 覆盖认证、属主校验、404 和响应合同。
-  - 2026-06-01 复核 Docker 运行态时，backend、frontend、sandbox、MongoDB、Redis 等容器均在运行；普通 API signed-url 合同可在登录态下验证，但最终 takeover smoke 必须使用 Codex App 内置浏览器，不使用 Playwright MCP 结果替代。
-  - 2026-06-02 尝试通过 Codex App 内置浏览器打开 `http://localhost:5173/`；浏览器控制面在 `Page.navigate` 和 `Runtime.evaluate` 均超时，无法形成有效页面证据。
-- 已验证：
-
-```powershell
-PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest ScienceClaw/backend/tests/test_sessions_vnc_route.py
-npm --prefix .\ScienceClaw\frontend run type-check
-npm --prefix .\ScienceClaw\frontend run build
-```
-
-- 剩余手工项：在可用 session 下用 Codex App 内置浏览器做一次 `?vnc=1` takeover smoke。当前阻塞点是 Codex App 内置浏览器控制面超时，而不是 VNC 代码或 Docker 运行态；该项保留为暂停手工验证项，不作为 `docs/tech-debt-audit-report-v2.md` 登记进入执行态的阻塞项。
-
-### PDF 导出施工单
-
-- 状态：已登记，进入活跃施工单；尚未开始实现。
-- 权威文档：`docs/pdf-export-plan.md`
-- 登记原因：当前前端消息底部已有“转PDF”入口，但仍是把输入框注入为 `转成pdf` 的占位行为；计划要求闭环为前端提取已渲染消息 DOM/CSS、后端转发、sandbox Playwright 生成 PDF 并下载。
-- 当前方案：方案 A，Playwright 后端 PDF 导出；PDF 渲染服务放在 sandbox 容器，因为 sandbox 已具备 Chromium、Playwright 和 CJK 字体。
-- 下一批最小增量：
-  - 在 sandbox API 中新增 `POST /v1/render-pdf`，实现 Chromium 单例、HTML 渲染和 `application/pdf` 响应。
-  - 用 curl/httpie 发送最小 HTML 验证返回 PDF binary，并覆盖失败/超时的基础错误路径。
-  - 登记实际 sandbox 路由文件位置和验证命令到 `docs/pdf-export-plan.md`，若发现方案细节与运行态不符，先修正文档再继续后端 sessions 端点。
-- 验收命令：
-
-```powershell
-PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw python -m unittest <sandbox_or_backend_pdf_tests>
-npm --prefix ScienceClaw/frontend run type-check
-npm --prefix ScienceClaw/frontend run build
-gitnexus detect-changes
-```
 ## 归档记录
 
 | 计划文档 | 归档原因 | 后续事项 |
 | --- | --- | --- |
 | `docs/archive/plans/tools-classification-rework-plan-zh.md` | Tools / MCP / ToolUniverse 中文分类治理、非 embedding 工具发现索引、三段式 adapter/API、README/skill/Agent 提示收口已完成并逐步提交。 | `npm --prefix ScienceClaw/frontend run build` 仍受既有 Vite/Rollup 绝对路径 `fileName` 问题影响；后续若要修复构建链路，应新建独立计划。 |
 | `docs/archive/plans/mcp-https-integration-completion-audit-zh.md` | 第三方 HTTPS MCP 接入第 0-5 批已完成；第 5 批联调和完成审计均已有提交证据。 | 残余未测项和累积警告已记录；后续若加强 live LLM chat/SSE 或前端自动化测试，应新建独立计划。 |
-| `docs/archive/plans/frontend-typescript-remediation-plan-zh.md` | 已完成主要目标：`vue-tsc` 从 63 条错误收敛到 0，生产构建通过。 | VNC 后端 signed URL 路由仍需单独闭环，已登记为活跃计划。 |
+| `docs/archive/plans/frontend-typescript-remediation-plan-zh.md` | 已完成主要目标：`vue-tsc` 从 63 条错误收敛到 0，生产构建通过。 | VNC 后端 signed URL 路由已闭环，见 `docs/archive/plans/vnc-signed-url-plan-zh.md`。 |
 | `docs/archive/plans/tech-debt-audit-report-v2.md` | 前端技术债治理施工单 v2 批次 1-10 已完成；剩余 major migration 候选项需另行建独立计划。 | 如继续处理 Vite/Vitest、Tailwind/Reka、Vue Router、Vue I18n v11 等依赖债务，应新建独立活跃施工单。 |
+| `docs/archive/plans/pdf-export-plan.md` | PDF 导出全链路已完成：后端 sandbox Playwright 编排、5 分钟缓存、前端 composable/组件接线、i18n 文案、前后端单测（25/25 通过）、Docker 运行态验证、手动 smoke 确认功能正常。`gitnexus detect-changes` 已执行，risk=medium。 | 无后续阻塞项。 |
+| `docs/archive/plans/vnc-signed-url-plan-zh.md` | VNC signed URL 全链路已完成：后端 HMAC 签名 + WebSocket 代理、前端 API + VNCViewer 接线、单测（4/4 通过）、Docker 运行态验证、noVNC 手动 smoke 确认可交互。sandbox 容器网络和 Chromium headless 均正常。 | 无后续阻塞项。sandbox 内图形化 Chromium 联网问题为独立事项，与 VNC 接口无关。 |
 
 ## 已归档计划残余事项
 

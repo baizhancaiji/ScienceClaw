@@ -124,6 +124,8 @@ export default {
   'The chat history of this session cannot be recovered after deletion.': 'The chat history of this session cannot be recovered after deletion.',
   'Deleted successfully': 'Deleted successfully',
   'Failed to delete session': 'Failed to delete session',
+  'Search this session': 'Search this session',
+  'Close search': 'Close search',
   'Exit Takeover': 'Exit Takeover',
   'Take Over': 'Take Over',
   // Session File List

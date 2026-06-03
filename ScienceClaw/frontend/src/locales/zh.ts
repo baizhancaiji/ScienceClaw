@@ -137,6 +137,8 @@ export default {
   'The chat history of this session cannot be recovered after deletion.': '删除后将无法恢复该会话的聊天记录。',
   'Deleted successfully': '删除成功',
   'Failed to delete session': '删除会话失败',
+  'Search this session': '搜索当前会话',
+  'Close search': '关闭搜索',
   'Exit Takeover': '退出接管',
   'Take Over': '接管',
   // Session File List

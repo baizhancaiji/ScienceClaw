@@ -299,6 +299,13 @@
         </div>
       </div>
     </div>
+      <ChatTimeline
+        v-if="groupedMessages.length > 5"
+        :groups="groupedMessages"
+        :activeIndex="activeUserMessageIndex"
+        :getMessageKey="getPrimaryMessageKey"
+        @navigate="handleTimelineNavigate"
+      />
       <!-- Activity Panel (right side - Cursor-style thinking + execution timeline) -->
       <ActivityPanel
         :key="sessionId"
@@ -365,6 +372,7 @@ import type { ActivityItem } from '../components/ActivityPanel.vue';
 
 const ChatMessage = defineAsyncComponent(() => import('../components/ChatMessage.vue'));
 const ActivityPanel = defineAsyncComponent(() => import('../components/ActivityPanel.vue'));
+const ChatTimeline = defineAsyncComponent(() => import('../components/ChatTimeline.vue'));
 
 const router = useRouter()
 const { t, locale } = useI18n()
@@ -1276,6 +1284,11 @@ const restoreSession = async () => {
   }
   realTime.value = true;
 
+  // 批量重放完毕后，滚动到最新消息（用户主动滚动过后 follow 会被 handleScroll 置 false，不再自动滚）
+  await nextTick();
+  follow.value = true;
+  simpleBarRef.value?.scrollToBottom();
+
   if (isStale()) return;
 
   if (session.status === SessionStatus.RUNNING || session.status === SessionStatus.PENDING) {
@@ -1475,8 +1488,42 @@ const handleFollow = () => {
   simpleBarRef.value?.scrollToBottom();
 }
 
+// ── Timeline active index tracking ──
+const activeUserMessageIndex = ref(0);
+
 const handleScroll = (_: Event) => {
   follow.value = simpleBarRef.value?.isScrolledToBottom() ?? false;
+
+  // Update timeline active index: find the user message nearest to viewport center
+  if (!chatContainerRef.value || simpleBarRef.value === null) return;
+  const container = simpleBarRef.value.contentWrapperRef;
+  if (!container) return;
+  const viewportCenter = container.scrollTop + container.clientHeight / 2;
+
+  let nearestIdx = 0;
+  let nearestDist = Infinity;
+  let count = 0;
+  for (const group of groupedMessages.value) {
+    if (group.type === 'single' && group.message?.type === 'user') {
+      const key = getPrimaryMessageKey(group);
+      const el = chatContainerRef.value.querySelector<HTMLElement>(
+        `[data-message-keys*="|${key}|"]`
+      );
+      if (el) {
+        const dist = Math.abs(el.offsetTop - viewportCenter);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestIdx = count;
+        }
+      }
+      count++;
+    }
+  }
+  activeUserMessageIndex.value = nearestIdx;
+}
+
+const handleTimelineNavigate = (messageKey: string) => {
+  scrollToMessageKey(messageKey);
 }
 
 const handleStop = () => {

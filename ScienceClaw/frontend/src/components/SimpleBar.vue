@@ -68,7 +68,8 @@ defineExpose({
     scrollToElement,
     scrollToTop,
     isScrolledToBottom,
-    canScroll
+    canScroll,
+    contentWrapperRef
 });
 </script>
 <style>

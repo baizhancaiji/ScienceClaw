@@ -4,11 +4,11 @@ Welcome to the ScienceClaw project! This guide provides context and conventions 
 
 ## 🏗️ Project Architecture
 ScienceClaw is a personal scientific research assistant based on [LangChain DeepAgents] and an AIO Sandbox.
-- **Frontend** (`ScienceClaw/frontend/`): Vue 3 + TypeScript + Vite. TailwindCSS for styling.
-- **Backend** (`ScienceClaw/backend/`): Python + FastAPI + Motor (MongoDB Async). Includes WebSocket/SSE logic and LangChain integrations.
-- **Sandbox** (`ScienceClaw/sandbox/`): Isolate code execution environment (Python).
-- **WebSearch** (`ScienceClaw/websearch/`): Crawler and search service.
-- **Task Service** (`ScienceClaw/task-service/`): Scheduler API.
+- **Frontend** (`./ScienceClaw/frontend/`): Vue 3 + TypeScript + Vite. TailwindCSS for styling.
+- **Backend** (`./ScienceClaw/backend/`): Python + FastAPI + Motor (MongoDB Async). Includes WebSocket/SSE logic and LangChain integrations.
+- **Sandbox** (`./ScienceClaw/sandbox/`): Isolate code execution environment (Python).
+- **WebSearch** (`./ScienceClaw/websearch/`): Crawler and search service.
+- **Task Service** (`./ScienceClaw/task-service/`): Scheduler API.
 - **Infrastructure**: MongoDB (Main DB), Redis, SearXNG.
 
 ## 🛠️ Build and Test Commands
@@ -35,7 +35,7 @@ The project heavily relies on Docker Compose for local environments. Never run c
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **ScienceClaw** (14470 symbols, 24036 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **ScienceClaw** (15542 symbols, 25962 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

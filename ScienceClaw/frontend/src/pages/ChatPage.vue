@@ -6,7 +6,7 @@
         class="sm:min-w-[390px] flex flex-row items-center justify-between pt-3 pb-1 gap-1 sticky top-0 z-10 bg-[var(--background-gray-main)] flex-shrink-0">
         <div class="flex items-center flex-1">
         </div>
-        <div class="max-w-full sm:max-w-[768px] sm:min-w-[390px] flex w-full flex-col gap-[4px] overflow-visible">
+        <div class="max-w-full sm:max-w-[1056px] sm:min-w-[390px] flex w-full flex-col gap-[4px] overflow-visible">
           <div
             class="text-[var(--text-primary)] text-lg font-medium w-full flex flex-row items-center justify-between flex-1 min-w-0 gap-2">
             <div class="flex flex-row items-center gap-[6px] flex-1 min-w-0">
@@ -174,7 +174,7 @@
         <div class="flex-1"></div>
       </div>
 
-      <div class="mx-auto w-full max-w-full sm:max-w-[768px] sm:min-w-[390px] flex flex-col flex-1">
+      <div class="mx-auto w-full max-w-full sm:max-w-[1056px] sm:min-w-[390px] flex flex-col flex-1">
         <div class="flex flex-col w-full gap-[12px] pb-[80px] pt-[12px] flex-1 overflow-y-auto">
           <template v-for="(group, index) in groupedMessages" :key="group.id">
             <!-- Process groups: compact reasoning indicator -->

@@ -38,6 +38,7 @@ from backend.deepagent.tooluniverse_tools import (
     tooluniverse_search,
     tooluniverse_info,
     tooluniverse_run,
+    materials_tool_graph,
 )
 from backend.deepagent.discovery_tools import tool_search, tool_info, tool_run
 from backend.deepagent.full_sandbox_backend import FullSandboxBackend
@@ -264,7 +265,7 @@ _STATIC_TOOLS = [
     web_search, web_crawl, propose_skill_save, propose_tool_save,
     eval_skill, grade_eval,
     tool_search, tool_info, tool_run,
-    tooluniverse_search, tooluniverse_info, tooluniverse_run,
+    tooluniverse_search, tooluniverse_info, tooluniverse_run, materials_tool_graph,
 ]
 
 

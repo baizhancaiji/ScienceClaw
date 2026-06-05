@@ -10,6 +10,7 @@ ToolUniverse LangChain 工具 — 直接在后端进程内调用 ToolUniverse SD
   - tooluniverse_search: 关键词搜索科学工具
   - tooluniverse_info:   查看工具规格（参数、描述、返回值）
   - tooluniverse_run:    执行科学工具
+  - materials_tool_graph: 基于当前精简工具组生成本地工具兼容图谱
 """
 from __future__ import annotations
 
@@ -20,7 +21,8 @@ from typing import Optional
 
 from langchain_core.tools import tool
 
-from backend.tooluniverse_allowlist import is_allowed_tool_name, is_allowed_tool_result
+from backend.materials_tool_graph import build_materials_tool_graph
+from backend.tooluniverse_allowlist import filter_allowed_tool_specs, is_allowed_tool_name, is_allowed_tool_result
 
 logger = logging.getLogger(__name__)
 
@@ -151,3 +153,42 @@ def tooluniverse_run(tool_name: str, arguments: str) -> dict:
     except Exception as exc:
         logger.error(f"[ToolUniverse] run failed: {tool_name} - {exc}")
         return {"error": str(exc)}
+
+
+@tool
+def materials_tool_graph(include_isolated: bool = False, min_score: int = 60, limit_edges: int = 80) -> dict:
+    """Build a local compatibility graph for the curated materials/chemistry ToolUniverse tools.
+
+    This does not execute ToolUniverse compose tools or external APIs. It infers directed
+    tool relationships from the current allowlisted tool specs using shared data types
+    such as SMILES, PubChem CID, DOI, file paths, datasets, and model identifiers.
+
+    Args:
+        include_isolated: Include tools with no detected edges in the returned nodes.
+        min_score: Minimum edge score from 0 to 100.
+        limit_edges: Maximum number of edges to include in the Agent response.
+
+    Returns:
+        Graph statistics plus a bounded list of inferred compatibility edges.
+    """
+    tu = _get_tu()
+    if tu is None:
+        return {"error": "ToolUniverse is still loading, please retry"}
+
+    items = tu.all_tools
+    if isinstance(items, dict):
+        items = list(items.values())
+    items = filter_allowed_tool_specs(items)
+    graph = build_materials_tool_graph(
+        items,
+        include_isolated=include_isolated,
+        min_score=max(0, min(100, int(min_score))),
+    )
+    edge_limit = max(0, int(limit_edges))
+    return {
+        "stats": graph["stats"],
+        "data_types": graph["data_types"],
+        "nodes_returned": len(graph["nodes"]),
+        "edges": graph["edges"][:edge_limit],
+        "truncated_edges": max(0, len(graph["edges"]) - edge_limit),
+    }

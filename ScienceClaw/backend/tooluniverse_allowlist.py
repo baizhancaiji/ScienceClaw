@@ -19,6 +19,7 @@ _PACKAGE_INVENTORY_PATH = Path(__file__).resolve().parent / "tooluniverse_materi
 _MARKDOWN_INVENTORY_PATH = (
     Path(__file__).resolve().parents[2]
     / "docs"
+    / "archive"
     / "final_materials_chemistry_tools_inventory.md"
 )
 _TOOL_ROW_RE = re.compile(r"^\|\s*([A-Za-z0-9_]+)\s*\|")

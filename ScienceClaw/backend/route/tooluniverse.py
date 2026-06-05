@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
+from backend.materials_tool_graph import build_materials_tool_graph
 from backend.tooluniverse_allowlist import (
     allowed_tool_names,
     filter_allowed_tool_specs,
@@ -224,6 +225,11 @@ class ToolRunRequest(BaseModel):
     arguments: Dict[str, Any]
 
 
+class MaterialsGraphRequest(BaseModel):
+    include_isolated: bool = True
+    min_score: int = 60
+
+
 @router.get("/tools")
 async def list_tools(
     search: str = Query(default="", description="搜索关键词"),
@@ -352,6 +358,28 @@ async def run_tool(
         raise HTTPException(status_code=500, detail=f"Tool execution failed: {exc}") from exc
 
     return {"success": True, "result": result}
+
+
+@router.post("/materials-graph")
+async def build_materials_graph(
+    body: MaterialsGraphRequest,
+    _user: User = Depends(require_user),
+):
+    """Build a local compatibility graph for the curated materials tool subset."""
+    tu = _get_tu()
+    if tu is None:
+        raise HTTPException(status_code=503, detail="ToolUniverse is loading")
+
+    items = tu.all_tools
+    if isinstance(items, dict):
+        items = list(items.values())
+    tools = filter_allowed_tool_specs(items)
+    graph = build_materials_tool_graph(
+        tools,
+        include_isolated=body.include_isolated,
+        min_score=max(0, min(100, body.min_score)),
+    )
+    return graph
 
 
 @router.get("/categories")

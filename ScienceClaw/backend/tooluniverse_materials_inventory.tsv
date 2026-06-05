@@ -208,5 +208,4 @@ HuggingFace_get_model	HuggingFace_get_model	通用工具	数据存储与检索	�
 OpenML_get_dataset	OpenML_get_dataset	通用工具	数据存储与检索	可用	匹配数据存储关键词
 Wikidata_SPARQL_query	Wikidata_SPARQL_query	通用工具	知识图谱与本体	可用	匹配知识图谱关键词
 Wikidata_get_entity	Wikidata_get_entity	通用工具	知识图谱与本体	可用	匹配知识图谱关键词
-ToolGraphComposer	ToolGraphComposer	通用工具	数据可视化	可用	匹配可视化关键词
 ModelDB_get_paper	ModelDB_get_paper	通用工具	机器学习	可用	匹配机器学习关键词

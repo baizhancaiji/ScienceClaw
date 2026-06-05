@@ -66,10 +66,11 @@ class ToolUniverseAllowlistTests(unittest.TestCase):
     def test_inventory_parses_expected_materials_chemistry_tools(self):
         names = allowed_tool_names()
 
-        self.assertEqual(211, len(names))
+        self.assertEqual(210, len(names))
         self.assertTrue(is_allowed_tool_name("PubChem_get_CID_by_SMILES"))
         self.assertTrue(is_allowed_tool_name("get_dscribe_info"))
         self.assertFalse(is_allowed_tool_name("OpenTopoData_get_elevation"))
+        self.assertFalse(is_allowed_tool_name("ToolGraphComposer"))
         self.assertFalse(is_allowed_tool_name("PubMed_search_articles"))
         self.assertEqual("化学信息学", inventory_item("PubChem_get_CID_by_SMILES").sub_category)
 

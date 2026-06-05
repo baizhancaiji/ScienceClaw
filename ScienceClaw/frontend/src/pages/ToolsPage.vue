@@ -315,7 +315,11 @@ const getToolGradient = (name: string) => {
 };
 
 const paramCount = (tool: TUTool) => tool.param_count || 0;
-const scienceToolCategoryLabel = (tool: TUTool) => mapToolCategoryToZh(tool.category, tool.category_zh);
+const scienceToolCategoryLabel = (tool: TUTool) => (
+  tool.inventory_sub_category
+  || tool.category_zh
+  || mapToolCategoryToZh(tool.category, tool.category_zh)
+);
 
 const scienceToolMatchesQuery = (tool: TUTool, query: string) => {
   const categoryZh = scienceToolCategoryLabel(tool);
@@ -323,8 +327,12 @@ const scienceToolMatchesQuery = (tool: TUTool, query: string) => {
     tool.name,
     tool.description || '',
     tool.category || '',
+    tool.inventory_main_category || '',
+    tool.inventory_sub_category || '',
+    tool.inventory_availability || '',
+    tool.inventory_reason || '',
     categoryZh,
-    ...getToolCategoryAliases(categoryZh),
+    ...getToolCategoryAliases(categoryZh as ToolCategoryZh),
   ].join(' ').toLowerCase();
   return searchable.includes(query.toLowerCase());
 };
@@ -363,7 +371,10 @@ const loadScienceTools = async () => {
       catCounts[c] = (catCounts[c] || 0) + 1;
     }
     scienceCategories.value = Object.entries(catCounts).sort(([nameA], [nameB]) => {
-      return getToolCategorySortIndex(nameA as ToolCategoryZh) - getToolCategorySortIndex(nameB as ToolCategoryZh);
+      const indexA = getToolCategorySortIndex(nameA as ToolCategoryZh);
+      const indexB = getToolCategorySortIndex(nameB as ToolCategoryZh);
+      if (indexA !== indexB) return indexA - indexB;
+      return nameA.localeCompare(nameB, 'zh-Hans-CN');
     }).map(([name, count]) => ({
       name, count, name_zh: name,
     }));

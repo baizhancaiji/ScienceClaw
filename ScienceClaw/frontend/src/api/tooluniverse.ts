@@ -8,9 +8,14 @@ function _lang(): string {
 
 export interface TUTool {
   name: string;
+  display_name?: string;
   description: string;
   category: string;
   category_zh?: string;
+  inventory_main_category?: string;
+  inventory_sub_category?: string;
+  inventory_availability?: string;
+  inventory_reason?: string;
   param_count: number;
   required_params?: string[];
   has_examples?: boolean;
@@ -19,6 +24,7 @@ export interface TUTool {
 
 export interface TUToolSpec {
   name: string;
+  display_name?: string;
   description: string;
   parameters: {
     type: string;
@@ -34,12 +40,17 @@ export interface TUToolSpec {
   return_schema: unknown;
   category: string;
   category_zh?: string;
+  inventory_main_category?: string;
+  inventory_sub_category?: string;
+  inventory_availability?: string;
+  inventory_reason?: string;
   source_file: string;
 }
 
 export interface TUCategory {
   name: string;
   name_zh?: string;
+  main_category?: string;
   count: number;
 }
 

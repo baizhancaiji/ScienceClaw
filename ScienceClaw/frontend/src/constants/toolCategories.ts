@@ -1,6 +1,23 @@
 export const TOOL_CATEGORY_OTHER = '其他';
 
 export const TOOL_CATEGORY_ORDER = [
+  '计算材料',
+  '化学信息学',
+  '化学数据库',
+  '计算化学',
+  '光谱分析',
+  '化学反应与合成',
+  'Python包信息',
+  '其他通用工具',
+  '学术文献与引用',
+  '网页与搜索',
+  '文件与执行',
+  '统计分析',
+  '文档处理',
+  '数据存储与检索',
+  '知识图谱与本体',
+  '数据可视化',
+  '机器学习',
   '学术文献',
   '生命科学',
   '药物与化合物',
@@ -11,7 +28,6 @@ export const TOOL_CATEGORY_ORDER = [
   '数据处理',
   '文档处理',
   '网页与外部服务',
-  '文件与执行',
   '技能与工具管理',
   TOOL_CATEGORY_OTHER,
 ] as const;
@@ -53,6 +69,21 @@ export const PRESERVED_TOOL_TERMS = [
 ] as const;
 
 export const TOOL_CATEGORY_ALIASES: Record<ToolCategoryZh, string[]> = {
+  '计算材料': ['材料', '计算材料', '材料模拟', '材料机器学习', 'materials', 'atomistic', 'ASE', 'DScribe', 'SchNetPack'],
+  '化学信息学': ['化学信息学', '化合物', '分子', 'SMILES', 'CID', 'PubChem', 'ChEMBL', 'RDKit', 'cheminformatics'],
+  '化学数据库': ['化学数据库', '化合物库', '供应商', 'Enamine', 'Mcule', 'database'],
+  '计算化学': ['计算化学', '量子化学', 'PySCF', 'DFT', 'quantum chemistry'],
+  '光谱分析': ['光谱', '谱图', '可视化', 'Altair', 'spectroscopy'],
+  '化学反应与合成': ['反应', '合成', 'MetaCyc', 'reaction', 'synthesis'],
+  'Python包信息': ['Python', '包信息', '库', 'package', 'PyPI', 'scientific computing'],
+  '其他通用工具': ['通用', '工具', 'ToolUniverse', 'workflow', 'utility'],
+  '学术文献与引用': ['文献', '引用', 'DOI', 'Crossref', 'OpenAlex', 'Semantic Scholar', 'DataCite', 'citation'],
+  '网页与搜索': ['网页', '搜索', 'Wikipedia', 'GitHub', 'web', 'search'],
+  '统计分析': ['统计', '检验', 'log-rank', 'statistics'],
+  '数据存储与检索': ['数据集', '数据存储', 'Dataverse', 'OpenML', 'HuggingFace', 'dataset'],
+  '知识图谱与本体': ['知识图谱', '本体', 'Wikidata', 'SPARQL', 'ontology'],
+  '数据可视化': ['可视化', '图谱', 'visualization', 'graph'],
+  '机器学习': ['机器学习', '模型', 'ModelDB', 'machine learning'],
   '学术文献': ['论文', '医学论文', '文献', '预印本', '引用', '摘要', '全文', 'paper', 'article', 'literature', 'arXiv', 'OpenAlex', 'PubMed', 'Crossref'],
   '生命科学': ['蛋白', '基因', '通路', '组学', '生物', 'protein', 'gene', 'pathway', 'omics', 'UniProt', 'PDB', 'AlphaFold'],
   '药物与化合物': ['药物', '化合物', '靶点', 'ADMET', '毒性', '药物毒性', '药物安全', 'compound', 'drug', 'toxicity', 'ChEMBL', 'FAERS'],

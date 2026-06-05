@@ -284,7 +284,11 @@ const execTime = ref<number | null>(null);
 const copied = ref(false);
 const resultView = ref<'table' | 'json'>('table');
 const showSchema = ref(false);
-const specCategoryLabel = computed(() => mapToolCategoryToZh(spec.value?.category, spec.value?.category_zh));
+const specCategoryLabel = computed(() => (
+  spec.value?.inventory_sub_category
+  || spec.value?.category_zh
+  || mapToolCategoryToZh(spec.value?.category, spec.value?.category_zh)
+));
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);

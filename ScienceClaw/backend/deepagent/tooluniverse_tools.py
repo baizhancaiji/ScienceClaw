@@ -20,6 +20,8 @@ from typing import Optional
 
 from langchain_core.tools import tool
 
+from backend.tooluniverse_allowlist import is_allowed_tool_name, is_allowed_tool_result
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,7 +64,13 @@ def tooluniverse_search(query: str, limit: int = 10) -> dict:
             import asyncio
             result = asyncio.get_event_loop().run_until_complete(result)
         if isinstance(result, list):
-            return {"tools": result}
+            return {
+                "tools": [
+                    item
+                    for item in result
+                    if is_allowed_tool_result(item)
+                ]
+            }
         return result if isinstance(result, dict) else {"result": result}
     except Exception as exc:
         logger.error(f"[ToolUniverse] search failed: {exc}")
@@ -84,6 +92,8 @@ def tooluniverse_info(tool_name: str) -> dict:
     tu = _get_tu()
     if tu is None:
         return {"error": "ToolUniverse is still loading, please retry"}
+    if not is_allowed_tool_name(tool_name):
+        return {"error": f"Tool not found: {tool_name}"}
 
     try:
         spec = tu.tool_specification(tool_name, format="openai")
@@ -113,6 +123,8 @@ def tooluniverse_run(tool_name: str, arguments: str) -> dict:
     tu = _get_tu()
     if tu is None:
         return {"error": "ToolUniverse is still loading, please retry"}
+    if not is_allowed_tool_name(tool_name):
+        return {"error": f"Tool not found: {tool_name}"}
 
     try:
         parsed_args = json.loads(arguments)

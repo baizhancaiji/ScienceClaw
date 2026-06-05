@@ -3,6 +3,8 @@ from __future__ import annotations
 import inspect
 from typing import Any, Protocol
 
+from backend.tooluniverse_allowlist import inventory_item, is_allowed_tool_name
+
 from .aliases import (
     classify_tool_text,
     get_tool_category_aliases,
@@ -46,7 +48,12 @@ class ToolUniverseProvider:
             name = str(raw.get("name") or "")
             if not name:
                 continue
-            category_zh = map_tool_category_to_zh(raw.get("category"), localized.get("category_zh"))
+            inv = inventory_item(name)
+            category_zh = (
+                inv.sub_category
+                if inv and inv.sub_category
+                else map_tool_category_to_zh(raw.get("category"), localized.get("category_zh"))
+            )
             items.append(
                 ToolIndexItem(
                     tool_ref=f"tooluniverse:{name}",
@@ -56,8 +63,8 @@ class ToolUniverseProvider:
                     description=str(raw.get("description") or ""),
                     description_zh=str(localized.get("description") or ""),
                     category_zh=category_zh,
-                    aliases=_dedupe([*get_tool_category_aliases(category_zh), str(raw.get("category") or "")]),
-                    keywords=_dedupe([name, str(raw.get("category") or ""), category_zh, "ToolUniverse"]),
+                    aliases=_dedupe([*get_tool_category_aliases(category_zh), str(raw.get("category") or ""), inv.main_category if inv else ""]),
+                    keywords=_dedupe([name, str(raw.get("category") or ""), category_zh, inv.main_category if inv else "", "ToolUniverse"]),
                     provider="ToolUniverse",
                     schema_status="available" if int(raw.get("param_count") or 0) > 0 else "missing",
                     has_examples=bool(raw.get("has_examples")),
@@ -69,6 +76,9 @@ class ToolUniverseProvider:
         from backend.route.tooluniverse import _get_tu
 
         tool_name = _strip_prefix(tool_ref, "tooluniverse:")
+        if not is_allowed_tool_name(tool_name):
+            raise LookupError(f"ToolUniverse tool not found: {tool_name}")
+
         tu = _get_tu()
         if tu is None:
             raise LookupError("ToolUniverse is loading")
@@ -77,7 +87,8 @@ class ToolUniverseProvider:
             raise LookupError(f"ToolUniverse tool not found: {tool_name}")
         raw_tool = _find_tu_tool(tu, tool_name)
         category = raw_tool.get("category") if isinstance(raw_tool, dict) else ""
-        category_zh = map_tool_category_to_zh(category)
+        inv = inventory_item(tool_name)
+        category_zh = inv.sub_category if inv and inv.sub_category else map_tool_category_to_zh(category)
         return ToolInfoResult(
             tool_ref=tool_ref,
             source_type="tooluniverse",
@@ -88,13 +99,22 @@ class ToolUniverseProvider:
             input_schema=spec.get("parameters") or {},
             examples=raw_tool.get("test_examples", []) if isinstance(raw_tool, dict) else [],
             provider="ToolUniverse",
-            metadata={"category": category or ""},
+            metadata={
+                "category": category or "",
+                "inventory_main_category": inv.main_category if inv else "",
+                "inventory_sub_category": inv.sub_category if inv else "",
+                "inventory_availability": inv.availability if inv else "",
+                "inventory_reason": inv.reason if inv else "",
+            },
         )
 
     async def run(self, tool_ref: str, arguments: dict[str, Any], user_id: str) -> ToolRunResult:
         from backend.route.tooluniverse import _get_tu
 
         tool_name = _strip_prefix(tool_ref, "tooluniverse:")
+        if not is_allowed_tool_name(tool_name):
+            return ToolRunResult(tool_ref=tool_ref, ok=False, error=f"ToolUniverse tool not found: {tool_name}")
+
         tu = _get_tu()
         if tu is None:
             return ToolRunResult(tool_ref=tool_ref, ok=False, error="ToolUniverse is loading")

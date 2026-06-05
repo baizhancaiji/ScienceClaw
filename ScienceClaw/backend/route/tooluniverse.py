@@ -18,6 +18,12 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
+from backend.tooluniverse_allowlist import (
+    allowed_tool_names,
+    filter_allowed_tool_specs,
+    inventory_item,
+    is_allowed_tool_name,
+)
 from backend.user.dependencies import require_user, User
 
 logger = logging.getLogger(__name__)
@@ -38,10 +44,17 @@ def _get_tu():
     _tu_loading = True
     try:
         from tooluniverse import ToolUniverse
+        allowed = sorted(allowed_tool_names())
+        if not allowed:
+            raise RuntimeError("ToolUniverse materials and chemistry allowlist is empty")
         tu = ToolUniverse()
-        tu.load_tools()
+        tu.load_tools(include_tools=allowed)
         _tu = tu
-        logger.info(f"[TU-API] ToolUniverse loaded: {len(tu.all_tools)} tools")
+        logger.info(
+            "[TU-API] ToolUniverse loaded: %s/%s materials and chemistry tools",
+            len(tu.all_tools),
+            len(allowed),
+        )
         return _tu
     except Exception as exc:
         logger.error(f"[TU-API] Failed to load ToolUniverse: {exc}")
@@ -90,6 +103,9 @@ def _translate_tool_list_item(item: Dict, trans: Dict[str, Any]) -> Dict:
     if tool_tr:
         if tool_tr.get("description"):
             result["description"] = tool_tr["description"]
+    if item.get("inventory_sub_category"):
+        result["category_zh"] = item["inventory_sub_category"]
+        return result
     cat = item.get("category", "")
     if cat and cat in cats_tr:
         result["category_zh"] = cats_tr[cat]
@@ -117,7 +133,9 @@ def _translate_tool_spec(spec: Dict, trans: Dict[str, Any]) -> Dict:
         result["parameters"] = {**result["parameters"], "properties": props}
 
     cat = spec.get("category", "")
-    if cat and cat in cats_tr:
+    if spec.get("inventory_sub_category"):
+        result["category_zh"] = spec["inventory_sub_category"]
+    elif cat and cat in cats_tr:
         result["category_zh"] = cats_tr[cat]
     return result
 
@@ -154,6 +172,7 @@ def _build_tools_list(tu) -> List[Dict]:
     items = tu.all_tools
     if isinstance(items, dict):
         items = list(items.values())
+    items = filter_allowed_tool_specs(items)
 
     for tool in items:
         if not isinstance(tool, dict):
@@ -186,6 +205,16 @@ def _build_tools_list(tu) -> List[Dict]:
             "has_examples": len(examples) > 0,
             "has_return_schema": has_return,
         })
+        inv = inventory_item(name)
+        if inv:
+            tools[-1].update({
+                "display_name": inv.display_name,
+                "inventory_main_category": inv.main_category,
+                "inventory_sub_category": inv.sub_category,
+                "inventory_availability": inv.availability,
+                "inventory_reason": inv.reason,
+                "category_zh": inv.sub_category,
+            })
     return tools
 
 
@@ -230,7 +259,13 @@ async def list_tools(
         tools = [t for t in tools if t.get("category", "").lower() == category.lower()]
 
     all_tools = [_translate_tool_list_item(t, trans) for t in cached] if trans else cached
-    categories = sorted(set(t.get("category", "") for t in cached if t.get("category")))
+    categories = sorted(
+        set(
+            t.get("inventory_sub_category") or t.get("category_zh") or t.get("category", "")
+            for t in cached
+            if t.get("inventory_sub_category") or t.get("category_zh") or t.get("category")
+        )
+    )
     return {"tools": tools, "total": len(cached), "categories": categories}
 
 
@@ -241,6 +276,9 @@ async def get_tool_spec(
     _user: User = Depends(require_user),
 ):
     """获取单个工具的详细规格。"""
+    if not is_allowed_tool_name(tool_name):
+        raise HTTPException(status_code=404, detail=f"Tool not found: {tool_name}")
+
     cache_key = f"tu_spec_v2_{tool_name}"
     cached = _get_cached(cache_key)
     if not cached:
@@ -270,11 +308,19 @@ async def get_tool_spec(
             "source_file": "",
         }
         if raw_tool:
+            inv = inventory_item(tool_name)
             cached["test_examples"] = raw_tool.get("test_examples", [])
             cached["return_schema"] = raw_tool.get("return_schema")
             cached["category"] = raw_tool.get("category", "") or raw_tool.get("type", "")
             cached["source_file"] = raw_tool.get("source_file", "")
             cached["description"] = _sanitize(cached.get("description", ""))
+            if inv:
+                cached["display_name"] = inv.display_name
+                cached["inventory_main_category"] = inv.main_category
+                cached["inventory_sub_category"] = inv.sub_category
+                cached["inventory_availability"] = inv.availability
+                cached["inventory_reason"] = inv.reason
+                cached["category_zh"] = inv.sub_category
 
         _set_cached(cache_key, cached)
 
@@ -290,6 +336,9 @@ async def run_tool(
     body: ToolRunRequest,
     _user: User = Depends(require_user),
 ):
+    if not is_allowed_tool_name(tool_name):
+        raise HTTPException(status_code=404, detail=f"Tool not found: {tool_name}")
+
     tu = _get_tu()
     if tu is None:
         raise HTTPException(status_code=503, detail="ToolUniverse is loading")
@@ -322,14 +371,21 @@ async def list_categories(
     trans = _get_translation(lang)
     cats_tr = trans.get("categories", {}) if trans else {}
 
-    counts: Dict[str, int] = {}
+    counts: Dict[str, Dict[str, Any]] = {}
     for t in cached:
-        cat = t.get("category", "other") or "other"
-        counts[cat] = counts.get(cat, 0) + 1
+        cat = t.get("inventory_sub_category") or t.get("category_zh") or t.get("category", "other") or "other"
+        if cat not in counts:
+            counts[cat] = {
+                "name": cat,
+                "name_zh": cat,
+                "main_category": t.get("inventory_main_category", ""),
+                "count": 0,
+            }
+        counts[cat]["count"] += 1
 
     return {
-        "categories": [
-            {"name": k, "name_zh": cats_tr.get(k, ""), "count": v}
-            for k, v in sorted(counts.items())
-        ]
+        "categories": sorted(
+            counts.values(),
+            key=lambda item: (str(item.get("main_category") or ""), str(item.get("name") or "")),
+        )
     }

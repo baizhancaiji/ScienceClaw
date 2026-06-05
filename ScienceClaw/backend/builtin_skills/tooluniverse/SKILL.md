@@ -1,11 +1,11 @@
 ---
 name: tooluniverse
-description: "Access ToolUniverse scientific tools for drug discovery, protein analysis, genomics, literature search, clinical data, ADMET prediction, molecular docking, and more. Use the three-step tool discovery workflow instead of requesting a full catalog."
+description: "Access the ScienceClaw-curated ToolUniverse subset for materials research, chemistry, scientific Python package information, literature metadata, web/file utilities, statistics, data storage, visualization, and knowledge graph queries. Use the three-step tool discovery workflow instead of requesting a full catalog."
 ---
 
 # ToolUniverse Scientific Tools
 
-You have access to **ToolUniverse**, a unified ecosystem of scientific tools that covers the full spectrum of biomedical research. ToolUniverse is a searchable catalog, not a list to inject into context.
+You have access to the ScienceClaw-curated **ToolUniverse** subset for materials science, chemistry, and general research utilities. The runtime only loads tools retained in `docs/final_materials_chemistry_tools_inventory.md`; tools outside that inventory are treated as unavailable. ToolUniverse is a searchable catalog, not a list to inject into context.
 
 Use either the generic workflow:
 
@@ -25,13 +25,11 @@ Do not request the full ToolUniverse catalog. Search for a short candidate list,
 
 Use ToolUniverse tools when the user needs:
 
-- **Drug Discovery**: target identification, compound screening, ADMET prediction, drug safety, drug-drug interactions, drug repurposing
-- **Protein Analysis**: structure retrieval (PDB/AlphaFold), function lookup (UniProt), interaction networks (STRING/BioGRID), therapeutic design
-- **Genomics**: gene expression, GWAS analysis, variant interpretation (ACMG), enrichment analysis, single-cell RNA-seq
-- **Literature Search**: multi-source paper search (PubMed/PubTator/EuropePMC/Semantic Scholar/OpenAlex), systematic reviews
-- **Clinical**: trial matching, guidelines, pharmacovigilance, precision oncology, rare disease diagnosis
-- **Molecular**: docking (Boltz2), SMILES-based property prediction, compound similarity, molecular visualization
-- **Omics**: transcriptomics, proteomics, metabolomics, multi-omics integration, spatial transcriptomics
+- **Materials Research**: materials ML package information, atomistic simulation libraries, graph neural network tooling, and molecular/material descriptors
+- **Chemistry**: ChEMBL, PubChem, vendor compound lookup, SMILES/CID conversion, molecular visualization, synthetic accessibility, and reaction metadata
+- **Scientific Python Packages**: package information for numerical computing, visualization, data processing, machine learning, and cheminformatics libraries
+- **Literature and Metadata**: DOI/OpenAlex/Semantic Scholar/Crossref/DataCite metadata and citation-oriented workflows
+- **General Research Utilities**: web retrieval, file download, document conversion, Python execution, statistics, data storage/retrieval, Wikidata, and visualization helpers
 
 ## Three-Step Workflow
 
@@ -40,7 +38,7 @@ Use ToolUniverse tools when the user needs:
 ### Step 1: Search for tools
 
 ```
-tooluniverse_search(query="protein structure prediction", limit=5)
+tooluniverse_search(query="SMILES to PubChem CID", limit=5)
 ```
 
 This returns a list of matching tools with names and descriptions. Use natural language to describe what you need.
@@ -48,13 +46,13 @@ This returns a list of matching tools with names and descriptions. Use natural l
 You can also use the generic discovery entry:
 
 ```
-tool_search(query="protein structure prediction", source_type="tooluniverse", limit=5)
+tool_search(query="materials machine learning descriptors", source_type="tooluniverse", limit=5)
 ```
 
 ### Step 2: Check tool specification
 
 ```
-tooluniverse_info(tool_name="UniProt_get_function_by_accession")
+tooluniverse_info(tool_name="PubChem_get_CID_by_SMILES")
 ```
 
 This returns the full parameter schema (required/optional args, types, descriptions). **Always check this before running a tool** to ensure you provide correct arguments.
@@ -62,15 +60,15 @@ This returns the full parameter schema (required/optional args, types, descripti
 Generic equivalent:
 
 ```
-tool_info(tool_ref="tooluniverse:UniProt_get_function_by_accession")
+tool_info(tool_ref="tooluniverse:PubChem_get_CID_by_SMILES")
 ```
 
 ### Step 3: Execute the tool
 
 ```
 tooluniverse_run(
-    tool_name="UniProt_get_function_by_accession",
-    arguments='{"accession": "P05067"}'
+    tool_name="PubChem_get_CID_by_SMILES",
+    arguments='{"smiles": "CCO"}'
 )
 ```
 
@@ -80,67 +78,68 @@ Generic equivalent:
 
 ```
 tool_run(
-    tool_ref="tooluniverse:UniProt_get_function_by_accession",
-    arguments='{"accession": "P05067"}'
+    tool_ref="tooluniverse:PubChem_get_CID_by_SMILES",
+    arguments='{"smiles": "CCO"}'
 )
 ```
 
 ## Common Tool Examples
 
-### Protein & Gene
+### Materials Libraries
 | Tool | Arguments Example |
 |------|-------------------|
-| `UniProt_get_function_by_accession` | `{"accession": "P05067"}` |
-| `UniProt_get_entry_by_accession` | `{"accession": "P05067"}` |
+| `get_dscribe_info` | `{}` |
+| `get_ase_info` | `{}` |
+| `get_schnetpack_info` | `{}` |
 
-### Drug Safety
+### Chemistry
 | Tool | Arguments Example |
 |------|-------------------|
-| `FAERS_count_reactions_by_drug_event` | `{"medicinalproduct": "aspirin"}` |
+| `PubChem_get_CID_by_SMILES` | `{"smiles": "CCO"}` |
+| `ChEMBL_get_molecule` | `{"molecule_chembl_id": "CHEMBL25"}` |
+| `visualize_molecule_2d` | `{"smiles": "CCO"}` |
 
-### Disease-Target
+### Compound Sources
 | Tool | Arguments Example |
 |------|-------------------|
-| `OpenTargets_get_associated_targets_by_disease_efoId` | `{"efoId": "EFO_0000685"}` |
+| `Enamine_get_compound` | `{"compound_id": "Z1234567890"}` |
+| `ZINC_get_compound` | `{"zinc_id": "ZINC000000000001"}` |
 
-### Literature
+### Literature and Metadata
 | Tool | Arguments Example |
 |------|-------------------|
-| `PubTator_search_publications` | `{"query": "CRISPR cancer therapy", "limit": 10}` |
+| `Crossref_get_work` | `{"doi": "10.1038/s41586-020-2649-2"}` |
+| `openalex_get_work_by_doi` | `{"doi": "10.1038/s41586-020-2649-2"}` |
 
-### ADMET Prediction
+### Utilities
 | Tool | Arguments Example |
 |------|-------------------|
-| `ADMETAI_predict_BBB_penetrance` | `{"smiles": ["CCO"]}` |
-| `ADMETAI_predict_toxicity` | `{"smiles": ["CCO"]}` |
-
-### Molecular Docking
-| Tool | Arguments Example |
-|------|-------------------|
-| `boltz2_docking` | `{"protein_id": "1ABC", "ligand_smiles": "CCO"}` |
+| `get_webpage_title` | `{"url": "https://example.com"}` |
+| `convert_to_markdown` | `{"uri": "https://example.com/paper.pdf"}` |
 
 ## Multi-Step Research Patterns
 
-### Drug Safety Profile
-1. `tooluniverse_search("drug adverse events")` → find FAERS tools
-2. `tooluniverse_run("FAERS_count_reactions_by_drug_event", ...)` → get adverse events
-3. `tooluniverse_run("FAERS_get_drug_label_info", ...)` → get drug label
+### Compound Identity and Vendor Check
+1. `tooluniverse_search("SMILES CID compound vendor")` -> find PubChem/vendor tools
+2. `tooluniverse_run("PubChem_get_CID_by_SMILES", ...)` -> resolve compound identifiers
+3. `tooluniverse_run("Enamine_get_compound", ...)` or another retained vendor tool -> inspect availability
 
-### Disease Target Discovery
-1. `tooluniverse_run("OpenTargets_get_associated_targets_by_disease_efoId", ...)` → targets
-2. `tooluniverse_run("UniProt_get_entry_by_accession", ...)` → protein details
-3. `tooluniverse_run("PubTator_search_publications", ...)` → supporting literature
+### Materials ML Library Selection
+1. `tooluniverse_search("materials machine learning descriptor package")` -> find package info tools
+2. Inspect `get_dscribe_info`, `get_schnetpack_info`, or `get_torch_geometric_info`
+3. Compare scope, dependencies, and fit for the user's materials workflow
 
-### Compound Property Analysis
-1. `tooluniverse_search("ADMET prediction")` → find prediction tools
-2. Run multiple ADMET predictions (BBB, toxicity, bioavailability, solubility)
-3. Synthesize results into a compound profile
+### Paper Metadata Enrichment
+1. `tooluniverse_search("DOI metadata citations")` -> find Crossref/OpenAlex/Semantic Scholar tools
+2. Run one DOI metadata tool after checking its schema
+3. Summarize title, venue, authors, citations, and links relevant to the materials question
 
 ## Tips
 
-- **Tool names follow a pattern**: `Database_action_description` (e.g., `UniProt_get_entry_by_accession`)
+- **Tool names follow a pattern**: `Database_action_description` (e.g., `PubChem_get_CID_by_SMILES`)
 - **First call may be slow** (~30s) as ToolUniverse initializes; subsequent calls are fast
 - **Results can be large**: focus on the most relevant fields for the user's question
 - **When unsure about tool name**: use `tool_search` or `tooluniverse_search` with a broad query first
 - **Chain multiple tools** for comprehensive analysis — combine data from different sources
-- **API keys are optional**: most tools work without keys, but some (NVIDIA, HuggingFace) may need them for specific functionality
+- **Inventory is authoritative**: if a tool is not in `docs/final_materials_chemistry_tools_inventory.md`, treat it as unavailable
+- **API keys are optional**: most retained tools work without keys, but some provider-backed tools may require credentials

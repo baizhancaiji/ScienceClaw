@@ -137,36 +137,16 @@
                                             </div>
                                             <div class="flex flex-col overflow-hidden flex-1 min-w-0">
                                                 <span class="text-sm font-medium text-[var(--text-primary)] truncate">{{ skill.name }}</span>
-                                                <span v-if="skill.description" class="text-[10px] text-[var(--text-tertiary)] truncate">{{ skill.description }}</span>
+                                                <span class="text-[10px] text-[var(--text-tertiary)] truncate">{{ getSkillDescription(skill) }}</span>
                                             </div>
                                             <div class="flex items-center gap-1 flex-shrink-0">
-                                                <span v-if="skill.builtin" class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-medium">Built-in</span>
+                                                <span v-if="skill.builtin" class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-medium">{{ t('Built-in') }}</span>
                                                 <div
                                                     v-if="isSkillSelected(skill.name)"
                                                     class="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shadow-sm"
                                                 >
                                                     <Check :size="12" class="text-white" />
                                                 </div>
-                                                <template v-else>
-                                                    <button 
-                                                        @click.stop="handleToggleBlock(skill)"
-                                                        class="p-1.5 rounded-md transition-colors"
-                                                        :class="skill.blocked 
-                                                            ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20' 
-                                                            : 'text-[var(--text-tertiary)] hover:bg-[var(--fill-tsp-gray-main)] hover:text-[var(--text-secondary)]'"
-                                                        :title="skill.blocked ? t('Unblock skill') : t('Block skill')"
-                                                    >
-                                                        <EyeOff v-if="skill.blocked" :size="14" />
-                                                        <Eye v-else :size="14" />
-                                                    </button>
-                                                    <button 
-                                                        @click.stop="confirmDeleteSkill(skill)"
-                                                        class="p-1.5 rounded-md text-[var(--text-tertiary)] hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 transition-colors"
-                                                        :title="t('Delete skill')"
-                                                    >
-                                                        <Trash2 :size="14" />
-                                                    </button>
-                                                </template>
                                             </div>
                                         </button>
                                     </div>
@@ -244,49 +224,6 @@
             </footer>
         </div>
 
-        <!-- Delete Skill Confirmation Dialog -->
-        <Teleport to="body">
-            <div v-if="deleteTarget" class="fixed inset-0 z-[9999] flex items-center justify-center">
-                <div class="absolute inset-0 bg-black/40" @click="cancelDelete"></div>
-                <div class="relative bg-[var(--background-white-main)] rounded-xl shadow-2xl border border-[var(--border-light)] w-[360px] max-w-[90vw] animate-in fade-in zoom-in-95 duration-200">
-                    <button 
-                        @click="cancelDelete"
-                        class="absolute top-3 right-3 p-1 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--fill-tsp-gray-main)] transition-colors"
-                    >
-                        <X :size="16" />
-                    </button>
-                    <div class="p-6">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
-                                <Trash2 :size="20" class="text-red-500" />
-                            </div>
-                            <div>
-                                <h3 class="text-sm font-semibold text-[var(--text-primary)]">{{ t('Delete Skill') }}</h3>
-                            </div>
-                        </div>
-                        <p class="text-sm text-[var(--text-secondary)] mb-6">
-                            {{ t('Are you sure you want to delete the skill "{name}"?', { name: deleteTarget.name }) }}
-                        </p>
-                        <div class="flex justify-end gap-2">
-                            <button 
-                                @click="cancelDelete"
-                                class="px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--fill-tsp-gray-main)] rounded-lg transition-colors"
-                            >
-                                {{ t('Cancel') }}
-                            </button>
-                            <button 
-                                @click="executeDelete"
-                                :disabled="deleting"
-                                class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                            >
-                                <div v-if="deleting" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
-                                {{ t('Confirm') }}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
     </div>
 </template>
 
@@ -295,13 +232,13 @@ import { ref, watch, computed, onMounted } from 'vue';
 import SendIcon from './icons/SendIcon.vue';
 import { useI18n } from 'vue-i18n';
 import ChatBoxFiles from './ChatBoxFiles.vue';
-import { Paperclip, Wrench, Check, Box, Eye, EyeOff, Trash2, Sparkles, X, Check as CheckIcon, RefreshCw, Blocks } from 'lucide-vue-next';
+import { Paperclip, Wrench, Check, Box, Sparkles, X, Check as CheckIcon, RefreshCw, Blocks } from 'lucide-vue-next';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import ProviderIcon from './icons/ProviderIcon.vue';
 import type { FileInfo } from '../api/file';
 import type { ModelConfig } from '../api/models';
 import type { ExternalSkillItem } from '../types/response';
-import { optimizePrompt, getSkills, blockSkill, deleteSkill as apiDeleteSkill } from '../api/agent';
+import { optimizePrompt, getSkills } from '../api/agent';
 import { useTextareaAutosize } from '@vueuse/core';
 
 const props = defineProps<{
@@ -326,7 +263,7 @@ const emit = defineEmits<{
     (e: 'update:selectedSkillNames', value: string[]): void;
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { textarea, input } = useTextareaAutosize();
 
 watch(() => props.modelValue, (newVal) => {
@@ -383,6 +320,13 @@ const loadExternalSkills = async () => {
     }
 };
 
+const getSkillDescription = (skill: ExternalSkillItem) => {
+    if (locale.value === 'zh' && skill.description_zh?.trim()) {
+        return skill.description_zh.trim();
+    }
+    return skill.description?.trim() || t('No description available');
+};
+
 watch(isPanelOpen, (open) => {
     if (open) loadExternalSkills();
 });
@@ -390,16 +334,6 @@ watch(isPanelOpen, (open) => {
 onMounted(() => {
     loadExternalSkills();
 });
-
-const handleToggleBlock = async (skill: ExternalSkillItem) => {
-    const newBlocked = !skill.blocked;
-    try {
-        await blockSkill(skill.name, newBlocked);
-        skill.blocked = newBlocked;
-    } catch (e) {
-        console.error("Failed to toggle block", e);
-    }
-};
 
 const emitSelectedSkillNames = (skillNames: string[]) => {
     emit('update:selectedSkillNames', skillNames);
@@ -420,34 +354,6 @@ const toggleSkillSelection = (skill: ExternalSkillItem) => {
 
 const removeSelectedSkill = (skillName: string) => {
     emitSelectedSkillNames((props.selectedSkillNames || []).filter((name) => name !== skillName));
-};
-
-// ── Delete Confirmation ──
-const deleteTarget = ref<ExternalSkillItem | null>(null);
-const deleting = ref(false);
-
-const confirmDeleteSkill = (skill: ExternalSkillItem) => {
-    deleteTarget.value = skill;
-};
-
-const cancelDelete = () => {
-    if (!deleting.value) {
-        deleteTarget.value = null;
-    }
-};
-
-const executeDelete = async () => {
-    if (!deleteTarget.value) return;
-    deleting.value = true;
-    try {
-        await apiDeleteSkill(deleteTarget.value.name);
-        externalSkills.value = externalSkills.value.filter(s => s.name !== deleteTarget.value!.name);
-        deleteTarget.value = null;
-    } catch (e) {
-        console.error("Failed to delete skill", e);
-    } finally {
-        deleting.value = false;
-    }
 };
 
 // ── Model Selection ──

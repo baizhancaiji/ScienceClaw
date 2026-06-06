@@ -123,6 +123,7 @@ class GetSessionData(BaseModel):
     selected_skill_names: List[str] = Field(default_factory=list, description="User-selected skill names")
     has_password: bool = Field(default=False, description="Whether password protected")
     locked: bool = Field(default=False, description="Whether current user must verify password")
+    has_more: bool = Field(default=False, description="Whether more session events are available")
 
 
 class ChatRequest(BaseModel):
@@ -238,6 +239,38 @@ def _truncate_pdf_header_title(title: str, limit: int = 15) -> str:
     if len(title) <= limit:
         return title
     return title[:limit] + "..."
+
+
+def _slice_session_events(
+    events: List[Dict[str, Any]],
+    *,
+    cursor_event_id: Optional[str],
+    limit: Optional[int],
+    direction: str,
+) -> tuple[List[Dict[str, Any]], bool]:
+    if limit is None:
+        return events, False
+
+    safe_limit = max(1, min(int(limit), 200))
+    if direction == "latest":
+        return events[-safe_limit:], len(events) > safe_limit
+
+    index_by_id = {
+        ((event.get("data") or {}).get("event_id")): idx
+        for idx, event in enumerate(events)
+    }
+    cursor_index = index_by_id.get(cursor_event_id)
+    if cursor_index is None:
+        return [], False
+
+    if direction == "before":
+        start = max(0, cursor_index - safe_limit)
+        return events[start:cursor_index], start > 0
+    if direction == "after":
+        end = min(len(events), cursor_index + 1 + safe_limit)
+        return events[cursor_index + 1:end], end < len(events)
+
+    return events[-safe_limit:], len(events) > safe_limit
 
 
 def _format_pdf_exported_at(exported_at: datetime, locale: str) -> str:
@@ -2221,6 +2254,9 @@ async def proxy_vnc_websocket(
 @router.get("/{session_id}", response_model=ApiResponse)
 async def get_session(
     session_id: str,
+    cursor_event_id: Optional[str] = None,
+    limit: Optional[int] = None,
+    direction: str = "latest",
     current_user: User = Depends(require_user),
 ) -> ApiResponse:
     try:
@@ -2228,6 +2264,12 @@ async def get_session(
 
         events = getattr(session, "events", []) or []
         locked = _session_has_password(session) and not _is_session_unlocked(session, current_user)
+        sliced_events, has_more = _slice_session_events(
+            events,
+            cursor_event_id=cursor_event_id,
+            limit=limit,
+            direction=direction,
+        ) if not locked else ([], False)
         # 从 session.model_config 中提取 model_config_id
         mc = getattr(session, "model_config", None)
         mc_id = mc.get("id") if isinstance(mc, dict) else None
@@ -2235,13 +2277,14 @@ async def get_session(
             session_id=session.session_id,
             title=getattr(session, "title", None),
             status=getattr(session, "status", SessionStatus.PENDING),
-            events=[] if locked else events,
+            events=sliced_events,
             is_shared=getattr(session, "is_shared", False),
             mode=getattr(session, "mode", "deep"),
             model_config_id=mc_id,
             selected_skill_names=getattr(session, "selected_skill_names", []) or [],
             has_password=_session_has_password(session),
             locked=locked,
+            has_more=has_more,
         ).model_dump())
     except ScienceSessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -139,6 +139,8 @@ type ChatPageTestApi = {
     lastTurnHadError: boolean;
     sessionSearchQuery: string;
     isSessionSearchOpen: boolean;
+    hasMoreEvents: boolean;
+    isLoadingMoreEvents: boolean;
   };
 };
 
@@ -443,6 +445,7 @@ describe('ChatPage route session reuse', () => {
       selected_skill_names: [],
       has_password: false,
       locked: false,
+      has_more: true,
     });
 
     const unmountedBeforeSwitch = wrapper.emitted();
@@ -455,7 +458,10 @@ describe('ChatPage route session reuse', () => {
     expect(wrapper.emitted()).toEqual(unmountedBeforeSwitch);
     expect(cancelOldSse).toHaveBeenCalledOnce();
     expect(agentApi.lockSessionPassword).toHaveBeenCalledWith('session-a');
-    expect(agentApi.getSession).toHaveBeenLastCalledWith('session-b');
+    expect(agentApi.getSession).toHaveBeenLastCalledWith('session-b', {
+      limit: 100,
+      direction: 'latest',
+    });
 
     const state = page.getState();
     expect(state.sessionId).toBe('session-b');
@@ -463,6 +469,8 @@ describe('ChatPage route session reuse', () => {
     expect(state.shareMode).toBe('private');
     expect(state.sessionHasPassword).toBe(false);
     expect(state.showVerifyPasswordDialog).toBe(false);
+    expect(state.hasMoreEvents).toBe(true);
+    expect(state.isLoadingMoreEvents).toBe(false);
     expect(state.activitySnapshots).toHaveLength(0);
     expect(state.pendingSkillSave).toBeNull();
     expect(state.pendingToolSave).toBeNull();
@@ -475,5 +483,20 @@ describe('ChatPage route session reuse', () => {
         content: expect.objectContaining({ content: 'new message' }),
       }),
     ]);
+  });
+
+  it('treats missing has_more in legacy session responses as false', async () => {
+    const wrapper = mountChatPageWrapper();
+    const page = (wrapper.vm as unknown as { __test: ChatPageTestApi }).__test;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(agentApi.getSession).toHaveBeenLastCalledWith('session-a', {
+      limit: 100,
+      direction: 'latest',
+    });
+    expect(page.getState().hasMoreEvents).toBe(false);
+    expect(page.getState().isLoadingMoreEvents).toBe(false);
   });
 });

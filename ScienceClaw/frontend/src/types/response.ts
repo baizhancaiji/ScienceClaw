@@ -22,6 +22,7 @@ export interface GetSessionResponse {
     selected_skill_names?: string[];
     has_password?: boolean;
     locked?: boolean;
+    has_more?: boolean;
 }
 
 export interface ListSessionItem {

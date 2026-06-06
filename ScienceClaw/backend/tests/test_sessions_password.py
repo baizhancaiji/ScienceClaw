@@ -258,6 +258,124 @@ class SessionsPasswordTests(unittest.TestCase):
         self.assertEqual([], payload["events"])
         self.assertNotIn("password_hint", payload)
 
+    def test_get_session_without_limit_returns_all_events(self):
+        session = FakeScienceSession(events=[
+            {"event": "message", "data": {"event_id": "evt-1", "content": "one"}},
+            {"event": "message", "data": {"event_id": "evt-2", "content": "two"}},
+            {"event": "message", "data": {"event_id": "evt-3", "content": "three"}},
+        ])
+        with patch.object(
+            sessions_route,
+            "async_get_science_session",
+            new=AsyncMock(return_value=session),
+        ):
+            response = _client().get("/api/v1/sessions/session-1")
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()["data"]
+        self.assertEqual(session.events, payload["events"])
+        self.assertFalse(payload["has_more"])
+
+    def test_get_session_latest_returns_last_limited_events(self):
+        session = FakeScienceSession(events=[
+            {"event": "message", "data": {"event_id": "evt-1", "content": "one"}},
+            {"event": "message", "data": {"event_id": "evt-2", "content": "two"}},
+            {"event": "message", "data": {"event_id": "evt-3", "content": "three"}},
+        ])
+        with patch.object(
+            sessions_route,
+            "async_get_science_session",
+            new=AsyncMock(return_value=session),
+        ):
+            response = _client().get("/api/v1/sessions/session-1?limit=2&direction=latest")
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()["data"]
+        self.assertEqual(session.events[-2:], payload["events"])
+        self.assertTrue(payload["has_more"])
+
+    def test_get_session_before_cursor_returns_previous_events(self):
+        session = FakeScienceSession(events=[
+            {"event": "message", "data": {"event_id": "evt-1", "content": "one"}},
+            {"event": "message", "data": {"event_id": "evt-2", "content": "two"}},
+            {"event": "message", "data": {"event_id": "evt-3", "content": "three"}},
+            {"event": "message", "data": {"event_id": "evt-4", "content": "four"}},
+        ])
+        with patch.object(
+            sessions_route,
+            "async_get_science_session",
+            new=AsyncMock(return_value=session),
+        ):
+            response = _client().get(
+                "/api/v1/sessions/session-1?limit=2&direction=before&cursor_event_id=evt-4",
+            )
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()["data"]
+        self.assertEqual(session.events[1:3], payload["events"])
+        self.assertTrue(payload["has_more"])
+
+    def test_get_session_after_cursor_returns_following_events(self):
+        session = FakeScienceSession(events=[
+            {"event": "message", "data": {"event_id": "evt-1", "content": "one"}},
+            {"event": "message", "data": {"event_id": "evt-2", "content": "two"}},
+            {"event": "message", "data": {"event_id": "evt-3", "content": "three"}},
+            {"event": "message", "data": {"event_id": "evt-4", "content": "four"}},
+        ])
+        with patch.object(
+            sessions_route,
+            "async_get_science_session",
+            new=AsyncMock(return_value=session),
+        ):
+            response = _client().get(
+                "/api/v1/sessions/session-1?limit=2&direction=after&cursor_event_id=evt-1",
+            )
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()["data"]
+        self.assertEqual(session.events[1:3], payload["events"])
+        self.assertTrue(payload["has_more"])
+
+    def test_get_session_unknown_cursor_returns_empty_events(self):
+        session = FakeScienceSession(events=[
+            {"event": "message", "data": {"event_id": "evt-1", "content": "one"}},
+            {"event": "message", "data": {"event_id": "evt-2", "content": "two"}},
+        ])
+        with patch.object(
+            sessions_route,
+            "async_get_science_session",
+            new=AsyncMock(return_value=session),
+        ):
+            response = _client().get(
+                "/api/v1/sessions/session-1?limit=2&direction=after&cursor_event_id=missing",
+            )
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()["data"]
+        self.assertEqual([], payload["events"])
+        self.assertFalse(payload["has_more"])
+
+    def test_get_session_locked_ignores_pagination_and_returns_empty_events(self):
+        session = FakeScienceSession(
+            events=[
+                {"event": "message", "data": {"event_id": "evt-1", "content": "one"}},
+                {"event": "message", "data": {"event_id": "evt-2", "content": "two"}},
+            ],
+            password_hash=sessions_route._hash_session_password("Abcd1"),
+        )
+        with patch.object(
+            sessions_route,
+            "async_get_science_session",
+            new=AsyncMock(return_value=session),
+        ):
+            response = _client().get("/api/v1/sessions/session-1?limit=1&direction=latest")
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()["data"]
+        self.assertTrue(payload["locked"])
+        self.assertEqual([], payload["events"])
+        self.assertFalse(payload["has_more"])
+
     def test_verify_password_unlocks_and_then_get_session_returns_events(self):
         session = FakeScienceSession(password_hash=sessions_route._hash_session_password("Abcd1"))
         with patch.object(

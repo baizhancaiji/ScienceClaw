@@ -7,6 +7,12 @@ import { ListSessionItem, GetSessionResponse, ExternalSkillItem, ExternalToolIte
 export type Session = ListSessionItem; 
 export type SessionDetail = GetSessionResponse;
 
+export interface GetSessionOptions {
+  cursorEventId?: string;
+  limit?: number;
+  direction?: 'latest' | 'before' | 'after';
+}
+
 export interface CreateSessionRequest {
   mode: string;
   model_config_id?: string;
@@ -63,8 +69,18 @@ export function subscribeSessionNotifications(callbacks: SSECallbacks<any>): Pro
   return createSSEConnection('/sessions/notifications', { method: 'GET' }, callbacks);
 }
 
-export async function getSession(sessionId: string): Promise<SessionDetail> {
-  const response = await apiClient.get<ApiResponse<SessionDetail>>(`/sessions/${sessionId}`);
+export async function getSession(
+  sessionId: string,
+  options?: GetSessionOptions,
+): Promise<SessionDetail> {
+  const params: Record<string, string> = {};
+  if (options?.cursorEventId) params.cursor_event_id = options.cursorEventId;
+  if (options?.limit) params.limit = String(options.limit);
+  if (options?.direction) params.direction = options.direction;
+  const response = await apiClient.get<ApiResponse<SessionDetail>>(
+    `/sessions/${sessionId}`,
+    { params },
+  );
   return response.data.data;
 }
 

@@ -544,6 +544,8 @@ const sessionHasPassword = ref(false);
 const showVerifyPasswordDialog = ref(false);
 const showSessionPasswordDialog = ref(false);
 const sessionPasswordDialogMode = ref<'set' | 'update' | 'remove'>('set');
+const hasMoreEvents = ref(false);
+const isLoadingMoreEvents = ref(false);
 
 // 上一轮是否因报错结束（用于显示「推理失败」而非「推理完成」）
 const lastTurnHadError = ref(false);
@@ -817,6 +819,8 @@ const resetSessionRuntimeState = () => {
   showVerifyPasswordDialog.value = false;
   showSessionPasswordDialog.value = false;
   sessionPasswordDialogMode.value = 'set';
+  hasMoreEvents.value = false;
+  isLoadingMoreEvents.value = false;
   lastTurnHadError.value = false;
   messageFlashTokens.value = {};
   closeSessionSearchState();
@@ -1413,7 +1417,8 @@ const restoreSession = async () => {
 
   let session;
   try {
-    session = await agentApi.getSession(restoreTarget);
+    session = await agentApi.getSession(restoreTarget, { limit: 100, direction: 'latest' });
+    hasMoreEvents.value = session.has_more ?? false;
     console.log('[restoreSession] loaded, status:', session.status, 'events:', session.events?.length, '_unmounted:', _unmounted);
   } catch (error: any) {
     console.warn('[restoreSession] FAILED to load session:', error);
@@ -1629,6 +1634,8 @@ defineExpose({
       plan: plan.value,
       sessionHasPassword: sessionHasPassword.value,
       showVerifyPasswordDialog: showVerifyPasswordDialog.value,
+      hasMoreEvents: hasMoreEvents.value,
+      isLoadingMoreEvents: isLoadingMoreEvents.value,
       pendingSkillSave: pendingSkillSave.value,
       pendingToolSave: pendingToolSave.value,
       isReplayingHistory: _isReplayingHistory,

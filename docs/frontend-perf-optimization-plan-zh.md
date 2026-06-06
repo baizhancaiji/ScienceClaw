@@ -5,7 +5,7 @@
 > **修订日期**: 2026-06-06
 > **优先级**: P0
 > **影响范围**: `ScienceClaw/frontend/src/`，`ScienceClaw/backend/route/sessions.py`
-> **状态**: W1-W3 已完成，W4 待施工
+> **状态**: W1-W4 已完成，W5 按验收结果评估
 
 ---
 
@@ -496,6 +496,13 @@ await Promise.allSettled(
 
 **优先级**: P1
 **改动文件**: `ScienceClaw/backend/route/sessions.py`，`ScienceClaw/frontend/src/api/agent.ts`，`ScienceClaw/frontend/src/types/response.ts`，`ScienceClaw/frontend/src/pages/ChatPage.vue`
+**施工状态**: 已完成（2026-06-07）
+**验证证据**:
+
+- `cd ScienceClaw/frontend && npm run test:run -- src/api/agent.spec.ts src/pages/ChatPage.spec.ts`
+- `cd ScienceClaw/frontend && npm run type-check`
+- `cd ScienceClaw/frontend && npm run test:run`
+- `set PYTHONNOUSERSITE=1; conda run -p D:\conda\envs\scienceclaw pytest ScienceClaw/backend/tests/test_sessions_password.py`
 
 #### W4-Step-1：后端增加可选分页参数
 

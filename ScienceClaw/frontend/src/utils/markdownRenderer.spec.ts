@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import {
   createMermaidLoader,
@@ -242,6 +242,39 @@ describe('renderMermaidWrapper', () => {
     expect(loading.querySelector('.mermaid-raw-code')?.textContent).toBe('flowchart TD\nA');
   });
 
+  it('retries once and displays SVG when the second render succeeds', async () => {
+    vi.useFakeTimers();
+    const wrapper = attachWrapper(createWrapper('graph TD; A-->B;'));
+    const cache = new Map<string, string>();
+    const mermaid = {
+      render: vi.fn()
+        .mockRejectedValueOnce(new Error('first render failed'))
+        .mockResolvedValueOnce({ svg: '<svg data-test="retry"></svg>' }),
+    };
+
+    const renderPromise = renderMermaidWrapper({
+      wrapper,
+      index: 2,
+      mermaid,
+      cache,
+      makeRenderId: index => `retry-svg-${index}`,
+      maxRetries: 1,
+      retryDelayMs: 300,
+    });
+
+    await vi.advanceTimersByTimeAsync(300);
+    await renderPromise;
+    vi.useRealTimers();
+
+    const content = wrapper.querySelector('.mermaid-content') as HTMLElement;
+    const loading = wrapper.querySelector('.mermaid-loading') as HTMLElement;
+    expect(mermaid.render).toHaveBeenNthCalledWith(1, 'retry-svg-4', 'graph TD; A-->B;');
+    expect(mermaid.render).toHaveBeenNthCalledWith(2, 'retry-svg-5', 'graph TD; A-->B;');
+    expect(content.innerHTML).toContain('data-test="retry"');
+    expect(content.style.display).toBe('block');
+    expect(loading.style.display).toBe('none');
+  });
+
   it('skips DOM write when wrapper is disconnected from the document', async () => {
     // 不挂载到 document → isConnected === false
     const wrapper = createWrapper('graph TD; A-->B;');
@@ -264,6 +297,33 @@ describe('renderMermaidWrapper', () => {
     expect(content.innerHTML).toBe('');
     // 但缓存应已填充，以便后续重连的 wrapper 可复用
     expect(cache.has('graph TD; A-->B;')).toBe(true);
+  });
+
+  it('does not write an error when a retry target disconnects before retry', async () => {
+    vi.useFakeTimers();
+    const wrapper = attachWrapper(createWrapper('graph TD; A-->B;'));
+    const cache = new Map<string, string>();
+    const mermaid = {
+      render: vi.fn().mockRejectedValueOnce(new Error('first render failed')),
+    };
+
+    const renderPromise = renderMermaidWrapper({
+      wrapper,
+      index: 0,
+      mermaid,
+      cache,
+      maxRetries: 1,
+      retryDelayMs: 300,
+    });
+    wrapper.remove();
+
+    await vi.advanceTimersByTimeAsync(300);
+    await renderPromise;
+    vi.useRealTimers();
+
+    const loading = wrapper.querySelector('.mermaid-loading') as HTMLElement;
+    expect(mermaid.render).toHaveBeenCalledTimes(1);
+    expect(loading.innerHTML).not.toContain('mermaid-error');
   });
 });
 

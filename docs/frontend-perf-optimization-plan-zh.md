@@ -5,7 +5,7 @@
 > **修订日期**: 2026-06-06
 > **优先级**: P0
 > **影响范围**: `ScienceClaw/frontend/src/`，`ScienceClaw/backend/route/sessions.py`
-> **状态**: W1-W2 已完成，W3-W4 待施工
+> **状态**: W1-W3 已完成，W4 待施工
 
 ---
 
@@ -342,6 +342,12 @@ if (oldSid && sessionHasPassword.value) {
 
 **优先级**: P0
 **改动文件**: `ScienceClaw/frontend/src/composables/useMermaidRenderer.ts`，`ScienceClaw/frontend/src/utils/markdownRenderer.ts`，对应 spec
+**施工状态**: 已完成（2026-06-07）
+**验证证据**:
+
+- `cd ScienceClaw/frontend && npm run test:run -- src/utils/markdownRenderer.spec.ts src/composables/useMermaidRenderer.spec.ts`
+- `cd ScienceClaw/frontend && npm run type-check`
+- `cd ScienceClaw/frontend && npm run test:run`
 
 #### W3-Step-1：增加缓存上限与 LRU 写入
 

@@ -12,7 +12,29 @@ import {
  *   只要代码相同就复用已渲染的 SVG，不再重复调用 mermaid.render()
  * - 切换会话再回来也直接命中
  */
+const MERMAID_CACHE_MAX_SIZE = 100;
+const MERMAID_RENDER_CONCURRENCY = 2;
 const GLOBAL_MERMAID_CACHE = new Map<string, string>();
+
+const touchMermaidCache = (key: string): string | undefined => {
+  const value = GLOBAL_MERMAID_CACHE.get(key);
+  if (value === undefined) return undefined;
+  GLOBAL_MERMAID_CACHE.delete(key);
+  GLOBAL_MERMAID_CACHE.set(key, value);
+  return value;
+};
+
+const setMermaidCache = (key: string, value: string): void => {
+  if (GLOBAL_MERMAID_CACHE.has(key)) {
+    GLOBAL_MERMAID_CACHE.delete(key);
+  }
+  GLOBAL_MERMAID_CACHE.set(key, value);
+  while (GLOBAL_MERMAID_CACHE.size > MERMAID_CACHE_MAX_SIZE) {
+    const firstKey = GLOBAL_MERMAID_CACHE.keys().next().value;
+    if (firstKey === undefined) break;
+    GLOBAL_MERMAID_CACHE.delete(firstKey);
+  }
+};
 
 /** 测试用：重置全局 mermaid SVG 缓存 */
 export const resetMermaidCache = () => {
@@ -62,20 +84,39 @@ export function useMermaidRenderer({
 
     const mermaid = await initMermaid();
 
-    for (let i = 0; i < mermaidWrappers.length; i++) {
-      // 代际不一致 → 内容已更新，中止当前过期渲染
-      if (currentGen !== renderGeneration) return;
-      // DOM 有效性校验：跳过已脱离文档树的僵尸节点
-      if (!markdownRef.value?.contains(mermaidWrappers[i])) continue;
+    const validWrappers = Array.from(mermaidWrappers)
+      .map((wrapper, index) => ({ wrapper, index }))
+      .filter(({ wrapper }) => markdownRef.value?.contains(wrapper));
 
-      await renderMermaidWrapper({
-        wrapper: mermaidWrappers[i],
-        index: i,
-        mermaid,
-        cache: mermaidCache,
-        logPrefix,
-      });
-    }
+    let nextIndex = 0;
+    const runWorker = async () => {
+      while (nextIndex < validWrappers.length) {
+        // 代际不一致 → 内容已更新，中止当前过期渲染
+        if (currentGen !== renderGeneration) return;
+        const item = validWrappers[nextIndex++];
+        // DOM 有效性校验：跳过已脱离文档树的僵尸节点
+        if (!item.wrapper.isConnected) continue;
+
+        await renderMermaidWrapper({
+          wrapper: item.wrapper,
+          index: item.index,
+          mermaid,
+          cache: mermaidCache,
+          logPrefix,
+          getCache: touchMermaidCache,
+          setCache: setMermaidCache,
+          maxRetries: 1,
+          retryDelayMs: 300,
+        });
+      }
+    };
+
+    await Promise.allSettled(
+      Array.from(
+        { length: Math.min(MERMAID_RENDER_CONCURRENCY, validWrappers.length) },
+        () => runWorker(),
+      ),
+    );
   };
 
   const scheduleRenderMermaidDiagrams = () => {

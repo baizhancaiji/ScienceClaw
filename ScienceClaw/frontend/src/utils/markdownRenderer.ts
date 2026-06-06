@@ -58,6 +58,10 @@ export interface RenderMermaidWrapperOptions {
   cache: Map<string, string>;
   logPrefix?: string;
   makeRenderId?: (index: number) => string;
+  getCache?: (key: string) => string | undefined;
+  setCache?: (key: string, value: string) => void;
+  maxRetries?: number;
+  retryDelayMs?: number;
 }
 
 export type MathPlaceholderKind = 'block' | 'inline';
@@ -182,6 +186,10 @@ export const renderMermaidWrapper = async ({
   cache,
   logPrefix = '[Mermaid]',
   makeRenderId = diagramIndex => `mermaid-svg-${Date.now()}-${diagramIndex}`,
+  getCache,
+  setCache,
+  maxRetries = 0,
+  retryDelayMs = 0,
 }: RenderMermaidWrapperOptions): Promise<void> => {
   const code = decodeURIComponent(wrapper.getAttribute('data-mermaid-code') || '');
   const contentEl = wrapper.querySelector('.mermaid-content') as HTMLElement;
@@ -191,31 +199,45 @@ export const renderMermaidWrapper = async ({
     return;
   }
 
-  // 检查缓存
-  if (cache.has(code)) {
+  const cachedSvg = getCache ? getCache(code) : cache.get(code);
+  if (cachedSvg !== undefined) {
     // DOM 有效性校验：节点已脱离文档树则跳过
     if (!wrapper.isConnected) return;
-    contentEl.innerHTML = cache.get(code)!;
+    contentEl.innerHTML = cachedSvg;
     if (loadingEl) loadingEl.style.display = 'none';
     contentEl.style.display = 'block';
     return;
   }
 
-  try {
-    // 使用 mermaid.render 渲染
-    const { svg } = await mermaid.render(makeRenderId(index), code);
-    cache.set(code, svg);
-    // 异步操作后再次校验：流式输出期间 DOM 可能已被 Vue 替换
-    // wrapper.isConnected 返回 false 说明节点已脱离文档树，无需写入
-    if (!wrapper.isConnected) return;
-    contentEl.innerHTML = svg;
-    if (loadingEl) loadingEl.style.display = 'none';
-    contentEl.style.display = 'block';
-  } catch (e) {
-    console.error(logPrefix, `Diagram ${index + 1}: render error:`, e);
-    if (loadingEl && wrapper.isConnected) {
-      loadingEl.innerHTML = renderMermaidError(code);
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const renderIndex = index * (maxRetries + 1) + attempt;
+      const { svg } = await mermaid.render(makeRenderId(renderIndex), code);
+      if (setCache) {
+        setCache(code, svg);
+      } else {
+        cache.set(code, svg);
+      }
+      // 异步操作后再次校验：流式输出期间 DOM 可能已被 Vue 替换
+      // wrapper.isConnected 返回 false 说明节点已脱离文档树，无需写入
+      if (!wrapper.isConnected) return;
+      contentEl.innerHTML = svg;
+      if (loadingEl) loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+      return;
+    } catch (e) {
+      lastError = e;
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        if (!wrapper.isConnected) return;
+      }
     }
+  }
+
+  console.error(logPrefix, `Diagram ${index + 1}: render error:`, lastError);
+  if (loadingEl && wrapper.isConnected) {
+    loadingEl.innerHTML = renderMermaidError(code);
   }
 };
 

@@ -48,8 +48,6 @@
 - 开发、构建、测试和文本处理默认使用 Git Bash。
 - 需要 host-side Python 时使用 `PYTHONNOUSERSITE=1 conda run -p D:/conda/envs/scienceclaw ...`。
 - 非必要不在宿主机直接运行后端/前端服务；完整环境优先走 Docker Compose。
-- 业务代码改动前，如果涉及函数、类、方法或共享边界，应按仓库要求使用 GitNexus 做影响分析。
-- 每个最小批次完成后执行 `gitnexus detect-changes`，再决定是否提交。
 
 ### 2.3 基线命令
 
@@ -430,7 +428,6 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
   - file panel：`frontend/src/composables/useFilePanel.ts`，由 Chat/Share/FilePanel/附件相关组件调用，通过 event bus 广播 panel 展示事件。
   - session file list：`frontend/src/composables/useSessionFileList.ts`，由 Chat/Share/SessionFileList/附件入口共享 `visible/shared`。
   - settings dialog：`frontend/src/composables/useSettingsDialog.ts`，由 Chat/Home/LeftPanel/UserMenu/Tasks/SettingsDialog 等共享打开状态与默认 tab。
-  - session notifications：`frontend/src/composables/useSessionNotifications.ts`，GitNexus context 显示调用点为 `ChatPage.vue` 与 `LeftPanel.vue`，内部负责订阅、重连 timer 与最后消费者卸载后的断开。
 - 新增 `frontend/src/composables/useSharedStateLifecycle.spec.ts`，覆盖 theme/left panel localStorage side effect、`useRelativeTime` interval 清理、`useSessionNotifications` active subscription cancel 和 reconnect timer 清理。
 - `npm --prefix ScienceClaw/frontend run test:run -- src/composables/useSharedStateLifecycle.spec.ts` 运行 5 个用例通过；`npm --prefix ScienceClaw/frontend run test:run` 运行 16 个测试文件/70 个用例通过；`npm --prefix ScienceClaw/frontend run lint` 保持 0 error/42 warning baseline；`npm --prefix ScienceClaw/frontend run type-check` 通过。
 - 迁移决策：暂不迁移 Pinia。当前共享状态均为小型 module-scope composable，缺少 DevTools 调试、复杂派生状态、跨页面一致性约束或 SSR 隔离等触发条件；若后续需要迁移，优先选择 Auth 或 Panel 单一 store 做试点。
@@ -498,7 +495,6 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 1. 代码或文档改动。
 2. 验收命令和结果。
-3. `gitnexus detect-changes` 结果摘要。
 4. 若涉及 UI，附浏览器 smoke 说明或截图路径。
 5. 若发现新问题，登记到 `docs/current-active-execution-plans-zh.md` 或对应归档计划的残余事项，不直接塞进当前批次。
 

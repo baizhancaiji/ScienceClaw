@@ -96,11 +96,10 @@ workspace
 .plan
 sync-to-huawei-swr-docker.sh
 
-# GitNexus generated documentation/context
-CLAUDE.md
-.claude/
-
 # Repository-local Codex App browser instructions
 !CODEX_IN_APP_BROWSER.md
 #playwright-mcp
+
+# Local code intelligence indexes
+.codegraph/
 .playwright-mcp/

@@ -209,7 +209,6 @@ git diff --check
 
 结果：无空白错误；仅有既有 CRLF 提示。
 
-GitNexus：
 
 - 已执行 `detect_changes(scope=all)`。
 - 风险等级：HIGH。

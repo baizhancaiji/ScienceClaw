@@ -26,7 +26,6 @@ npm --prefix ScienceClaw/frontend run build
 $env:PYTHONNOUSERSITE='1'; conda run -p D:\conda\envs\scienceclaw python -m unittest ScienceClaw.backend.tests.test_mcp_route_smoke ScienceClaw.backend.tests.test_mcp_client ScienceClaw.backend.tests.test_mcp_repository ScienceClaw.backend.tests.test_mcp_crypto ScienceClaw.backend.tests.test_mcp_schemas ScienceClaw.backend.tests.test_mcp_service_servers ScienceClaw.backend.tests.test_mcp_route_servers ScienceClaw.backend.tests.test_mcp_service_sync ScienceClaw.backend.tests.test_mcp_route_tools ScienceClaw.backend.tests.test_mcp_tool_factory ScienceClaw.backend.tests.test_mcp_result_normalization ScienceClaw.backend.tests.test_agent_mcp_injection ScienceClaw.backend.tests.test_mcp_sse_protocol
 git diff --check
 git diff --cached --check
-gitnexus detect-changes -r ScienceClaw
 ```
 
 结果摘要：
@@ -34,7 +33,6 @@ gitnexus detect-changes -r ScienceClaw
 - 前端 `vue-tsc` 通过。
 - 前端生产构建通过。
 - MCP 后端测试 `115 tests OK`。
-- GitNexus detect-changes：`risk low`，`affected processes 0`。
 - Codex 内置浏览器 smoke：Tools 页和 MCP tab 可打开，控制台 error 为 0。
 
 ## 残余未测项
@@ -57,7 +55,6 @@ gitnexus detect-changes -r ScienceClaw
 5. 后端 MCP unittest 中出现第三方库 deprecation warning：`lark_oapi` 使用 `datetime.datetime.utcfromtimestamp()`。
 6. 后端 MCP unittest 中出现第三方库 deprecation warning：`lark_oapi` 调用 `asyncio.get_event_loop()` 时无当前 event loop。
 7. 后端 MCP unittest 结束时出现 `ResourceWarning: unclosed event loop <ProactorEventLoop ...>`。
-8. Git 工作树存在 GitNexus/工具生成文件：`AGENTS.md`、`.claude/`、`CLAUDE.md`。按当前约束，除非明确要求，不纳入 MCP 收口提交。
 
 ## 后续事项
 

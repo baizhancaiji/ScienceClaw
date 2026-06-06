@@ -773,6 +773,55 @@ const flushPendingMessageChunks = () => {
   appendPendingMessageChunks();
 };
 
+const resetSessionRuntimeState = () => {
+  flushPendingMessageChunks();
+  cancelScheduledChunkFlush();
+  if (cancelCurrentChat.value) {
+    cancelCurrentChat.value();
+    cancelCurrentChat.value = null;
+  }
+
+  _processedEventIds.clear();
+  _pendingChunkText = '';
+  _streamingMsgIndex.value = null;
+  _isReplayingHistory = false;
+  _replayMessagesBuffer = null;
+
+  inputMessage.value = '';
+  isLoading.value = false;
+  messages.value = [];
+  realTime.value = true;
+  follow.value = true;
+  title.value = t('New Chat');
+  plan.value = undefined;
+  lastNoMessageTool.value = undefined;
+  lastTool.value = undefined;
+  lastEventId.value = undefined;
+  attachments.value = [];
+  shareMode.value = 'private';
+  linkCopied.value = false;
+  sharingLoading.value = false;
+  mode.value = 'deep';
+  thinkingContent.value = '';
+  activityItems.value = [];
+  activitySnapshots.value = [];
+  selectedActivityTurn.value = -1;
+  pendingToolCallIds.value = [];
+
+  pendingSkillSave.value = null;
+  pendingToolSave.value = null;
+  pendingToolReplaces.value = null;
+  savingSkill.value = false;
+  savingTool.value = false;
+  sessionHasPassword.value = false;
+  showVerifyPasswordDialog.value = false;
+  showSessionPasswordDialog.value = false;
+  sessionPasswordDialogMode.value = 'set';
+  lastTurnHadError.value = false;
+  messageFlashTokens.value = {};
+  closeSessionSearchState();
+};
+
 const schedulePendingChunkFlush = () => {
   if (_chunkFlushFrame !== null) return;
 
@@ -1360,7 +1409,7 @@ const restoreSession = async () => {
   }
 
   const restoreTarget = sessionId.value;
-  const isStale = () => _unmounted;
+  const isStale = () => _unmounted || sessionId.value !== restoreTarget;
 
   let session;
   try {
@@ -1368,12 +1417,11 @@ const restoreSession = async () => {
     console.log('[restoreSession] loaded, status:', session.status, 'events:', session.events?.length, '_unmounted:', _unmounted);
   } catch (error: any) {
     console.warn('[restoreSession] FAILED to load session:', error);
+    if (isStale()) return;
     if (error?.code === 404) {
       showErrorToast(t('Session not found'));
     }
-    if (!isStale()) {
-      router.replace('/');
-    }
+    router.replace('/');
     return;
   }
 
@@ -1438,26 +1486,41 @@ const restoreSession = async () => {
 
 
 
-// Initialize active conversation
-  onMounted(async () => {
-    hideFilePanel();
-    const routeParams = router.currentRoute.value.params;
-    console.log('[ChatPage] onMounted, sessionId:', routeParams.sessionId);
-    if (routeParams.sessionId) {
-      sessionId.value = String(routeParams.sessionId) as string;
-
-      const pending = consumePendingChat();
-      if (pending?.message) {
-        console.log('[ChatPage] has pending chat, files:', pending.files?.length || 0);
-        if (pending.mode) mode.value = pending.mode;
-        if (pending.selectedModelId) selectedModelId.value = pending.selectedModelId;
-        selectedSkillNames.value = pending.selectedSkillNames || [];
-        chat(pending.message, pending.files || []);
-      } else {
-        console.log('[ChatPage] no pending chat, restoring session');
-        restoreSession();
-      }
+watch(
+  () => router.currentRoute.value.params.sessionId,
+  async (newSessionId, oldSessionId) => {
+    if (!oldSessionId || !newSessionId || newSessionId === oldSessionId) return;
+    const oldSid = Array.isArray(oldSessionId) ? oldSessionId.join('/') : String(oldSessionId);
+    const nextSid = Array.isArray(newSessionId) ? newSessionId.join('/') : String(newSessionId);
+    if (oldSid && sessionHasPassword.value) {
+      agentApi.lockSessionPassword(oldSid).catch(() => {});
     }
+    resetSessionRuntimeState();
+    sessionId.value = nextSid;
+    await restoreSession();
+  },
+);
+
+// Initialize active conversation
+onMounted(async () => {
+  hideFilePanel();
+  const routeParams = router.currentRoute.value.params;
+  console.log('[ChatPage] onMounted, sessionId:', routeParams.sessionId);
+  if (routeParams.sessionId) {
+    sessionId.value = String(routeParams.sessionId) as string;
+
+    const pending = consumePendingChat();
+    if (pending?.message) {
+      console.log('[ChatPage] has pending chat, files:', pending.files?.length || 0);
+      if (pending.mode) mode.value = pending.mode;
+      if (pending.selectedModelId) selectedModelId.value = pending.selectedModelId;
+      selectedSkillNames.value = pending.selectedSkillNames || [];
+      chat(pending.message, pending.files || []);
+    } else {
+      console.log('[ChatPage] no pending chat, restoring session');
+      restoreSession();
+    }
+  }
 
   onSessionUpdated(({ session_id, session_event }) => {
     if (!sessionId.value || session_id !== sessionId.value || _unmounted) return;
@@ -1527,15 +1590,51 @@ defineExpose({
     handleEvent,
     replayHistoryEvents,
     flushPendingMessageChunks,
+    resetSessionRuntimeState,
+    setSessionRuntimeForTest: (nextState: {
+      cancelCurrentChat?: (() => void) | null;
+      sessionHasPassword?: boolean;
+      shareMode?: 'private' | 'public';
+      showVerifyPasswordDialog?: boolean;
+      activitySnapshots?: { items: ActivityItem[], plan: PlanEventData | undefined }[];
+      pendingSkillSave?: string | null;
+      pendingToolSave?: string | null;
+      lastTurnHadError?: boolean;
+      searchQuery?: string;
+    }) => {
+      if ('cancelCurrentChat' in nextState) cancelCurrentChat.value = nextState.cancelCurrentChat ?? null;
+      if (typeof nextState.sessionHasPassword === 'boolean') sessionHasPassword.value = nextState.sessionHasPassword;
+      if (nextState.shareMode) shareMode.value = nextState.shareMode;
+      if (typeof nextState.showVerifyPasswordDialog === 'boolean') {
+        showVerifyPasswordDialog.value = nextState.showVerifyPasswordDialog;
+      }
+      if (nextState.activitySnapshots) activitySnapshots.value = nextState.activitySnapshots;
+      if ('pendingSkillSave' in nextState) pendingSkillSave.value = nextState.pendingSkillSave ?? null;
+      if ('pendingToolSave' in nextState) pendingToolSave.value = nextState.pendingToolSave ?? null;
+      if (typeof nextState.lastTurnHadError === 'boolean') lastTurnHadError.value = nextState.lastTurnHadError;
+      if (typeof nextState.searchQuery === 'string') {
+        openSessionSearchState();
+        sessionSearchQuery.value = nextState.searchQuery;
+      }
+    },
     getState: () => ({
+      sessionId: sessionId.value,
       messages: messages.value,
       realTime: realTime.value,
+      isLoading: isLoading.value,
+      title: title.value,
+      shareMode: shareMode.value,
       activityItems: activityItems.value,
       activitySnapshots: activitySnapshots.value,
       plan: plan.value,
+      sessionHasPassword: sessionHasPassword.value,
+      showVerifyPasswordDialog: showVerifyPasswordDialog.value,
       pendingSkillSave: pendingSkillSave.value,
       pendingToolSave: pendingToolSave.value,
       isReplayingHistory: _isReplayingHistory,
+      lastTurnHadError: lastTurnHadError.value,
+      sessionSearchQuery: sessionSearchQuery.value,
+      isSessionSearchOpen: isSessionSearchOpen.value,
     }),
   },
 });

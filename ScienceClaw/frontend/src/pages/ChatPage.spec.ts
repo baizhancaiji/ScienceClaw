@@ -1,9 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { shallowMount } from '@vue/test-utils';
-import { ref } from 'vue';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { shallowMount, type VueWrapper } from '@vue/test-utils';
+import { nextTick, ref } from 'vue';
 
 import ChatPage from './ChatPage.vue';
 import type { AgentSSEEvent } from '../types/event';
+import * as agentApi from '../api/agent';
+import { SessionStatus } from '../types/response';
+
+const currentRoute = ref<{ params: { sessionId?: string } }>({ params: {} });
+const routerReplace = vi.fn();
+const mountedWrappers: VueWrapper[] = [];
 
 vi.mock('vue-router', () => ({
   createRouter: () => ({
@@ -14,8 +20,8 @@ vi.mock('vue-router', () => ({
   }),
   createWebHistory: vi.fn(),
   useRouter: () => ({
-    currentRoute: ref({ params: {} }),
-    replace: vi.fn(),
+    currentRoute,
+    replace: routerReplace,
   }),
 }));
 
@@ -47,7 +53,7 @@ vi.mock('../api/agent', () => ({
   chatWithSession: vi.fn(),
   clearUnreadMessageCount: vi.fn(),
   getSession: vi.fn(),
-  lockSessionPassword: vi.fn(),
+  lockSessionPassword: vi.fn().mockResolvedValue({ locked: true }),
   stopSession: vi.fn(),
 }));
 
@@ -103,19 +109,40 @@ type ChatPageTestApi = {
   handleEvent: (event: AgentSSEEvent) => void;
   replayHistoryEvents: (events: AgentSSEEvent[]) => boolean;
   flushPendingMessageChunks: () => void;
+  resetSessionRuntimeState: () => void;
+  setSessionRuntimeForTest: (nextState: {
+    cancelCurrentChat?: (() => void) | null;
+    sessionHasPassword?: boolean;
+    shareMode?: 'private' | 'public';
+    showVerifyPasswordDialog?: boolean;
+    activitySnapshots?: Array<{ items: any[]; plan: any }>;
+    pendingSkillSave?: string | null;
+    pendingToolSave?: string | null;
+    lastTurnHadError?: boolean;
+    searchQuery?: string;
+  }) => void;
   getState: () => {
+    sessionId: string | undefined;
     messages: any[];
     realTime: boolean;
+    isLoading: boolean;
+    title: string;
+    shareMode: 'private' | 'public';
     activityItems: any[];
     activitySnapshots: Array<{ items: any[]; plan: any }>;
     plan: any;
+    sessionHasPassword: boolean;
+    showVerifyPasswordDialog: boolean;
     pendingSkillSave: string | null;
     pendingToolSave: string | null;
     isReplayingHistory: boolean;
+    lastTurnHadError: boolean;
+    sessionSearchQuery: string;
+    isSessionSearchOpen: boolean;
   };
 };
 
-const mountChatPage = () => {
+const mountChatPageWrapper = () => {
   const wrapper = shallowMount(ChatPage, {
     global: {
       stubs: {
@@ -148,6 +175,12 @@ const mountChatPage = () => {
     },
   });
 
+  mountedWrappers.push(wrapper);
+  return wrapper;
+};
+
+const mountChatPage = () => {
+  const wrapper = mountChatPageWrapper();
   return (wrapper.vm as unknown as { __test: ChatPageTestApi }).__test;
 };
 
@@ -248,9 +281,16 @@ const createRoundEvents = (): AgentSSEEvent[] => [
   },
 ];
 
+afterEach(() => {
+  mountedWrappers.splice(0).forEach(wrapper => wrapper.unmount());
+});
+
 describe('ChatPage history replay batching', () => {
   beforeEach(() => {
     vi.useRealTimers();
+    vi.clearAllMocks();
+    vi.mocked(agentApi.lockSessionPassword).mockResolvedValue({ locked: true });
+    currentRoute.value = { params: {} };
   });
 
   it('keeps handleEvent semantics while replaying history into one final messages assignment', () => {
@@ -321,6 +361,118 @@ describe('ChatPage history replay batching', () => {
       expect.objectContaining({
         type: 'user',
         content: expect.objectContaining({ content: 'Live message' }),
+      }),
+    ]);
+  });
+});
+
+describe('ChatPage route session reuse', () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+    vi.mocked(agentApi.lockSessionPassword).mockResolvedValue({ locked: true });
+    currentRoute.value = { params: { sessionId: 'session-a' } };
+    vi.mocked(agentApi.getSession).mockResolvedValue({
+      session_id: 'session-a',
+      title: 'Session A',
+      status: SessionStatus.COMPLETED,
+      events: [],
+      is_shared: true,
+      mode: 'deep',
+      model_config_id: null,
+      selected_skill_names: [],
+      has_password: true,
+      locked: false,
+    });
+  });
+
+  it('reuses ChatPage on sessionId change, cancels old SSE, locks password session, and resets old state', async () => {
+    const wrapper = mountChatPageWrapper();
+    const page = (wrapper.vm as unknown as { __test: ChatPageTestApi }).__test;
+    await nextTick();
+    await Promise.resolve();
+
+    page.handleEvent({
+      event: 'message',
+      data: {
+        event_id: 'evt-old-user',
+        timestamp: 1,
+        role: 'user',
+        content: 'old message',
+        attachments: [],
+      },
+    });
+    page.handleEvent({
+      event: 'done',
+      data: {
+        event_id: 'evt-old-done',
+        timestamp: 2,
+      },
+    });
+
+    const cancelOldSse = vi.fn();
+    page.setSessionRuntimeForTest({
+      cancelCurrentChat: cancelOldSse,
+      sessionHasPassword: true,
+      shareMode: 'public',
+      showVerifyPasswordDialog: true,
+      activitySnapshots: [{ items: [{ id: 'old-activity', type: 'thinking' }], plan: undefined }],
+      pendingSkillSave: 'old-skill',
+      pendingToolSave: 'old-tool',
+      lastTurnHadError: true,
+      searchQuery: 'old',
+    });
+
+    vi.mocked(agentApi.getSession).mockResolvedValueOnce({
+      session_id: 'session-b',
+      title: 'Session B',
+      status: SessionStatus.COMPLETED,
+      events: [{
+        event: 'message',
+        data: {
+          event_id: 'evt-new-user',
+          timestamp: 10,
+          role: 'user',
+          content: 'new message',
+          attachments: [],
+        },
+      }],
+      is_shared: false,
+      mode: 'deep',
+      model_config_id: null,
+      selected_skill_names: [],
+      has_password: false,
+      locked: false,
+    });
+
+    const unmountedBeforeSwitch = wrapper.emitted();
+    currentRoute.value = { params: { sessionId: 'session-b' } };
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(wrapper.exists()).toBe(true);
+    expect(wrapper.emitted()).toEqual(unmountedBeforeSwitch);
+    expect(cancelOldSse).toHaveBeenCalledOnce();
+    expect(agentApi.lockSessionPassword).toHaveBeenCalledWith('session-a');
+    expect(agentApi.getSession).toHaveBeenLastCalledWith('session-b');
+
+    const state = page.getState();
+    expect(state.sessionId).toBe('session-b');
+    expect(state.title).toBe('Session B');
+    expect(state.shareMode).toBe('private');
+    expect(state.sessionHasPassword).toBe(false);
+    expect(state.showVerifyPasswordDialog).toBe(false);
+    expect(state.activitySnapshots).toHaveLength(0);
+    expect(state.pendingSkillSave).toBeNull();
+    expect(state.pendingToolSave).toBeNull();
+    expect(state.lastTurnHadError).toBe(false);
+    expect(state.sessionSearchQuery).toBe('');
+    expect(state.isSessionSearchOpen).toBe(false);
+    expect(state.messages).toEqual([
+      expect.objectContaining({
+        type: 'user',
+        content: expect.objectContaining({ content: 'new message' }),
       }),
     ]);
   });

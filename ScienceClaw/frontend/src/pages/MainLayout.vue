@@ -4,7 +4,7 @@
     <div className="flex-1 min-w-0 h-full py-0 pr-0 relative">
       <div className="flex h-full bg-[var(--background-gray-main)]">
         <div class="flex flex-1 min-w-0 min-h-0">
-          <router-view :key="routeViewKey" />
+          <router-view />
           <FilePanel />
         </div>
       </div>
@@ -25,12 +25,4 @@ import TakeOverView from '@/components/TakeOverView.vue';
 import SessionFileList from '@/components/SessionFileList.vue';
 import FilePanel from '@/components/FilePanel.vue';
 import SettingsDialog from '@/components/settings/SettingsDialog.vue';
-import { computed } from 'vue';
-import { useRoute } from 'vue-router';
-
-const route = useRoute();
-const routeViewKey = computed(() => {
-  const sessionId = route.params.sessionId;
-  return Array.isArray(sessionId) ? sessionId.join('/') : (sessionId ?? 'root');
-});
 </script>

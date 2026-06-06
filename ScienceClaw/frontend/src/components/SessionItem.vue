@@ -49,6 +49,9 @@
             <!-- Shared icon -->
             <Globe v-if="session.is_shared" :size="12" class="text-blue-400" />
 
+            <!-- Password protected icon -->
+            <Lock v-if="session.has_password" :size="12" class="text-amber-500" :title="t('Password protected')" />
+
             <!-- Running indicator -->
             <span v-if="isRunning" class="running-dots flex items-center gap-0.5">
               <span class="w-1 h-1 rounded-full bg-amber-400 animate-bounce" style="animation-delay: 0ms"></span>
@@ -132,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { Pencil, Pin, Trash2, Globe } from 'lucide-vue-next';
+import { Pencil, Pin, Trash2, Globe, Lock } from 'lucide-vue-next';
 import { computed, ref, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';

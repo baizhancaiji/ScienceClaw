@@ -252,7 +252,7 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n()
 const { isLeftPanelShow, toggleLeftPanel } = useLeftPanel()
-const { setOnSessionTitleUpdate } = useSessionListUpdate()
+const { setOnSessionPatch, setOnSessionTitleUpdate } = useSessionListUpdate()
 const { onSessionCreated, onSessionUpdated } = useSessionNotifications()
 const { openSettingsDialog } = useSettingsDialog()
 const { currentUser } = useAuth()
@@ -411,6 +411,12 @@ onMounted(async () => {
     const s = sessions.value.find((x) => x.session_id === sessionId)
     if (s) s.title = title
   })
+  setOnSessionPatch((sessionId: string, patch: Partial<ListSessionItem>) => {
+    const index = sessions.value.findIndex((session) => session.session_id === sessionId)
+    if (index !== -1) {
+      sessions.value[index] = { ...sessions.value[index], ...patch }
+    }
+  })
 
   onSessionCreated(() => updateSessions())
   onSessionUpdated(({ session_id }) => {
@@ -427,6 +433,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   setOnSessionTitleUpdate(null)
+  setOnSessionPatch(null)
   window.removeEventListener('keydown', handleKeydown)
 })
 

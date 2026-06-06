@@ -20,6 +20,8 @@ export interface GetSessionResponse {
     mode: string;
     model_config_id: string | null;
     selected_skill_names?: string[];
+    has_password?: boolean;
+    locked?: boolean;
 }
 
 export interface ListSessionItem {
@@ -33,6 +35,7 @@ export interface ListSessionItem {
     mode: string;
     pinned?: boolean;
     source?: string | null;
+    has_password?: boolean;
 }
 
 export interface ListSessionResponse {

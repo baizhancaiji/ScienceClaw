@@ -34,6 +34,7 @@ from urllib.parse import urlencode
 import shutil
 from pathlib import Path as _Path
 
+import bcrypt
 import httpx
 import yaml as _yaml
 
@@ -50,6 +51,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from backend.deepagent.engine import get_llm_model
 from backend.deepagent.runner import arun_science_task_stream
+from backend.deepagent import sessions as session_store
 from backend.deepagent.sessions import (
     ScienceSessionNotFoundError,
     async_create_science_session,
@@ -103,6 +105,7 @@ class ListSessionItem(BaseModel):
     mode: str = Field(default="deep", description="Session mode")
     pinned: bool = Field(default=False, description="Whether pinned")
     source: Optional[str] = Field(default=None, description="Session source (e.g. wechat, lark)")
+    has_password: bool = Field(default=False, description="Whether password protected")
 
 
 class ListSessionData(BaseModel):
@@ -118,6 +121,8 @@ class GetSessionData(BaseModel):
     mode: str = Field(default="deep", description="Session mode")
     model_config_id: Optional[str] = Field(default=None, description="Model config ID")
     selected_skill_names: List[str] = Field(default_factory=list, description="User-selected skill names")
+    has_password: bool = Field(default=False, description="Whether password protected")
+    locked: bool = Field(default=False, description="Whether current user must verify password")
 
 
 class ChatRequest(BaseModel):
@@ -146,6 +151,31 @@ class ExportPdfRequest(BaseModel):
     locale: str = Field(default="zh", description="Current UI locale")
 
 
+class SetPasswordRequest(BaseModel):
+    password: str
+    hint: Optional[str] = None
+
+
+class UpdatePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+    hint: Optional[str] = None
+
+
+class RemovePasswordRequest(BaseModel):
+    password: str
+
+
+class VerifyPasswordRequest(BaseModel):
+    password: str
+
+
+class ResetPasswordRequest(BaseModel):
+    account_password: str
+    new_password: Optional[str] = None
+    hint: Optional[str] = None
+
+
 # ═══════════════════════════════════════════════════════════════════
 # 内部辅助函数
 # ═══════════════════════════════════════════════════════════════════
@@ -170,8 +200,6 @@ _PDF_EXPORT_ERROR_STATUS = {
     "PDF_EXPORT_TIMEOUT": 504,
     "PDF_EXPORT_UNKNOWN_ERROR": 500,
 }
-
-
 def _now_ts() -> int:
     return int(time.time())
 
@@ -557,6 +585,82 @@ async def _render_pdf_in_sandbox(
             await _sandbox_remove_path(client, base, work_dir)
 
 
+def _hash_session_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_session_password(password: str, password_hash: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+
+
+def _session_has_password(session: Any) -> bool:
+    return bool(getattr(session, "password_hash", None))
+
+
+def _is_session_unlocked(session: Any, current_user: User) -> bool:
+    if not _session_has_password(session):
+        return True
+    unlocked_by = getattr(session, "password_unlocked_by", None)
+    if not isinstance(unlocked_by, dict):
+        return False
+    return bool(unlocked_by.get(current_user.id))
+
+
+def _mark_session_unlocked(session: Any, current_user: User) -> None:
+    unlocked_by = getattr(session, "password_unlocked_by", None)
+    if not isinstance(unlocked_by, dict):
+        unlocked_by = {}
+        setattr(session, "password_unlocked_by", unlocked_by)
+    unlocked_by[current_user.id] = True
+
+
+def _clear_session_unlocks(session: Any) -> None:
+    setattr(session, "password_unlocked_by", {})
+
+
+def _lock_session_for_user(session: Any, current_user: User) -> None:
+    unlocked_by = getattr(session, "password_unlocked_by", None)
+    if isinstance(unlocked_by, dict):
+        unlocked_by.pop(current_user.id, None)
+
+
+def _require_session_unlocked(session: Any, current_user: User) -> None:
+    if not _is_session_unlocked(session, current_user):
+        raise HTTPException(status_code=403, detail="Session password required")
+
+
+async def _get_owned_session_or_404(session_id: str, current_user: User) -> Any:
+    try:
+        session = await async_get_science_session(session_id)
+    except ScienceSessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Session not found") from exc
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return session
+
+
+def _validate_session_password_strength(password: str, field_name: str = "Password") -> None:
+    if len(password) < 4:
+        raise HTTPException(status_code=400, detail=f"{field_name} must be at least 4 characters")
+    categories = sum([
+        any(ch.islower() for ch in password),
+        any(ch.isupper() for ch in password),
+        any(ch.isdigit() for ch in password),
+    ])
+    if categories < 2:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field_name} must include at least two of lowercase letters, uppercase letters, and numbers",
+        )
+
+
+def _normalize_password_hint(hint: Optional[str]) -> Optional[str]:
+    if hint is None:
+        return None
+    value = hint.strip()
+    return value[:100] if value else None
+
+
 def _session_to_list_item(session) -> ListSessionItem:
     return ListSessionItem(
         session_id=session.session_id,
@@ -569,6 +673,7 @@ def _session_to_list_item(session) -> ListSessionItem:
         mode=getattr(session, "mode", "deep"),
         pinned=getattr(session, "pinned", False),
         source=getattr(session, "source", None),
+        has_password=_session_has_password(session),
     )
 
 
@@ -1154,6 +1259,8 @@ async def get_shared_session(session_id: str) -> ApiResponse:
         session = await async_get_science_session(session_id)
         if not getattr(session, "is_shared", False):
             raise HTTPException(status_code=404, detail="Shared session not found")
+        if _session_has_password(session):
+            raise HTTPException(status_code=404, detail="Shared session not found")
 
         events = getattr(session, "events", []) or []
         return ApiResponse(data=GetSessionData(
@@ -1164,6 +1271,8 @@ async def get_shared_session(session_id: str) -> ApiResponse:
             is_shared=True,
             mode=getattr(session, "mode", "deep"),
             selected_skill_names=getattr(session, "selected_skill_names", []) or [],
+            has_password=False,
+            locked=False,
         ).model_dump())
     except ScienceSessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Shared session not found") from exc
@@ -1537,9 +1646,8 @@ async def save_skill_from_session(
 ) -> ApiResponse:
     """Copy a skill from the session workspace to the permanent Skills directory."""
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
 
         skill_name = body.skill_name.strip()
         if not skill_name or "/" in skill_name or "\\" in skill_name:
@@ -1791,9 +1899,8 @@ async def save_tool_from_session(
 ) -> ApiResponse:
     """Copy a tool from the session workspace to the permanent Tools directory."""
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
 
         tool_name = body.tool_name.strip()
         if not tool_name or "/" in tool_name or "\\" in tool_name:
@@ -1846,9 +1953,8 @@ async def upload_session_file(
 ) -> ApiResponse:
     """Upload a file to session workspace (/home/scienceclaw/{session_id}/)."""
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
 
         workspace_dir = _Path(_WORKSPACE_DIR) / session_id
         workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -1934,9 +2040,8 @@ async def get_vnc_signed_url(
     current_user: User = Depends(require_user),
 ) -> ApiResponse:
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
 
         expires_in = body.expire_minutes * 60
         expires_at = _now_ts() + expires_in
@@ -1976,6 +2081,8 @@ async def export_session_pdf(
         return _pdf_error_response("PDF_EXPORT_UNKNOWN_ERROR")
 
     if session.user_id != current_user.id:
+        return _pdf_error_response("PDF_EXPORT_ACCESS_DENIED")
+    if not _is_session_unlocked(session, current_user):
         return _pdf_error_response("PDF_EXPORT_ACCESS_DENIED")
 
     if _pdf_payload_size_bytes(body) > _PDF_EXPORT_MAX_PAYLOAD_BYTES:
@@ -2047,6 +2154,9 @@ async def proxy_vnc_websocket(
         if session.user_id != user_id or not _is_valid_vnc_signature(session_id, user_id, expires, sig):
             await websocket.close(code=1008)
             return
+        if not _is_session_unlocked(session, User(id=user_id, username=user_id, role="user")):
+            await websocket.close(code=1008)
+            return
     except ScienceSessionNotFoundError:
         await websocket.close(code=1008)
         return
@@ -2109,13 +2219,15 @@ async def proxy_vnc_websocket(
 # ═══════════════════════════════════════════════════════════════════
 
 @router.get("/{session_id}", response_model=ApiResponse)
-async def get_session(session_id: str, current_user: User = Depends(require_user)) -> ApiResponse:
+async def get_session(
+    session_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
 
         events = getattr(session, "events", []) or []
+        locked = _session_has_password(session) and not _is_session_unlocked(session, current_user)
         # 从 session.model_config 中提取 model_config_id
         mc = getattr(session, "model_config", None)
         mc_id = mc.get("id") if isinstance(mc, dict) else None
@@ -2123,11 +2235,13 @@ async def get_session(session_id: str, current_user: User = Depends(require_user
             session_id=session.session_id,
             title=getattr(session, "title", None),
             status=getattr(session, "status", SessionStatus.PENDING),
-            events=events,
+            events=[] if locked else events,
             is_shared=getattr(session, "is_shared", False),
             mode=getattr(session, "mode", "deep"),
             model_config_id=mc_id,
             selected_skill_names=getattr(session, "selected_skill_names", []) or [],
+            has_password=_session_has_password(session),
+            locked=locked,
         ).model_dump())
     except ScienceSessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -2164,6 +2278,190 @@ class TitleRequest(BaseModel):
     title: str
 
 
+@router.post("/{session_id}/password", response_model=ApiResponse)
+async def set_session_password(
+    session_id: str,
+    body: SetPasswordRequest,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    try:
+        session = await _get_owned_session_or_404(session_id, current_user)
+        if _session_has_password(session):
+            raise HTTPException(status_code=400, detail="Session already has password")
+        _validate_session_password_strength(body.password)
+        session.password_hash = _hash_session_password(body.password)
+        session.password_hint = _normalize_password_hint(body.hint)
+        session.is_shared = False
+        _clear_session_unlocks(session)
+        _mark_session_unlocked(session, current_user)
+        await session.save()
+        return ApiResponse(data={"has_password": True})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("set_session_password failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.put("/{session_id}/password", response_model=ApiResponse)
+async def update_session_password(
+    session_id: str,
+    body: UpdatePasswordRequest,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    try:
+        session = await _get_owned_session_or_404(session_id, current_user)
+        if not _session_has_password(session):
+            raise HTTPException(status_code=400, detail="Session has no password")
+        if not _verify_session_password(body.old_password, session.password_hash):
+            raise HTTPException(status_code=400, detail="Invalid session password")
+        _validate_session_password_strength(body.new_password, "New password")
+        session.password_hash = _hash_session_password(body.new_password)
+        session.password_hint = _normalize_password_hint(body.hint)
+        session.is_shared = False
+        _clear_session_unlocks(session)
+        _mark_session_unlocked(session, current_user)
+        await session.save()
+        return ApiResponse(data={"has_password": True})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("update_session_password failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/password/remove", response_model=ApiResponse)
+async def remove_session_password(
+    session_id: str,
+    body: RemovePasswordRequest,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    try:
+        session = await _get_owned_session_or_404(session_id, current_user)
+        if not _session_has_password(session):
+            raise HTTPException(status_code=400, detail="Session has no password")
+        if not _verify_session_password(body.password, session.password_hash):
+            raise HTTPException(status_code=400, detail="Invalid session password")
+        session.password_hash = None
+        session.password_hint = None
+        _clear_session_unlocks(session)
+        await session.save()
+        return ApiResponse(data={"has_password": False})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("remove_session_password failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/verify-password", response_model=ApiResponse)
+async def verify_session_password(
+    session_id: str,
+    body: VerifyPasswordRequest,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    try:
+        session = await _get_owned_session_or_404(session_id, current_user)
+        if not _session_has_password(session):
+            return ApiResponse(data={"valid": True})
+        valid = _verify_session_password(body.password, session.password_hash)
+        if valid:
+            _mark_session_unlocked(session, current_user)
+        return ApiResponse(data={"valid": valid})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("verify_session_password failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/{session_id}/password-hint", response_model=ApiResponse)
+async def get_session_password_hint(
+    session_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    try:
+        session = await _get_owned_session_or_404(session_id, current_user)
+        return ApiResponse(data={"hint": getattr(session, "password_hint", None)})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("get_session_password_hint failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/reset-password", response_model=ApiResponse)
+async def reset_session_password(
+    session_id: str,
+    body: ResetPasswordRequest,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    try:
+        session = await _get_owned_session_or_404(session_id, current_user)
+        user_doc = await _db.get_collection("users").find_one({"_id": current_user.id})
+        if not user_doc:
+            raise HTTPException(status_code=404, detail="User not found")
+        password_hash = user_doc.get("password_hash")
+        if not password_hash or not _verify_session_password(body.account_password, password_hash):
+            raise HTTPException(status_code=400, detail="Invalid account password")
+
+        if body.new_password:
+            _validate_session_password_strength(body.new_password, "New password")
+            session.password_hash = _hash_session_password(body.new_password)
+            session.password_hint = _normalize_password_hint(body.hint)
+            session.is_shared = False
+            has_password = True
+        else:
+            session.password_hash = None
+            session.password_hint = None
+            has_password = False
+
+        _clear_session_unlocks(session)
+        if has_password:
+            _mark_session_unlocked(session, current_user)
+        await session.save()
+        return ApiResponse(data={"has_password": has_password})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("reset_session_password failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/password/lock", response_model=ApiResponse)
+async def lock_session_password(
+    session_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    try:
+        session = await _get_owned_session_or_404(session_id, current_user)
+        if _session_has_password(session):
+            _lock_session_for_user(session, current_user)
+        return ApiResponse(data={"locked": _session_has_password(session)})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("lock_session_password failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/password/lock-all", response_model=ApiResponse)
+async def lock_all_session_passwords(current_user: User = Depends(require_user)) -> ApiResponse:
+    locked_count = 0
+    try:
+        async with session_store._sessions_lock:
+            for session in session_store._sessions.values():
+                if getattr(session, "user_id", None) == current_user.id and _session_has_password(session):
+                    before = _is_session_unlocked(session, current_user)
+                    _lock_session_for_user(session, current_user)
+                    if before:
+                        locked_count += 1
+        return ApiResponse(data={"locked": True, "count": locked_count})
+    except Exception as exc:
+        logger.exception("lock_all_session_passwords failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.patch("/{session_id}/pin", response_model=ApiResponse)
 async def update_session_pin(
     session_id: str,
@@ -2172,9 +2470,7 @@ async def update_session_pin(
 ) -> ApiResponse:
     """Pin or unpin a session."""
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
         session.pinned = request.pinned
         await session.save()
         return ApiResponse(data={"session_id": session_id, "pinned": request.pinned})
@@ -2195,9 +2491,7 @@ async def update_session_title(
 ) -> ApiResponse:
     """Update session title."""
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
         session.title = request.title
         await session.save()
         return ApiResponse(data={"session_id": session_id, "title": request.title})
@@ -2211,11 +2505,13 @@ async def update_session_title(
 
 
 @router.post("/{session_id}/clear_unread_message_count", response_model=ApiResponse)
-async def clear_unread_message_count(session_id: str, current_user: User = Depends(require_user)) -> ApiResponse:
+async def clear_unread_message_count(
+    session_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
         session.unread_message_count = 0
         await session.save()
         return ApiResponse(data={"ok": True})
@@ -2229,11 +2525,13 @@ async def clear_unread_message_count(session_id: str, current_user: User = Depen
 
 
 @router.post("/{session_id}/stop", response_model=ApiResponse)
-async def stop_session(session_id: str, current_user: User = Depends(require_user)) -> ApiResponse:
+async def stop_session(
+    session_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
         session.cancel()
         setattr(session, "status", SessionStatus.COMPLETED)
         await session.save()
@@ -2566,9 +2864,8 @@ async def chat_with_session(
 ) -> EventSourceResponse:
 
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
     except ScienceSessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -2679,11 +2976,15 @@ async def chat_with_session(
 
 
 @router.post("/{session_id}/share", response_model=ApiResponse)
-async def share_session(session_id: str, current_user: User = Depends(require_user)) -> ApiResponse:
+async def share_session(
+    session_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
+        if _session_has_password(session):
+            raise HTTPException(status_code=400, detail="Password protected sessions cannot be shared")
         session.is_shared = True
         await session.save()
         return ApiResponse(data={"session_id": session_id, "is_shared": True})
@@ -2697,11 +2998,13 @@ async def share_session(session_id: str, current_user: User = Depends(require_us
 
 
 @router.delete("/{session_id}/share", response_model=ApiResponse)
-async def unshare_session(session_id: str, current_user: User = Depends(require_user)) -> ApiResponse:
+async def unshare_session(
+    session_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
         session.is_shared = False
         await session.save()
         return ApiResponse(data={"session_id": session_id, "is_shared": False})
@@ -2735,12 +3038,14 @@ def _classify_file(rel_path: str) -> str:
 
 
 @router.get("/{session_id}/files", response_model=ApiResponse)
-async def list_session_files(session_id: str, current_user: User = Depends(require_user)) -> ApiResponse:
+async def list_session_files(
+    session_id: str,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
     """列出 session workspace 目录（/home/scienceclaw/{session_id}/）下的所有文件。"""
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
 
         workspace_dir = session.vm_root_dir
         if not workspace_dir.is_dir():
@@ -2791,9 +3096,8 @@ async def read_sandbox_file(
 ):
     """代理读取沙盒文件内容。path 必须在 session workspace 目录下。"""
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
 
         workspace_prefix = str(session.vm_root_dir) + "/"
         if not path.startswith(workspace_prefix):
@@ -2829,9 +3133,8 @@ async def download_sandbox_file(
 ):
     """直接返回沙盒文件原始内容（用于下载/预览）。优先本地文件系统，回退 sandbox API。"""
     try:
-        session = await async_get_science_session(session_id)
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        session = await _get_owned_session_or_404(session_id, current_user)
+        _require_session_unlocked(session, current_user)
 
         workspace_prefix = str(session.vm_root_dir) + "/"
         if not path.startswith(workspace_prefix):

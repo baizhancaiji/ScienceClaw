@@ -25,10 +25,10 @@
 | `docs/archive/plans/tech-debt-audit-report-v2.md` | 前端技术债治理施工单 v2 批次 1-10 已完成；剩余 major migration 候选项需另行建独立计划。 | 如继续处理 Vite/Vitest、Tailwind/Reka、Vue Router、Vue I18n v11 等依赖债务，应新建独立活跃施工单。 |
 | `docs/archive/plans/pdf-export-plan.md` | PDF 导出全链路已完成：后端 sandbox Playwright 编排、5 分钟缓存、前端 composable/组件接线、i18n 文案、前后端单测（25/25 通过）、Docker 运行态验证、手动 smoke 确认功能正常。`gitnexus detect-changes` 已执行，risk=medium。 | 无后续阻塞项。 |
 | `docs/archive/plans/vnc-signed-url-plan-zh.md` | VNC signed URL 全链路已完成：后端 HMAC 签名 + WebSocket 代理、前端 API + VNCViewer 接线、单测（4/4 通过）、Docker 运行态验证、noVNC 手动 smoke 确认可交互。sandbox 容器网络和 Chromium headless 均正常。 | 无后续阻塞项。sandbox 内图形化 Chromium 联网问题为独立事项，与 VNC 接口无关。 |
+| `docs/archive/plans/session-password-protection-design.md` | 会话密码保护已完成：后端 bcrypt 密码字段、服务端内存解锁、离开会话/退出登录锁回、受保护资源统一门禁、前端密码弹窗/锁图标/i18n、测试和运行态验证均已闭环。 | 无后续阻塞项。 |
 
 ## 已归档计划残余事项
 
 | 归档计划 | 残余未测项 | 累积警告 |
 | --- | --- | --- |
 | 第三方 HTTPS MCP 接入 | live LLM chat/SSE 长链路、live 非法 JSON HTTPS MCP server、50 工具规模下长时间真实聊天调用、前端自动化测试基座未覆盖；详见 `docs/archive/plans/mcp-https-integration-completion-audit-zh.md`。 | Browserslist 数据陈旧、Vite CSS minify、chunk size、`lark_oapi` deprecation、unclosed event loop ResourceWarning、GitNexus 生成文件未纳入提交；详见归档审计文档。 |
-

@@ -161,6 +161,18 @@
                   </PopoverContent>
                 </Popover>
               </span>
+              <button
+                type="button"
+                class="h-8 w-8 rounded-xl inline-flex items-center justify-center border transition-all duration-200 hover:shadow-sm"
+                :class="sessionHasPassword
+                  ? 'border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300'
+                  : 'border-gray-200 text-[var(--icon-secondary)] hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800'"
+                :title="sessionHasPassword ? t('Manage session password') : t('Set session password')"
+                @click="openSessionPasswordManager"
+              >
+                <Lock v-if="sessionHasPassword" :size="16" />
+                <LockOpen v-else :size="16" />
+              </button>
               <button @click="handleFileListShow"
                 class="h-8 w-8 rounded-xl inline-flex items-center justify-center border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-sm transition-all duration-200">
                 <FileSearch class="text-[var(--icon-secondary)]" :size="16" />
@@ -323,6 +335,21 @@
       :isShare="false"
       @jumpToRealTime="jumpToRealTime" />
     </SimpleBar>
+    <SessionPasswordDialog
+      :open="showSessionPasswordDialog"
+      :session-id="sessionId || ''"
+      :mode="sessionPasswordDialogMode"
+      @update:open="showSessionPasswordDialog = $event"
+      @success="handleSessionPasswordChanged"
+      @switch-mode="sessionPasswordDialogMode = $event"
+    />
+    <VerifySessionPasswordDialog
+      :open="showVerifyPasswordDialog"
+      :session-id="sessionId || ''"
+      @update:open="showVerifyPasswordDialog = $event"
+      @success="handleSessionPasswordVerified"
+      @cancel="handleSessionPasswordCancelled"
+    />
   </div>
 </template>
 
@@ -348,8 +375,10 @@ import {
   AgentSSEEvent,
 } from '../types/event';
 import ToolPanel from '../components/ToolPanel.vue'
-import { ArrowDown, FileSearch, Lock, Globe, Link, Check, Package, Wrench, X, Search } from 'lucide-vue-next';
+import { ArrowDown, FileSearch, Lock, LockOpen, Globe, Link, Check, Package, Wrench, X, Search } from 'lucide-vue-next';
 import ShareIcon from '@/components/icons/ShareIcon.vue';
+import SessionPasswordDialog from '../components/session-password/SessionPasswordDialog.vue';
+import VerifySessionPasswordDialog from '../components/session-password/VerifySessionPasswordDialog.vue';
 import { showErrorToast, showSuccessToast } from '../utils/toast';
 import type { FileInfo } from '../api/file';
 import { useSessionListUpdate } from '../composables/useSessionListUpdate'
@@ -379,7 +408,7 @@ const router = useRouter()
 const { t, locale } = useI18n()
 const { shared } = useSessionFileList()
 const { hideFilePanel, showFileListPanel } = useFilePanel()
-const { updateSessionTitle } = useSessionListUpdate()
+const { patchSessionItem, updateSessionTitle } = useSessionListUpdate()
 const { onSessionUpdated } = useSessionNotifications()
 
 // Models related state
@@ -510,6 +539,12 @@ const pendingToolSave = ref<string | null>(null);
 const pendingToolReplaces = ref<string | null>(null);
 const savingTool = ref(false);
 
+// Session password state
+const sessionHasPassword = ref(false);
+const showVerifyPasswordDialog = ref(false);
+const showSessionPasswordDialog = ref(false);
+const sessionPasswordDialogMode = ref<'set' | 'update' | 'remove'>('set');
+
 // 上一轮是否因报错结束（用于显示「推理失败」而非「推理完成」）
 const lastTurnHadError = ref(false);
 
@@ -603,6 +638,44 @@ const handleSessionSearchNext = () => {
     return;
   }
   selectNextSearchResult();
+};
+
+const openSessionPasswordManager = () => {
+  sessionPasswordDialogMode.value = sessionHasPassword.value ? 'update' : 'set';
+  showSessionPasswordDialog.value = true;
+};
+
+const handleSessionPasswordChanged = (hasPassword: boolean) => {
+  sessionHasPassword.value = hasPassword;
+  if (sessionId.value) {
+    patchSessionItem(sessionId.value, hasPassword ? { has_password: true, is_shared: false } : { has_password: false });
+  }
+  if (hasPassword) {
+    shareMode.value = 'private';
+  }
+  if (!hasPassword) {
+    showVerifyPasswordDialog.value = false;
+    showSuccessToast(t('Session password removed'));
+  } else {
+    showSuccessToast(t(sessionPasswordDialogMode.value === 'update' ? 'Session password changed' : 'Session password set'));
+  }
+};
+
+const handleSessionPasswordVerified = async (hasPassword?: boolean) => {
+  showVerifyPasswordDialog.value = false;
+  if (typeof hasPassword === 'boolean') {
+    if (!hasPassword) {
+      handleSessionPasswordChanged(false);
+    } else {
+      sessionHasPassword.value = true;
+    }
+  }
+  await restoreSession();
+};
+
+const handleSessionPasswordCancelled = () => {
+  showVerifyPasswordDialog.value = false;
+  router.replace('/');
 };
 
 watch(sessionSearchResults, (results) => {
@@ -1266,6 +1339,7 @@ const restoreSession = async () => {
 
   if (isStale()) { console.log('[restoreSession] stale after load, aborting'); return; }
 
+  sessionHasPassword.value = !!session.has_password;
   if (session.title) {
     title.value = session.title;
     updateSessionTitle(sessionId.value, session.title);
@@ -1278,6 +1352,15 @@ const restoreSession = async () => {
     selectedModelId.value = session.model_config_id;
   }
   selectedSkillNames.value = session.selected_skill_names || [];
+
+  if (session.has_password && session.locked) {
+    showVerifyPasswordDialog.value = true;
+    messages.value = [];
+    realTime.value = true;
+    isLoading.value = false;
+    return;
+  }
+
   realTime.value = false;
   for (const event of session.events) {
     if (isStale()) return;
@@ -1392,6 +1475,9 @@ watch(isSettingsDialogOpen, async (newVal, oldVal) => {
 
 onUnmounted(() => {
   console.log('[ChatPage] onUnmounted, sessionId:', sessionId.value);
+  if (sessionId.value && sessionHasPassword.value) {
+    agentApi.lockSessionPassword(sessionId.value).catch(() => {});
+  }
   _unmounted = true;
   cancelScheduledChunkFlush();
   _pendingChunkText = '';
@@ -1454,7 +1540,7 @@ const handleSaveTool = async () => {
     await agentApi.saveToolFromSession(
       sessionId.value,
       pendingToolSave.value,
-      pendingToolReplaces.value || undefined,
+      pendingToolReplaces.value || undefined
     );
     showSuccessToast(t('Tool "{name}" saved successfully', { name: pendingToolSave.value }));
     pendingToolSave.value = null;
@@ -1544,6 +1630,11 @@ const handleFileListShow = () => {
 // Share functionality handlers
 const handleShareModeChange = async (mode: 'private' | 'public') => {
   if (!sessionId.value || sharingLoading.value) return;
+  if (mode === 'public' && sessionHasPassword.value) {
+    shareMode.value = 'private';
+    showErrorToast(t('Password protected sessions cannot be shared'));
+    return;
+  }
   
   // If mode is same as current, no need to call API
   if (shareMode.value === mode) {
@@ -1572,6 +1663,11 @@ const handleShareModeChange = async (mode: 'private' | 'public') => {
 
 const handleInstantShare = async () => {
   if (!sessionId.value) return;
+  if (sessionHasPassword.value) {
+    shareMode.value = 'private';
+    showErrorToast(t('Password protected sessions cannot be shared'));
+    return;
+  }
   
   try {
     sharingLoading.value = true;

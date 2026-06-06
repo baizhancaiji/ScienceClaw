@@ -65,7 +65,10 @@ class ScienceSession:
     latest_message_at: int = 0
     pinned: bool = False
     source: Optional[str] = None
+    password_hash: Optional[str] = None
+    password_hint: Optional[str] = None
 
+    password_unlocked_by: Dict[str, bool] = field(default_factory=dict, repr=False)
     _shell_sessions: Dict[str, Any] = field(default_factory=dict)
 
     def cancel(self) -> None:
@@ -130,6 +133,8 @@ class ScienceSession:
             "events": self.events,
             "pinned": self.pinned,
             "source": self.source,
+            "password_hash": self.password_hash,
+            "password_hint": self.password_hint,
         }
         await db.get_collection("sessions").update_one(
             {"_id": self.session_id},
@@ -265,6 +270,8 @@ async def async_get_science_session(session_id: str) -> ScienceSession:
         latest_message_at=doc.get("latest_message_at", 0),
         pinned=doc.get("pinned", False),
         source=doc.get("source"),
+        password_hash=doc.get("password_hash"),
+        password_hint=doc.get("password_hint"),
     )
 
     async with _sessions_lock:
@@ -296,6 +303,7 @@ async def async_list_science_sessions(user_id: Optional[str] = None) -> List[Sci
         "latest_message_at": 1,
         "pinned": 1,
         "source": 1,
+        "password_hash": 1,
     }
     cursor = db.get_collection("sessions").find(query, projection).sort("updated_at", -1)
     sessions = []
@@ -330,6 +338,7 @@ async def async_list_science_sessions(user_id: Optional[str] = None) -> List[Sci
             latest_message_at=doc.get("latest_message_at", 0),
             pinned=doc.get("pinned", False),
             source=doc.get("source"),
+            password_hash=doc.get("password_hash"),
         )
         sessions.append(s)
 

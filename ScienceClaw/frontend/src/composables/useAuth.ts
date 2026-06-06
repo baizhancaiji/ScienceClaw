@@ -1,4 +1,5 @@
 import { ref, computed, onMounted } from 'vue'
+import { lockAllSessionPasswords } from '../api/agent'
 import { 
   login as apiLogin, 
   register as apiRegister, 
@@ -141,7 +142,11 @@ export function useAuth() {
       if (!silent) {
         isLoading.value = true
         authError.value = null
-        
+
+        await lockAllSessionPasswords().catch(error => {
+          console.warn('Failed to lock session passwords before logout:', error)
+        })
+
         // Call logout API
         await apiLogout()
       }
@@ -247,4 +252,4 @@ export function useAuth() {
     clearError,
     clearAuth
   }
-} 
+}

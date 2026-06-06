@@ -30,6 +30,19 @@ export interface ExportPdfPayload {
   locale: 'zh' | 'en';
 }
 
+export interface SessionPasswordStatus {
+  has_password: boolean;
+  locked?: boolean;
+}
+
+export interface VerifySessionPasswordResult {
+  valid: boolean;
+}
+
+export interface SessionPasswordHint {
+  hint: string | null;
+}
+
 export async function createSession(data: CreateSessionRequest): Promise<Session> {
   const response = await apiClient.put<ApiResponse<Session>>('/sessions', data);
   return response.data.data;
@@ -71,8 +84,74 @@ export async function updateSessionTitle(sessionId: string, title: string): Prom
   return response.data.data;
 }
 
-export function chatWithSession(sessionId: string, data: ChatRequest, callbacks: SSECallbacks<any>): Promise<() => void> {
-  return createSSEConnection(`/sessions/${sessionId}/chat`, { method: 'POST', body: data }, callbacks);
+export async function setSessionPassword(
+  sessionId: string,
+  data: { password: string; hint?: string },
+): Promise<SessionPasswordStatus> {
+  const response = await apiClient.post<ApiResponse<SessionPasswordStatus>>(`/sessions/${sessionId}/password`, data);
+  return response.data.data;
+}
+
+export async function updateSessionPassword(
+  sessionId: string,
+  data: { old_password: string; new_password: string; hint?: string },
+): Promise<SessionPasswordStatus> {
+  const response = await apiClient.put<ApiResponse<SessionPasswordStatus>>(`/sessions/${sessionId}/password`, data);
+  return response.data.data;
+}
+
+export async function removeSessionPassword(
+  sessionId: string,
+  data: { password: string },
+): Promise<SessionPasswordStatus> {
+  const response = await apiClient.post<ApiResponse<SessionPasswordStatus>>(`/sessions/${sessionId}/password/remove`, data);
+  return response.data.data;
+}
+
+export async function verifySessionPassword(
+  sessionId: string,
+  data: { password: string },
+): Promise<VerifySessionPasswordResult> {
+  const response = await apiClient.post<ApiResponse<VerifySessionPasswordResult>>(`/sessions/${sessionId}/verify-password`, data);
+  return response.data.data;
+}
+
+export async function getSessionPasswordHint(sessionId: string): Promise<SessionPasswordHint> {
+  const response = await apiClient.get<ApiResponse<SessionPasswordHint>>(`/sessions/${sessionId}/password-hint`);
+  return response.data.data;
+}
+
+export async function resetSessionPassword(
+  sessionId: string,
+  data: { account_password: string; new_password?: string; hint?: string },
+): Promise<SessionPasswordStatus> {
+  const response = await apiClient.post<ApiResponse<SessionPasswordStatus>>(`/sessions/${sessionId}/reset-password`, data);
+  return response.data.data;
+}
+
+export async function lockSessionPassword(sessionId: string): Promise<{ locked: boolean }> {
+  const response = await apiClient.post<ApiResponse<{ locked: boolean }>>(`/sessions/${sessionId}/password/lock`);
+  return response.data.data;
+}
+
+export async function lockAllSessionPasswords(): Promise<{ locked: boolean; count: number }> {
+  const response = await apiClient.post<ApiResponse<{ locked: boolean; count: number }>>('/sessions/password/lock-all');
+  return response.data.data;
+}
+
+export function chatWithSession(
+  sessionId: string,
+  data: ChatRequest,
+  callbacks: SSECallbacks<any>,
+): Promise<() => void> {
+  return createSSEConnection(
+    `/sessions/${sessionId}/chat`,
+    {
+      method: 'POST',
+      body: data,
+    },
+    callbacks,
+  );
 }
 
 export async function stopSession(sessionId: string): Promise<void> {
@@ -80,12 +159,16 @@ export async function stopSession(sessionId: string): Promise<void> {
 }
 
 export async function shareSession(sessionId: string): Promise<{session_id: string, is_shared: boolean}> {
-  const response = await apiClient.post<ApiResponse<{session_id: string, is_shared: boolean}>>(`/sessions/${sessionId}/share`);
+  const response = await apiClient.post<ApiResponse<{session_id: string, is_shared: boolean}>>(
+    `/sessions/${sessionId}/share`,
+  );
   return response.data.data;
 }
 
 export async function unshareSession(sessionId: string): Promise<{session_id: string, is_shared: boolean}> {
-  const response = await apiClient.delete<ApiResponse<{session_id: string, is_shared: boolean}>>(`/sessions/${sessionId}/share`);
+  const response = await apiClient.delete<ApiResponse<{session_id: string, is_shared: boolean}>>(
+    `/sessions/${sessionId}/share`,
+  );
   return response.data.data;
 }
 
@@ -95,7 +178,9 @@ export async function getSharedSession(sessionId: string): Promise<SessionDetail
 }
 
 export async function clearUnreadMessageCount(sessionId: string): Promise<void> {
-  await apiClient.post(`/sessions/${sessionId}/clear_unread_message_count`);
+  await apiClient.post(
+    `/sessions/${sessionId}/clear_unread_message_count`,
+  );
 }
 
 export async function exportMessagePdf(
@@ -124,8 +209,14 @@ export async function viewFile(sessionId: string, filePath: string): Promise<{fi
   return response.data.data;
 }
 
-export async function getVNCUrl(sessionId: string, expireMinutes: number = 15): Promise<{signed_url: string, expires_in: number}> {
-  const response = await apiClient.post<ApiResponse<{signed_url: string, expires_in: number}>>(`/sessions/${sessionId}/vnc/signed-url`, { expire_minutes: expireMinutes });
+export async function getVNCUrl(
+  sessionId: string,
+  expireMinutes: number = 15,
+): Promise<{signed_url: string, expires_in: number}> {
+  const response = await apiClient.post<ApiResponse<{signed_url: string, expires_in: number}>>(
+    `/sessions/${sessionId}/vnc/signed-url`,
+    { expire_minutes: expireMinutes },
+  );
   return response.data.data;
 }
 
@@ -170,7 +261,10 @@ export function getSkillFileDownloadUrl(skillName: string, path: string): string
 }
 
 export async function saveSkillFromSession(sessionId: string, skillName: string): Promise<{skill_name: string, saved: boolean}> {
-  const response = await apiClient.post<ApiResponse<{skill_name: string, saved: boolean}>>(`/sessions/${sessionId}/skills/save`, { skill_name: skillName });
+  const response = await apiClient.post<ApiResponse<{skill_name: string, saved: boolean}>>(
+    `/sessions/${sessionId}/skills/save`,
+    { skill_name: skillName },
+  );
   return response.data.data;
 }
 
@@ -201,12 +295,18 @@ export async function saveToolFromSession(sessionId: string, toolName: string, r
   if (replaces && replaces !== toolName) {
     payload.replaces = replaces;
   }
-  const response = await apiClient.post<ApiResponse<{tool_name: string, saved: boolean, replaced?: string}>>(`/sessions/${sessionId}/tools/save`, payload);
+  const response = await apiClient.post<ApiResponse<{tool_name: string, saved: boolean, replaced?: string}>>(
+    `/sessions/${sessionId}/tools/save`,
+    payload,
+  );
   return response.data.data;
 }
 
 export async function readSandboxFile(sessionId: string, path: string): Promise<{file: string, content: string}> {
-  const response = await apiClient.get<ApiResponse<{file: string, content: string}>>(`/sessions/${sessionId}/sandbox-file`, { params: { path } });
+  const response = await apiClient.get<ApiResponse<{file: string, content: string}>>(
+    `/sessions/${sessionId}/sandbox-file`,
+    { params: { path } },
+  );
   return response.data.data;
 }
 

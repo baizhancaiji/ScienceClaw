@@ -5,7 +5,7 @@
 > **修订日期**: 2026-06-06
 > **优先级**: P0
 > **影响范围**: `ScienceClaw/frontend/src/`，`ScienceClaw/backend/route/sessions.py`
-> **状态**: 待施工
+> **状态**: W1 已完成，W2-W4 待施工
 
 ---
 
@@ -135,6 +135,11 @@ try {
 
 **优先级**: P0
 **改动文件**: `ScienceClaw/frontend/src/pages/ChatPage.vue`
+**施工状态**: 已完成（2026-06-07）
+**验证证据**:
+
+- `cd ScienceClaw/frontend && npm run test:run -- src/pages/ChatPage.spec.ts`
+- `cd ScienceClaw/frontend && npm run type-check`
 
 #### W1-Step-1：新增历史 replay 模式
 

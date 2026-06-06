@@ -571,10 +571,6 @@ watch(messages, async () => {
 
 
 
-const getLastStep = (): StepContent | undefined => {
-  return messages.value.filter(message => message.type === 'step').pop()?.content as StepContent;
-}
-
 const getGroupMessageKeys = (group: { sourceMessageIndexes?: number[] }) => {
   return (group.sourceMessageIndexes ?? []).map(getSessionSearchMessageKey);
 };
@@ -725,11 +721,36 @@ const showActivityForTurn = (turnIndex: number) => {
 // to avoid mutating dead state after the user navigated away.
 let _unmounted = false;
 const _processedEventIds = new Set<string>();
+let _isReplayingHistory = false;
+let _replayMessagesBuffer: Message[] | null = null;
+
+const appendMessage = (message: Message) => {
+  if (_isReplayingHistory && _replayMessagesBuffer) {
+    _replayMessagesBuffer.push(message);
+    return;
+  }
+  messages.value.push(message);
+};
+
+const replaceMessageAt = (index: number, message: Message) => {
+  if (_isReplayingHistory && _replayMessagesBuffer) {
+    _replayMessagesBuffer[index] = message;
+    return;
+  }
+  messages.value[index] = message;
+};
+
+const getReplayMessages = () => _replayMessagesBuffer ?? messages.value;
+const getMessagesForMutation = () => getReplayMessages();
+
+const getLastStep = (): StepContent | undefined => {
+  return getMessagesForMutation().filter(message => message.type === 'step').pop()?.content as StepContent;
+}
 
 const appendPendingMessageChunks = () => {
   if (!_pendingChunkText || _streamingMsgIndex.value === null) return;
 
-  const msg = messages.value[_streamingMsgIndex.value];
+  const msg = getMessagesForMutation()[_streamingMsgIndex.value];
   if (msg?.content) {
     (msg.content as any).content += _pendingChunkText;
   }
@@ -776,7 +797,7 @@ const handleMessageChunkEvent = (data: any) => {
 
   if (_streamingMsgIndex.value === null) {
     // First chunk: create a new assistant message
-    messages.value.push({
+    appendMessage({
       type: 'assistant',
       content: {
         event_id: data.event_id || '',
@@ -786,7 +807,7 @@ const handleMessageChunkEvent = (data: any) => {
         attachments: [],
       } as MessageContent,
     });
-    _streamingMsgIndex.value = messages.value.length - 1;
+    _streamingMsgIndex.value = getReplayMessages().length - 1;
   }
 
   _pendingChunkText += token;
@@ -807,7 +828,7 @@ const handleMessageEvent = (messageData: MessageEventData) => {
     _streamingMsgIndex.value = null;
   }
 
-  messages.value.push({
+  appendMessage({
     type: messageData.role,
     content: {
       ...messageData
@@ -822,7 +843,7 @@ const handleMessageEvent = (messageData: MessageEventData) => {
       }
       return att;
     });
-    messages.value.push({
+    appendMessage({
       type: 'attachments',
       content: {
         ...messageData,
@@ -903,7 +924,7 @@ const handleToolEvent = (toolData: ToolEventData) => {
     if (lastStep?.status === 'running') {
       lastStep.tools.push(toolContent);
     } else {
-      messages.value.push({
+      appendMessage({
         type: 'tool',
         content: toolContent,
       });
@@ -970,7 +991,7 @@ const handleStepEvent = (stepData: StepEventData) => {
   }
 
   if (stepData.status === 'running') {
-    messages.value.push({
+    appendMessage({
       type: 'step',
       content: {
         ...stepData,
@@ -1014,16 +1035,17 @@ const handleDoneEvent = (doneData: DoneEventData) => {
 
   // 将统计信息和本轮文件列表附加到最后一条 assistant 消息
   if (doneData.statistics || doneData.round_files?.length) {
-    for (let i = messages.value.length - 1; i >= 0; i--) {
-      if (messages.value[i].type === 'assistant') {
-        messages.value[i] = {
-          ...messages.value[i],
+    const currentMessages = getMessagesForMutation();
+    for (let i = currentMessages.length - 1; i >= 0; i--) {
+      if (currentMessages[i].type === 'assistant') {
+        replaceMessageAt(i, {
+          ...currentMessages[i],
           content: {
-            ...messages.value[i].content,
+            ...currentMessages[i].content,
             ...(doneData.statistics ? { statistics: doneData.statistics } : {}),
             ...(doneData.round_files?.length ? { round_files: doneData.round_files } : {}),
           } as MessageContent
-        };
+        });
         break;
       }
     }
@@ -1061,7 +1083,7 @@ const handleErrorEvent = (errorData: ErrorEventData) => {
     }
     plan.value = { ...plan.value };
   }
-  messages.value.push({
+  appendMessage({
     type: 'assistant',
     content: {
       content: errorData.error,
@@ -1157,6 +1179,24 @@ const handleEvent = (event: AgentSSEEvent) => {
   lastEventId.value = event.data.event_id;
 }
 
+const replayHistoryEvents = (events: AgentSSEEvent[], isStale: () => boolean = () => false) => {
+  realTime.value = false;
+  _isReplayingHistory = true;
+  _replayMessagesBuffer = [];
+  try {
+    for (const event of events) {
+      if (isStale()) return false;
+      handleEvent(event);
+    }
+    messages.value = _replayMessagesBuffer;
+    return true;
+  } finally {
+    _isReplayingHistory = false;
+    _replayMessagesBuffer = null;
+    realTime.value = true;
+  }
+}
+
 const onFilesChanged = (files: FileInfo[]) => {
   attachments.value = [...files];
 };
@@ -1178,7 +1218,7 @@ const chat = async (message: string = '', files: FileInfo[] = [], reconnect: boo
 
   if (!reconnect) {
     if (message.trim()) {
-      messages.value.push({
+      appendMessage({
         type: 'user',
         content: {
           content: message,
@@ -1188,7 +1228,7 @@ const chat = async (message: string = '', files: FileInfo[] = [], reconnect: boo
     }
 
     if (files.length > 0) {
-      messages.value.push({
+      appendMessage({
         type: 'attachments',
         content: {
           role: 'user',
@@ -1361,12 +1401,7 @@ const restoreSession = async () => {
     return;
   }
 
-  realTime.value = false;
-  for (const event of session.events) {
-    if (isStale()) return;
-    handleEvent(event);
-  }
-  realTime.value = true;
+  if (!replayHistoryEvents(session.events, isStale)) return;
 
   // 批量重放完毕后，滚动到最新消息（用户主动滚动过后 follow 会被 handleScroll 置 false，不再自动滚）
   await nextTick();
@@ -1486,6 +1521,24 @@ onUnmounted(() => {
     cancelCurrentChat.value = null;
   }
 })
+
+defineExpose({
+  __test: {
+    handleEvent,
+    replayHistoryEvents,
+    flushPendingMessageChunks,
+    getState: () => ({
+      messages: messages.value,
+      realTime: realTime.value,
+      activityItems: activityItems.value,
+      activitySnapshots: activitySnapshots.value,
+      plan: plan.value,
+      pendingSkillSave: pendingSkillSave.value,
+      pendingToolSave: pendingToolSave.value,
+      isReplayingHistory: _isReplayingHistory,
+    }),
+  },
+});
 
 const isLastNoMessageTool = (tool: ToolContent) => {
   return tool.tool_call_id === lastNoMessageTool.value?.tool_call_id;

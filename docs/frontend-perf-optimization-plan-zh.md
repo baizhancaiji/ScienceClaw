@@ -2,10 +2,10 @@
 
 > **编号**: SC-FE-PERF-2026-001
 > **创建日期**: 2026-06-06
-> **修订日期**: 2026-06-06
+> **修订日期**: 2026-06-07
 > **优先级**: P0
 > **影响范围**: `ScienceClaw/frontend/src/`，`ScienceClaw/backend/route/sessions.py`
-> **状态**: W1-W4 已完成，W5 按验收结果评估
+> **状态**: W1-W5 已完成
 
 ---
 
@@ -18,7 +18,7 @@
 | 1 | 切换历史会话时 ChatPage 被整棵销毁重建 | `MainLayout.vue:7` 使用 `<router-view :key="routeViewKey" />`，`routeViewKey` 来自 `route.params.sessionId` | W2 |
 | 2 | 历史事件逐条 replay 导致 `messages` 多次响应式更新 | `restoreSession()` 对 `session.events` 循环调用 `handleEvent()`，`handleEvent()` 内部会多次 `messages.value.push(...)` | W1 |
 | 3 | 消息分组每次依赖完整 `messages` 数组重算 | `useMessageGrouper.ts` 的 `groupedMessages` computed 每次遍历全部消息 | W1 |
-| 4 | `GET /sessions/{id}` 一次返回全部事件 | 前端 `agent.getSession()` 无分页参数；后端 `get_session()` 直接返回完整 `events` | W4 |
+| 4 | `GET /sessions/{id}` 原先一次返回全部事件，回归修复后按可见对话消息分页 | 前端 `agent.getSession()` 支持分页参数；后端 `get_session()` 按 user/assistant `message` 计数，tool/step/done 仅随批次附带 | W4 |
 | 5 | 消息列表直接渲染全部消息组 | `ChatPage.vue` 对 `groupedMessages` 使用普通 `v-for` | W5 |
 | 6 | Mermaid 图表串行渲染、失败后直接展示错误、缓存无上限 | `useMermaidRenderer.ts` 串行 `await renderMermaidWrapper()`；`markdownRenderer.ts` catch 后直接 `renderMermaidError()`；全局 Map 无上限 | W3 |
 
@@ -75,7 +75,7 @@ const groupedMessages = computed<GroupedMessage[]>(() => {
 
 结论：每次 `messages` 变化都会重新遍历完整数组。历史 replay 期间应减少对 `messages.value` 的写入次数。
 
-### 2.4 后端会话详情无分页
+### 2.4 后端会话详情分页口径
 
 **前端文件**: `ScienceClaw/frontend/src/api/agent.ts`
 
@@ -500,6 +500,7 @@ await Promise.allSettled(
 **验证证据**:
 
 - `cd ScienceClaw/frontend && npm run test:run -- src/api/agent.spec.ts src/pages/ChatPage.spec.ts`
+- `cd ScienceClaw/frontend && npm run test:run -- src/api/agent.spec.ts src/composables/useSessionSearch.spec.ts src/pages/ChatPage.spec.ts`
 - `cd ScienceClaw/frontend && npm run type-check`
 - `cd ScienceClaw/frontend && npm run test:run`
 - `set PYTHONNOUSERSITE=1; conda run -p D:\conda\envs\scienceclaw pytest ScienceClaw/backend/tests/test_sessions_password.py`
@@ -601,39 +602,51 @@ const isLoadingMoreEvents = ref(false);
 `restoreSession()` 先使用：
 
 ```ts
-session = await agentApi.getSession(restoreTarget, { limit: 100, direction: 'latest' });
+session = await agentApi.getSession(restoreTarget, { limit: 20, direction: 'latest' });
 hasMoreEvents.value = session.has_more ?? false;
 ```
 
 #### W4-Step-4：加载更早事件必须保持事件语义
 
-不得把 older events 直接转为 `Message[]` 后 prepend。必须复用 W1 的历史 replay 机制，生成完整状态后再合并消息；如果 activity snapshot 和 plan 历史关联无法无损合并，则 W4 首期只实现后端/API/首屏 latest，不启用向上滚动加载。
+不得把 older events 直接转为 `Message[]` 后 prepend。必须复用 W1 的历史 replay 机制，生成完整状态后再合并消息。
 
-本期落地策略：
+2026-06-07 回归修复已落地：
 
-- 后端分页和前端首屏 `latest` 必须完成。
-- 向上滚动加载更早事件暂不启用 UI，除非同时完成完整历史状态合并测试。
+- 首屏分页从 `limit=100` 改为 `limit=20`。
+- 后端分页的 `limit=20` 代表 20 条可见 user/assistant 对话消息；tool/step/done/title 等原始事件不消耗额度，只在选中消息区间内随批次返回，用于前端完整 replay。
+- `ChatPage` 维护 `loadedSessionEvents` 和 `firstLoadedEventId`，滚动到顶部后用 `direction='before'` + 最早 `event_id` 拉取更早事件。
+- 旧页返回后用 `olderEvents + loadedSessionEvents` 去重合并，再通过历史 replay 机制完整重建消息、plan、tool、done statistics、activity snapshots 等派生状态。
+- 加载旧页时先显示顶部“批量加载中”占位；加载前记录触发分页的最早已加载消息作为锚点，旧页请求完成后一次性合并、replay、更新窗口，并按该消息锚点保持视口位置，不使用 `scrollHeight` 差值补偿。
+- 批量加载期间保持旧窗口不逐条提交，旧页完成后一次性展示本批可见消息；点击搜索结果的目标事件未加载时，使用同一分页机制后台加载到目标 event 后再跳转。
+- 新增 `GET /sessions/{session_id}/search` 后端轻量搜索，只返回 user/assistant message 命中的 `event_id`、事件序号和 snippet；搜索输入不会为了展示结果而加载全部历史消息。
 
 #### W4-Step-5：测试
 
 后端测试：
 
 - 不传 `limit` 时返回全部事件。
-- `latest` 返回最后 N 个事件。
-- `before` 返回 cursor 前 N 个事件并正确设置 `has_more`。
+- `latest` 返回最后 N 条可见对话消息所在事件区间，工具事件不占 N 的额度。
+- `before`/`after` 返回 cursor 前后 N 条可见对话消息所在事件区间并正确设置 `has_more`。
 - locked session 仍返回空 events。
 
 前端测试：
 
 - `getSession()` 正确序列化 params。
 - `restoreSession()` 能读取 `has_more`，旧响应缺少 `has_more` 时不报错。
+- `loadOlderSessionEvents()` 在旧页请求未完成前保持当前窗口稳定，仅显示批量加载占位；请求完成后整批 replay 并一次性展示。
+- 会话内搜索由后端返回全会话结果，搜索阶段不加载旧页；点击未加载结果时才分页加载到目标位置。
 
 ---
 
 ### W5：长列表 DOM 优化
 
 **优先级**: P2
-**状态**: 本期不直接施工虚拟滚动；先完成 W1/W2/W4 后再单独施工。
+**施工状态**: 已完成（2026-06-07）
+**验证证据**:
+
+- `cd ScienceClaw/frontend && npm run test:run -- src/api/agent.spec.ts src/pages/ChatPage.spec.ts`
+- `cd ScienceClaw/frontend && npm run type-check`
+- `cd ScienceClaw/frontend && npm run test:run`
 
 当前 `ChatPage` 的滚动、搜索和 timeline 依赖 `SimpleBar`：
 
@@ -649,7 +662,14 @@ hasMoreEvents.value = session.has_more ?? false;
 - `handleScroll()` 的 active user message 计算不依赖所有 DOM 节点存在。
 - Mermaid/markdown 动态高度变化后触发虚拟列表 remeasure。
 
-本施工单验收时只确认 W1/W2/W4 后长会话 DOM 压力已降低到可接受范围；若仍不足，再开 W5 独立施工单。
+2026-06-07 落地策略：
+
+- 不引入新依赖，不替换 `SimpleBar`；在现有消息区内按 `groupedMessages` 做窗口化渲染。
+- `visibleGroupedEntries` 只渲染当前窗口、前后 overscan 和必要占位，避免长会话把所有消息组一次性挂载进 DOM。
+- 顶部和底部 spacer 使用估算高度 + `ResizeObserver` 实测高度；Mermaid/markdown 动态高度变化后会更新缓存高度。
+- `scrollToMessageKey()` 支持未挂载消息：先根据 message key 定位 group index，移动渲染窗口，再执行现有 DOM 滚动。
+- `handleScroll()` 同时更新可见窗口、timeline active user message，并在顶部阈值内触发 W4 的更早事件分页加载。
+- 会话内搜索结果来自后端全会话搜索；点击未加载结果时才分页加载到目标事件，不在搜索阶段全量加载历史。
 
 ---
 
@@ -677,8 +697,9 @@ hasMoreEvents.value = session.has_more ?? false;
 2. W2：复用 ChatPage，取消 router-view key。
 3. W3：Mermaid 重试、有限并发、LRU 缓存。
 4. W4：后端/API 分页与首屏 latest。
+5. W5：SimpleBar 内窗口化渲染，保留搜索、时间线和动态高度重测。
 
-W5、W6 本期不施工。
+W6 本期不施工。
 
 ---
 
@@ -689,7 +710,8 @@ W5、W6 本期不施工。
 | W1 | 历史 replay 只在结束时对 `messages.value` 做一次整体赋值；done statistics、round_files、activity snapshot、plan/tool 关联与旧路径一致 |
 | W2 | 同一路由下切换 sessionId 不触发 ChatPage unmount；旧 SSE 被取消；旧会话状态不泄漏到新会话 |
 | W3 | Mermaid 渲染失败会重试 1 次；单个图失败不阻止其他图显示；缓存最大 100 条并按 LRU 淘汰 |
-| W4 | 不带分页参数的旧 API 行为不变；`latest/before/after` helper 测试通过；前端首屏请求使用 `limit=100&direction=latest` |
+| W4 | 不带分页参数的旧 API 行为不变；`latest/before/after` helper 测试通过；前端首屏请求使用 `limit=20&direction=latest`，顶部滚动可继续请求 `direction=before` 的更早事件；后端搜索能返回全会话命中但不返回全部历史事件 |
+| W5 | 长会话消息区只渲染当前窗口和 overscan；搜索/时间线可定位未挂载消息；Markdown/Mermaid 动态高度可触发重测；点击未加载搜索结果时可分页加载到目标位置再跳转 |
 
 ---
 
@@ -701,6 +723,7 @@ W5、W6 本期不施工。
 | W2 | 恢复 `MainLayout.vue` 的 `:key="routeViewKey"`，删除 route param watch 和 `resetSessionRuntimeState()` |
 | W3 | 删除 retry/LRU/getCache/setCache 参数，恢复串行渲染循环 |
 | W4 | 前端恢复无 options 的 `getSession(sessionId)` 调用；后端保留 helper 但不传分页参数时继续返回全部 events |
+| W5 | 模板恢复直接遍历 `groupedMessages`；删除 `visibleGroupedEntries`、spacer、group height measurement、顶部分页触发、后端搜索跳转懒加载 |
 
 ---
 

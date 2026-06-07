@@ -163,6 +163,8 @@ export default {
   'Disable Browser Control': 'Disable Browser Control',
   'Browser Preview Image': 'Browser Preview Image',
   'No screenshot available': 'No screenshot available',
+  'Sandbox Taken Over': 'Taken Over',
+  'A sandbox takeover is already active in another session. Please close it first.': 'A sandbox takeover is already active in another session. Please close it first.',
   // Session File List
   'All Files in This Task': 'Session Files',
   'Session Files': 'Session Files',

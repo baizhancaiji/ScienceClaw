@@ -227,8 +227,8 @@
           ref="sandboxPreviewRef"
           :mode="activeSandboxMode"
           :isLive="isSandboxLive"
+          :session-id="props.sessionId"
           :history="sandboxHistory"
-          @close="activeSandboxMode = 'none'"
         />
 
       </div>
@@ -249,6 +249,7 @@ import type { SandboxPreviewMode } from '../utils/sandbox';
 import { getPreviewMode } from '../utils/sandbox';
 import {
   getSandboxHistoryChannelName,
+  persistSandboxHistory,
   type SandboxHistoryChannelMessage,
 } from '../utils/sandboxHistoryChannel';
 import { getFirstToolArgPreview, getToolResultStringField, getToolStringArg } from '../types/toolPayload';
@@ -501,11 +502,17 @@ const rebuildSandboxHistoryChannel = (sessionId?: string) => {
     }
 
     if (message.type === 'request-snapshot') {
-      postSandboxHistoryMessage({
-        type: 'snapshot',
-        sessionId,
-        entries: [...sandboxHistory.value],
-      });
+      // Only respond when we have history data.
+      // An empty ActivityPanel (e.g. in a newly opened tab) should not reply
+      // with an empty snapshot, otherwise the TakeOverView will accept it and
+      // ignore the real snapshot from the original tab.
+      if (sandboxHistory.value.length > 0) {
+        postSandboxHistoryMessage({
+          type: 'snapshot',
+          sessionId,
+          entries: [...sandboxHistory.value],
+        });
+      }
     }
   });
 };
@@ -569,6 +576,14 @@ function scanSandboxTools() {
 
 // Watch both new items AND status changes on existing items
 watch(() => props.items.map(i => `${i.id}:${i.tool?.status}`).join(','), scanSandboxTools, { immediate: true });
+
+// Persist sandbox history to localStorage so TakeOver tabs can read it directly
+watch(sandboxHistory, (entries) => {
+  if (props.sessionId) {
+    persistSandboxHistory(props.sessionId, entries);
+  }
+}, { deep: true });
+
 watch(() => props.sessionId, (sessionId, previousSessionId) => {
   if (previousSessionId && previousSessionId !== sessionId) {
     sandboxHistory.value = [];

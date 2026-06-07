@@ -49,6 +49,8 @@ import { useI18n } from 'vue-i18n';
 import TakeOverIcon from '@/components/icons/TakeOverIcon.vue';
 import { getSandboxVncUrl } from '@/utils/sandbox';
 import { getToolResultStringField, getToolStringArg } from '@/types/toolPayload';
+import { getActiveTakeoverSession, setActiveTakeoverSession } from '@/utils/sandboxTakeoverState';
+import { showInfoToast } from '@/utils/toast';
 
 const props = defineProps<{
   sessionId: string;
@@ -74,6 +76,12 @@ watch(screenshotUrl, async (screenshot) => {
 }, { immediate: true });
 
 const takeOver = () => {
+  const activeSession = getActiveTakeoverSession();
+  if (activeSession && activeSession !== props.sessionId) {
+    showInfoToast(t('A sandbox takeover is already active in another session. Please close it first.'));
+    return;
+  }
+  setActiveTakeoverSession(props.sessionId);
   window.open(`/chat/${props.sessionId}?sandbox=1`, '_blank', 'noopener');
 };
 </script>

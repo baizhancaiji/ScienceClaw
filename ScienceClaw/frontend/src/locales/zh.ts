@@ -176,6 +176,8 @@ export default {
   'Disable Browser Control': '禁用浏览器控制',
   'Browser Preview Image': '浏览器预览图',
   'No screenshot available': '无截图可展示',
+  'Sandbox Taken Over': '已被接管',
+  'A sandbox takeover is already active in another session. Please close it first.': '另一个会话的沙盒接管正在使用中，请先关闭它',
   // Session File List
   'All Files in This Task': '会话文件',
   'Session Files': '会话文件',

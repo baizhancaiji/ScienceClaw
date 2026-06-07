@@ -1615,7 +1615,7 @@ const chat = async (message: string = '', files: FileInfo[] = [], reconnect: boo
   activityPanelRef.value?.show();
 
   const chatSessionId = sessionId.value;
-  const isStale = () => _unmounted;
+  const isStale = () => _unmounted || sessionId.value !== chatSessionId;
 
   // SSE inactivity timeout (10 minutes without any event → force close)
   const SSE_TIMEOUT_MS = 10 * 60 * 1000;

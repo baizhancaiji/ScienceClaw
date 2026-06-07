@@ -258,4 +258,90 @@ describe('TakeOverView', () => {
 
     expect(wrapper.get('.sandbox-terminal-stub').attributes('data-history-length')).toBe('2');
   });
+
+  it('clears takeover overlay when leaving the sandbox takeover route', async () => {
+    route.params = { sessionId: 'session-a' };
+    route.query = { sandbox: '1' };
+
+    const wrapper = mountTakeOverView();
+    await nextTick();
+
+    expect(wrapper.find('.vnc-viewer-stub').exists()).toBe(true);
+
+    route.params = { sessionId: 'session-b' };
+    route.query = {};
+    await nextTick();
+
+    expect(wrapper.find('.vnc-viewer-stub').exists()).toBe(false);
+    expect(wrapper.find('.sandbox-terminal-stub').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="takeover-tabs"]').exists()).toBe(false);
+  });
+
+  it('reads initial terminal history from localStorage when binding a session', async () => {
+    // Pre-populate localStorage with sandbox history for session-ls
+    const storedEntries = [
+      { toolName: 'execute', command: 'ls -la', status: 'calling' },
+      { toolName: 'execute', command: 'ls -la', output: 'file.txt', status: 'called' },
+    ];
+    window.localStorage.setItem(
+      'scienceclaw:sandbox-history:session-ls',
+      JSON.stringify(storedEntries),
+    );
+
+    route.params = { sessionId: 'session-ls' };
+    route.query = { sandbox: '1' };
+
+    const wrapper = mountTakeOverView();
+    await nextTick();
+
+    // Switch to terminal tab to see the history
+    await wrapper.get('[data-testid="takeover-tab-terminal"]').trigger('click');
+    await nextTick();
+
+    expect(wrapper.get('.sandbox-terminal-stub').attributes('data-history-length')).toBe('2');
+
+    // Cleanup
+    window.localStorage.removeItem('scienceclaw:sandbox-history:session-ls');
+  });
+
+  it('prefers BroadcastChannel snapshot over localStorage when snapshot has more entries', async () => {
+    // Pre-populate localStorage with 1 entry
+    window.localStorage.setItem(
+      'scienceclaw:sandbox-history:session-merge',
+      JSON.stringify([
+        { toolName: 'execute', command: 'echo one', status: 'calling' },
+      ]),
+    );
+
+    route.params = { sessionId: 'session-merge' };
+    route.query = { sandbox: '1' };
+
+    const broadcaster = new MockBroadcastChannel('sandbox-history:session-merge');
+    const wrapper = mountTakeOverView();
+    await nextTick();
+
+    await wrapper.get('[data-testid="takeover-tab-terminal"]').trigger('click');
+    await nextTick();
+
+    // localStorage gave us 1 entry
+    expect(wrapper.get('.sandbox-terminal-stub').attributes('data-history-length')).toBe('1');
+
+    // BroadcastChannel snapshot arrives with more entries
+    broadcaster.postMessage({
+      type: 'snapshot',
+      sessionId: 'session-merge',
+      entries: [
+        { toolName: 'execute', command: 'echo one', status: 'calling' },
+        { toolName: 'execute', command: 'echo one', output: 'one', status: 'called' },
+        { toolName: 'execute', command: 'echo two', status: 'calling' },
+      ],
+    });
+    await nextTick();
+
+    // Should now have 3 entries (BroadcastChannel snapshot was larger)
+    expect(wrapper.get('.sandbox-terminal-stub').attributes('data-history-length')).toBe('3');
+
+    // Cleanup
+    window.localStorage.removeItem('scienceclaw:sandbox-history:session-merge');
+  });
 });

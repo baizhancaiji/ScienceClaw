@@ -182,4 +182,41 @@ describe('ActivityPanel sandbox history channel', () => {
       },
     });
   });
+
+  it('does NOT respond to snapshot requests when sandboxHistory is empty', async () => {
+    const wrapper = mount(ActivityPanel, {
+      props: {
+        sessionId: 'session-empty',
+        items: [],
+        isLoading: false,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: {
+          LoadingSpinnerIcon: true,
+          XIcon: true,
+          ChevronRightIcon: true,
+          ZapIcon: true,
+          Lightbulb: true,
+          ListChecks: true,
+          WrenchIcon: true,
+        },
+      },
+    });
+    await nextTick();
+
+    const external = new MockBroadcastChannel('sandbox-history:session-empty');
+    const received: unknown[] = [];
+    external.addEventListener('message', (event) => {
+      received.push(event.data);
+    });
+
+    external.postMessage({
+      type: 'request-snapshot',
+      sessionId: 'session-empty',
+    });
+    await nextTick();
+
+    expect(received).toEqual([]);
+  });
 });

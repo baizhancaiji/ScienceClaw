@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="flex flex-col sandbox-preview"
+  <div class="flex flex-col sandbox-preview"
     :style="expanded ? { flex: '1.5 1 0%', minHeight: '120px' } : { flex: '0 0 auto' }">
 
     <!-- Header (unified with ActivityPanel section headers) -->
@@ -31,7 +31,18 @@
         </button>
       </div>
 
+      <button
+        v-if="sessionId"
+        type="button"
+        @click.stop="takeOver"
+        class="ml-2 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+      >
+        {{ t('Take Over') }}
+      </button>
+
       <div class="flex items-center gap-2 ml-auto">
+        <SandboxTakeoverStatusBadge v-if="isTakenOver" />
+
         <!-- Live indicator -->
         <div v-if="isLive" class="flex items-center gap-1">
           <span class="relative flex h-1.5 w-1.5">
@@ -40,14 +51,6 @@
           </span>
           <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold tabular-nums">LIVE</span>
         </div>
-
-        <!-- Close button -->
-        <button
-          @click.stop="handleClose"
-          class="flex h-5 w-5 items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-        >
-          <XIcon :size="11" class="text-gray-400 dark:text-gray-500" />
-        </button>
       </div>
     </div>
 
@@ -74,11 +77,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { X as XIcon, ChevronRight as ChevronRightIcon, Monitor as MonitorIcon } from 'lucide-vue-next';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ChevronRight as ChevronRightIcon, Monitor as MonitorIcon } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import SandboxTerminal from './SandboxTerminal.vue';
+import SandboxTakeoverStatusBadge from './SandboxTakeoverStatusBadge.vue';
 import { getSandboxVncUrl, type SandboxPreviewMode } from '@/utils/sandbox';
+import {
+  SANDBOX_TAKEOVER_EVENT,
+  readSandboxTakeoverState,
+  writeSandboxTakeoverState,
+  getActiveTakeoverSession,
+  setActiveTakeoverSession,
+  type SandboxTakeoverState,
+} from '@/utils/sandboxTakeoverState';
+import { showInfoToast } from '@/utils/toast';
 
 const { t } = useI18n();
 
@@ -92,68 +105,88 @@ export interface SandboxExecEntry {
 const props = defineProps<{
   mode: SandboxPreviewMode;
   isLive: boolean;
+  sessionId?: string;
   history?: SandboxExecEntry[];
-}>();
-
-const emit = defineEmits<{
-  (e: 'close'): void;
 }>();
 
 const expanded = ref(true);
 const activeTab = ref<'terminal' | 'browser'>('browser');
 const terminalRef = ref<InstanceType<typeof SandboxTerminal> | null>(null);
-const visible = ref(false);
+const isTakenOver = ref(false);
 
 const vncUrl = computed(() => getSandboxVncUrl());
 
 const availableTabs = computed(() => {
   const tabs: { id: 'terminal' | 'browser'; label: string }[] = [];
-  tabs.push({ id: 'terminal', label: 'Terminal' });
-  tabs.push({ id: 'browser', label: 'Browser' });
+  tabs.push({ id: 'terminal', label: t('Terminal') });
+  tabs.push({ id: 'browser', label: t('Browser') });
   return tabs;
 });
-
-// Auto-show if history exists on mount (panel reopen case)
-if (props.history && props.history.length > 0) {
-  visible.value = true;
-  expanded.value = true;
-}
 
 // Auto-switch tab based on the incoming tool mode
 watch(() => props.mode, (mode) => {
   if (mode === 'terminal') {
     activeTab.value = 'terminal';
-    visible.value = true;
     expanded.value = true;
   } else if (mode === 'browser') {
     activeTab.value = 'browser';
-    visible.value = true;
     expanded.value = true;
   }
-});
+}, { immediate: true });
 
-const handleClose = () => {
-  visible.value = false;
-  emit('close');
+const syncTakeoverState = () => {
+  isTakenOver.value = props.sessionId ? readSandboxTakeoverState(props.sessionId) : false;
 };
 
-const show = (mode?: SandboxPreviewMode) => {
-  visible.value = true;
-  expanded.value = true;
-  if (mode === 'terminal' || mode === 'browser') {
-    activeTab.value = mode;
+const takeOver = () => {
+  if (!props.sessionId) {
+    return;
   }
+  const activeSession = getActiveTakeoverSession();
+  if (activeSession && activeSession !== props.sessionId) {
+    showInfoToast(t('A sandbox takeover is already active in another session. Please close it first.'));
+    return;
+  }
+  writeSandboxTakeoverState(props.sessionId, true);
+  setActiveTakeoverSession(props.sessionId);
+  window.open(`/chat/${props.sessionId}?sandbox=1`, '_blank', 'noopener');
 };
 
-const hide = () => {
-  visible.value = false;
+const handleTakeoverStateEvent = (event: Event) => {
+  const customEvent = event as CustomEvent<SandboxTakeoverState>;
+  if (!props.sessionId || customEvent.detail?.sessionId !== props.sessionId) {
+    return;
+  }
+  isTakenOver.value = !!customEvent.detail?.active;
+};
+
+const handleStorageEvent = (event: StorageEvent) => {
+  if (!props.sessionId) {
+    return;
+  }
+  if (event.key && event.key !== `scienceclaw:sandbox-takeover:${props.sessionId}`) {
+    return;
+  }
+  syncTakeoverState();
 };
 
 const writeExecution = (toolName: string, command: string, output?: string, status?: string) => {
   terminalRef.value?.writeExecution(toolName, command, output, status);
 };
 
-defineExpose({ show, hide, visible, writeExecution });
+watch(() => props.sessionId, syncTakeoverState, { immediate: true });
+
+onMounted(() => {
+  window.addEventListener(SANDBOX_TAKEOVER_EVENT, handleTakeoverStateEvent as EventListener);
+  window.addEventListener('storage', handleStorageEvent);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener(SANDBOX_TAKEOVER_EVENT, handleTakeoverStateEvent as EventListener);
+  window.removeEventListener('storage', handleStorageEvent);
+});
+
+defineExpose({ writeExecution });
 </script>
 
 <style scoped>

@@ -92,9 +92,11 @@ import SandboxTerminal from './SandboxTerminal.vue';
 import VNCViewer from './VNCViewer.vue';
 import {
   getSandboxHistoryChannelName,
+  readSandboxHistory,
   type SandboxExecEntry,
   type SandboxHistoryChannelMessage,
 } from '../utils/sandboxHistoryChannel';
+import { writeSandboxTakeoverState, clearActiveTakeoverSession, setActiveTakeoverSession } from '../utils/sandboxTakeoverState';
 
 interface TakeOverDetail {
   active?: boolean;
@@ -111,6 +113,12 @@ const browserViewOnly = ref(true);
 const terminalHistory = ref<SandboxExecEntry[]>([]);
 const routeTakeOverDismissed = ref(false);
 let sandboxHistoryChannel: BroadcastChannel | null = null;
+let snapshotRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let snapshotRequestAttempts = 0;
+let hasReceivedSnapshot = false;
+
+const SNAPSHOT_REQUEST_RETRY_MS = 250;
+const SNAPSHOT_REQUEST_MAX_ATTEMPTS = 8;
 
 const availableTabs = computed(() => ([
   { id: 'terminal' as const, label: t('Terminal') },
@@ -146,24 +154,85 @@ const bindSession = (sessionId: string) => {
     return;
   }
 
+  if (boundSessionId.value && boundSessionId.value !== sessionId) {
+    writeSandboxTakeoverState(boundSessionId.value, false);
+    clearActiveTakeoverSession(boundSessionId.value);
+  }
   boundSessionId.value = sessionId;
   activeTab.value = 'browser';
   browserViewOnly.value = true;
-  terminalHistory.value = [];
+  // Read initial history from localStorage (written by the source tab's ActivityPanel).
+  // This is more reliable than BroadcastChannel snapshot requests which depend on
+  // the source tab being alive and responsive.
+  terminalHistory.value = readSandboxHistory(sessionId);
   routeTakeOverDismissed.value = false;
+  writeSandboxTakeoverState(sessionId, true);
+  setActiveTakeoverSession(sessionId);
+};
+
+const clearSnapshotRetry = () => {
+  if (snapshotRetryTimer !== null) {
+    clearTimeout(snapshotRetryTimer);
+    snapshotRetryTimer = null;
+  }
+};
+
+const resetSnapshotSyncState = () => {
+  clearSnapshotRetry();
+  snapshotRequestAttempts = 0;
+  hasReceivedSnapshot = false;
 };
 
 const clearTakeOverState = () => {
+  if (boundSessionId.value) {
+    writeSandboxTakeoverState(boundSessionId.value, false);
+    clearActiveTakeoverSession(boundSessionId.value);
+  }
   takeOverActive.value = false;
   boundSessionId.value = '';
   activeTab.value = 'browser';
   browserViewOnly.value = true;
   terminalHistory.value = [];
+  resetSnapshotSyncState();
 };
 
 const closeSandboxHistoryChannel = () => {
+  clearSnapshotRetry();
   sandboxHistoryChannel?.close();
   sandboxHistoryChannel = null;
+};
+
+const requestSandboxHistorySnapshot = (sessionId: string, resetAttempts = false) => {
+  if (!sandboxHistoryChannel || !sessionId || hasReceivedSnapshot) {
+    return;
+  }
+
+  if (resetAttempts) {
+    resetSnapshotSyncState();
+  }
+
+  sandboxHistoryChannel.postMessage({
+    type: 'request-snapshot',
+    sessionId,
+  } satisfies SandboxHistoryChannelMessage);
+
+  snapshotRequestAttempts += 1;
+  if (snapshotRequestAttempts >= SNAPSHOT_REQUEST_MAX_ATTEMPTS) {
+    return;
+  }
+
+  clearSnapshotRetry();
+  snapshotRetryTimer = setTimeout(() => {
+    snapshotRetryTimer = null;
+    if (
+      hasReceivedSnapshot
+      || boundSessionId.value !== sessionId
+      || !(takeOverActive.value || isRouteTakeOverMode.value)
+    ) {
+      return;
+    }
+    requestSandboxHistorySnapshot(sessionId);
+  }, SNAPSHOT_REQUEST_RETRY_MS);
 };
 
 const rebuildSandboxHistoryChannel = (sessionId: string) => {
@@ -173,6 +242,7 @@ const rebuildSandboxHistoryChannel = (sessionId: string) => {
     return;
   }
 
+  resetSnapshotSyncState();
   sandboxHistoryChannel = new BroadcastChannel(getSandboxHistoryChannelName(sessionId));
   sandboxHistoryChannel.addEventListener('message', (event: MessageEvent<SandboxHistoryChannelMessage>) => {
     const message = event.data;
@@ -181,7 +251,14 @@ const rebuildSandboxHistoryChannel = (sessionId: string) => {
     }
 
     if (message.type === 'snapshot') {
-      terminalHistory.value = [...message.entries];
+      hasReceivedSnapshot = true;
+      clearSnapshotRetry();
+      // Only overwrite if the BroadcastChannel snapshot has more entries than
+      // what we already loaded from localStorage (e.g. real-time updates arrived
+      // after the localStorage snapshot was written).
+      if (message.entries.length > terminalHistory.value.length) {
+        terminalHistory.value = [...message.entries];
+      }
       return;
     }
 
@@ -190,10 +267,7 @@ const rebuildSandboxHistoryChannel = (sessionId: string) => {
     }
   });
 
-  sandboxHistoryChannel.postMessage({
-    type: 'request-snapshot',
-    sessionId,
-  } satisfies SandboxHistoryChannelMessage);
+  requestSandboxHistorySnapshot(sessionId, true);
 };
 
 const handleTakeOverEvent = (event: Event) => {
@@ -230,6 +304,10 @@ watch(
 
     if (!isRouteTakeOverMode.value) {
       routeTakeOverDismissed.value = false;
+      if (boundSessionId.value) {
+        clearTakeOverState();
+        closeSandboxHistoryChannel();
+      }
       return;
     }
 
@@ -244,6 +322,17 @@ watch(
   },
   { immediate: true },
 );
+
+watch(activeTab, (tab) => {
+  if (
+    tab === 'terminal'
+    && boundSessionId.value
+    && sandboxHistoryChannel
+    && !hasReceivedSnapshot
+  ) {
+    requestSandboxHistorySnapshot(boundSessionId.value, true);
+  }
+});
 
 watch(boundSessionId, (sessionId) => {
   if (!(takeOverActive.value || isRouteTakeOverMode.value)) {
@@ -276,6 +365,10 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (boundSessionId.value) {
+    writeSandboxTakeoverState(boundSessionId.value, false);
+    clearActiveTakeoverSession(boundSessionId.value);
+  }
   window.removeEventListener('takeover', handleTakeOverEvent as EventListener);
   closeSandboxHistoryChannel();
 });

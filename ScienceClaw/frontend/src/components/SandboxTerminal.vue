@@ -25,6 +25,7 @@ const terminalContainer = ref<HTMLDivElement | null>(null);
 let terminal: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
 let resizeObserver: ResizeObserver | null = null;
+let lastRenderedHistorySignature = '';
 
 const C = {
   green: '\x1b[32m',
@@ -115,13 +116,38 @@ const writeExecution = (_toolName: string, command: string, output?: string, sta
 
 let renderedCount = 0;
 
+const getHistorySignature = (entries: SandboxExecEntry[]) => JSON.stringify(
+  entries.map(entry => ({
+    toolName: entry.toolName,
+    command: entry.command,
+    output: entry.output ?? '',
+    status: entry.status,
+  })),
+);
+
+const clearTerminal = () => {
+  if (!terminal) {
+    return;
+  }
+  terminal.reset();
+  renderedCount = 0;
+  lastRenderedHistorySignature = '';
+};
+
 const renderNewEntries = () => {
   const entries = props.history || [];
+  const signature = getHistorySignature(entries);
+
+  if (renderedCount > entries.length || (renderedCount === entries.length && signature !== lastRenderedHistorySignature)) {
+    clearTerminal();
+  }
+
   while (renderedCount < entries.length) {
     const entry = entries[renderedCount];
     writeExecution(entry.toolName, entry.command, entry.output, entry.status);
     renderedCount++;
   }
+  lastRenderedHistorySignature = signature;
 };
 
 const cleanup = () => {
@@ -131,6 +157,7 @@ const cleanup = () => {
   terminal = null;
   fitAddon = null;
   renderedCount = 0;
+  lastRenderedHistorySignature = '';
 };
 
 watch(() => props.active, (active) => {
@@ -141,9 +168,9 @@ watch(() => props.active, (active) => {
   }
 });
 
-watch(() => props.history?.length, () => {
+watch(() => props.history, () => {
   nextTick(renderNewEntries);
-});
+}, { deep: true });
 
 onMounted(() => {
   if (props.active) {

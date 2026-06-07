@@ -126,11 +126,90 @@
       >
         <div class="mermaid-fullscreen-container">
           <div class="mermaid-fullscreen-header">
+            <div
+              class="mermaid-fullscreen-toolbar"
+              role="toolbar"
+              :aria-label="t('mermaid.toolbar')"
+            >
+              <button
+                class="mermaid-fullscreen-btn"
+                type="button"
+                :title="t('mermaid.zoom_out')"
+                :aria-label="t('mermaid.zoom_out')"
+                data-mermaid-fullscreen-action="zoom-out"
+                @click="zoomOutMermaidFullscreen"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="8" y1="11" x2="14" y2="11"></line>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </button>
+              <span class="mermaid-fullscreen-scale-indicator">{{ mermaidFullscreenScaleLabel }}</span>
+              <button
+                class="mermaid-fullscreen-btn"
+                type="button"
+                :title="t('mermaid.zoom_in')"
+                :aria-label="t('mermaid.zoom_in')"
+                data-mermaid-fullscreen-action="zoom-in"
+                @click="zoomInMermaidFullscreen"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="11" y1="8" x2="11" y2="14"></line>
+                  <line x1="8" y1="11" x2="14" y2="11"></line>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </button>
+              <button
+                class="mermaid-fullscreen-btn"
+                type="button"
+                :title="t('mermaid.reset_zoom')"
+                :aria-label="t('mermaid.reset_zoom')"
+                data-mermaid-fullscreen-action="reset-zoom"
+                @click="resetMermaidFullscreenView"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3.5 3.5v6h6"></path>
+                  <path d="M20.5 20.5v-6h-6"></path>
+                  <path d="M4 12a8 8 0 0 1 14-5.3"></path>
+                  <path d="M20 12a8 8 0 0 1-14 5.3"></path>
+                </svg>
+              </button>
+              <button
+                class="mermaid-fullscreen-btn"
+                type="button"
+                :title="t('mermaid.copy_source')"
+                :aria-label="t('mermaid.copy_source')"
+                data-mermaid-fullscreen-action="copy-source"
+                @click="copyMermaidFullscreenSource"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+              <button
+                class="mermaid-fullscreen-btn"
+                type="button"
+                :title="t('mermaid.download_svg')"
+                :aria-label="t('mermaid.download_svg')"
+                data-mermaid-fullscreen-action="download-svg"
+                @click="downloadMermaidFullscreenSvg"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
+            </div>
             <button
               class="mermaid-fullscreen-close"
               type="button"
               :title="mermaidFullscreenCloseLabel"
               :aria-label="mermaidFullscreenCloseLabel"
+              data-mermaid-fullscreen-action="close"
               @click="closeMermaidFullscreen"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -139,8 +218,36 @@
               </svg>
             </button>
           </div>
+          <div
+            v-if="mermaidFullscreenFeedback"
+            class="mermaid-fullscreen-feedback"
+            :data-status="mermaidFullscreenFeedbackStatus"
+            role="status"
+          >
+            {{ mermaidFullscreenFeedback }}
+          </div>
           <div class="mermaid-fullscreen-content">
-            <div class="mermaid-fullscreen-stage" v-html="mermaidFullscreenSvg"></div>
+            <div
+              ref="mermaidFullscreenViewport"
+              class="mermaid-fullscreen-viewport"
+              :data-mermaid-scale="mermaidFullscreenState.scale.toFixed(2)"
+              :data-mermaid-dragging="mermaidFullscreenState.dragging ? 'true' : 'false'"
+              @pointerdown="startMermaidFullscreenDrag"
+              @pointermove="onMermaidFullscreenDrag"
+              @pointerup="endMermaidFullscreenDrag"
+              @pointercancel="endMermaidFullscreenDrag"
+            >
+              <div
+                class="mermaid-fullscreen-transform-layer"
+                :style="mermaidFullscreenTransformStyle"
+              >
+                <div
+                  ref="mermaidFullscreenStage"
+                  class="mermaid-fullscreen-stage"
+                  v-html="mermaidFullscreenSvg"
+                ></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -186,7 +293,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+interface MermaidFullscreenOptions {
+  closeLabel?: string;
+}
+
+interface MermaidFullscreenViewState {
+  scale: number;
+  x: number;
+  y: number;
+  dragging: boolean;
+  dragPointerId: number | null;
+  dragStartX: number;
+  dragStartY: number;
+  originX: number;
+  originY: number;
+}
+
+const MERMAID_MIN_SCALE = 0.3;
+const MERMAID_MAX_SCALE = 3;
+const MERMAID_SCALE_STEP = 0.25;
+const MERMAID_FULLSCREEN_FEEDBACK_DURATION_MS = 2000;
+
+const { t } = useI18n();
 
 // ==================== Lightbox ====================
 const lightboxVisible = ref(false);
@@ -276,7 +407,39 @@ const codeFullscreenRaw = ref('');
 const codeCopied = ref(false);
 const mermaidFullscreenVisible = ref(false);
 const mermaidFullscreenSvg = ref('');
+const mermaidFullscreenSource = ref('');
 const mermaidFullscreenCloseLabel = ref('Close');
+const mermaidFullscreenFeedback = ref('');
+const mermaidFullscreenFeedbackStatus = ref<'success' | 'error' | ''>('');
+const mermaidFullscreenViewport = ref<HTMLElement | null>(null);
+const mermaidFullscreenStage = ref<HTMLElement | null>(null);
+let mermaidFullscreenFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+const createMermaidFullscreenState = (): MermaidFullscreenViewState => ({
+  scale: 1,
+  x: 0,
+  y: 0,
+  dragging: false,
+  dragPointerId: null,
+  dragStartX: 0,
+  dragStartY: 0,
+  originX: 0,
+  originY: 0,
+});
+
+const mermaidFullscreenState = reactive<MermaidFullscreenViewState>(
+  createMermaidFullscreenState(),
+);
+
+const mermaidFullscreenScaleLabel = computed(
+  () => `${Math.round(mermaidFullscreenState.scale * 100)}%`,
+);
+
+const mermaidFullscreenTransformStyle = computed(() => ({
+  transformOrigin: 'center top',
+  transform: `translate(${mermaidFullscreenState.x}px, ${mermaidFullscreenState.y}px) scale(${mermaidFullscreenState.scale})`,
+  transition: mermaidFullscreenState.dragging ? 'none' : 'transform 0.2s ease',
+}));
 
 const openCodeFullscreen = (html: string, lang: string, rawCode: string) => {
   codeFullscreenHtml.value = html;
@@ -306,19 +469,174 @@ const copyCodeFullscreen = async () => {
 
 const openMermaidFullscreen = (
   svg: string,
-  _source: string,
-  options?: { closeLabel?: string },
+  source: string,
+  options?: MermaidFullscreenOptions,
 ) => {
   mermaidFullscreenSvg.value = svg;
+  mermaidFullscreenSource.value = source;
   mermaidFullscreenCloseLabel.value = options?.closeLabel || 'Close';
+  resetMermaidFullscreenView();
+  clearMermaidFullscreenFeedback();
   mermaidFullscreenVisible.value = true;
   document.body.style.overflow = 'hidden';
 };
 
 const closeMermaidFullscreen = () => {
+  stopMermaidFullscreenDrag();
   mermaidFullscreenVisible.value = false;
   mermaidFullscreenSvg.value = '';
+  mermaidFullscreenSource.value = '';
+  clearMermaidFullscreenFeedback();
+  resetMermaidFullscreenView();
   document.body.style.overflow = '';
+};
+
+const clampMermaidFullscreenScale = (scale: number) =>
+  Math.min(MERMAID_MAX_SCALE, Math.max(MERMAID_MIN_SCALE, scale));
+
+const clearMermaidFullscreenFeedback = () => {
+  if (mermaidFullscreenFeedbackTimer) {
+    clearTimeout(mermaidFullscreenFeedbackTimer);
+    mermaidFullscreenFeedbackTimer = null;
+  }
+  mermaidFullscreenFeedback.value = '';
+  mermaidFullscreenFeedbackStatus.value = '';
+};
+
+const setMermaidFullscreenFeedback = (
+  message: string,
+  status: 'success' | 'error',
+) => {
+  clearMermaidFullscreenFeedback();
+  mermaidFullscreenFeedback.value = message;
+  mermaidFullscreenFeedbackStatus.value = status;
+  mermaidFullscreenFeedbackTimer = setTimeout(() => {
+    mermaidFullscreenFeedback.value = '';
+    mermaidFullscreenFeedbackStatus.value = '';
+    mermaidFullscreenFeedbackTimer = null;
+  }, MERMAID_FULLSCREEN_FEEDBACK_DURATION_MS);
+};
+
+const setMermaidFullscreenScale = (nextScale: number) => {
+  mermaidFullscreenState.scale = clampMermaidFullscreenScale(nextScale);
+  if (mermaidFullscreenState.scale <= 1) {
+    mermaidFullscreenState.x = 0;
+    mermaidFullscreenState.y = 0;
+    mermaidFullscreenState.dragging = false;
+    mermaidFullscreenState.dragPointerId = null;
+  }
+};
+
+const resetMermaidFullscreenView = () => {
+  Object.assign(mermaidFullscreenState, createMermaidFullscreenState());
+};
+
+const zoomInMermaidFullscreen = () => {
+  setMermaidFullscreenScale(
+    mermaidFullscreenState.scale + MERMAID_SCALE_STEP,
+  );
+};
+
+const zoomOutMermaidFullscreen = () => {
+  setMermaidFullscreenScale(
+    mermaidFullscreenState.scale - MERMAID_SCALE_STEP,
+  );
+};
+
+const stopMermaidFullscreenDrag = () => {
+  if (!mermaidFullscreenState.dragging) {
+    return;
+  }
+  const pointerId = mermaidFullscreenState.dragPointerId;
+  mermaidFullscreenState.dragging = false;
+  mermaidFullscreenState.dragPointerId = null;
+  if (mermaidFullscreenViewport.value && pointerId !== null) {
+    mermaidFullscreenViewport.value.releasePointerCapture?.(pointerId);
+  }
+};
+
+const startMermaidFullscreenDrag = (event: PointerEvent) => {
+  if (mermaidFullscreenState.scale <= 1) {
+    return;
+  }
+  mermaidFullscreenState.dragging = true;
+  mermaidFullscreenState.dragPointerId = event.pointerId;
+  mermaidFullscreenState.dragStartX = event.clientX;
+  mermaidFullscreenState.dragStartY = event.clientY;
+  mermaidFullscreenState.originX = mermaidFullscreenState.x;
+  mermaidFullscreenState.originY = mermaidFullscreenState.y;
+  mermaidFullscreenViewport.value?.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
+};
+
+const onMermaidFullscreenDrag = (event: PointerEvent) => {
+  if (
+    !mermaidFullscreenState.dragging ||
+    mermaidFullscreenState.dragPointerId !== event.pointerId
+  ) {
+    return;
+  }
+  mermaidFullscreenState.x =
+    mermaidFullscreenState.originX +
+    (event.clientX - mermaidFullscreenState.dragStartX);
+  mermaidFullscreenState.y =
+    mermaidFullscreenState.originY +
+    (event.clientY - mermaidFullscreenState.dragStartY);
+  event.preventDefault();
+};
+
+const endMermaidFullscreenDrag = (event: PointerEvent) => {
+  if (mermaidFullscreenState.dragPointerId !== event.pointerId) {
+    return;
+  }
+  stopMermaidFullscreenDrag();
+};
+
+const copyMermaidFullscreenSource = async () => {
+  if (!mermaidFullscreenSource.value) {
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(mermaidFullscreenSource.value);
+    setMermaidFullscreenFeedback(t('mermaid.copy_source_success'), 'success');
+  } catch (error) {
+    console.error('Failed to copy Mermaid source:', error);
+    setMermaidFullscreenFeedback(t('mermaid.copy_source_failed'), 'error');
+  }
+};
+
+const downloadMermaidFullscreenSvg = async () => {
+  const svgEl = mermaidFullscreenStage.value?.querySelector('svg') as
+    | SVGElement
+    | null;
+  if (!svgEl) {
+    setMermaidFullscreenFeedback(t('mermaid.download_svg_failed'), 'error');
+    return;
+  }
+
+  try {
+    const serializer = new XMLSerializer();
+    const svgNode = svgEl.cloneNode(true) as SVGElement;
+    if (!svgNode.getAttribute('xmlns')) {
+      svgNode.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    }
+    const svgMarkup = serializer.serializeToString(svgNode);
+    const blob = new Blob([svgMarkup], {
+      type: 'image/svg+xml;charset=utf-8',
+    });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = 'mermaid-diagram.svg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+    setMermaidFullscreenFeedback(t('mermaid.download_svg_success'), 'success');
+  } catch (error) {
+    console.error('Failed to download Mermaid SVG:', error);
+    setMermaidFullscreenFeedback(t('mermaid.download_svg_failed'), 'error');
+  }
 };
 
 // ==================== Selection Menu ====================
@@ -395,31 +713,44 @@ const handleSelection = () => {
   }
 };
 
-onMounted(() => {
-  document.addEventListener('selectionchange', handleSelection);
-
-  // 键盘快捷键
-  document.addEventListener('keydown', (e) => {
-    if (lightboxVisible.value) {
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === '+' || e.key === '=') zoomIn();
-      if (e.key === '-') zoomOut();
-      if (e.key === '0') resetZoom();
-    }
-    if (codeFullscreenVisible.value && e.key === 'Escape') {
-      closeCodeFullscreen();
-    }
-    if (mermaidFullscreenVisible.value && e.key === 'Escape') {
+const handleKeydown = (e: KeyboardEvent) => {
+  if (lightboxVisible.value) {
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === '+' || e.key === '=') zoomIn();
+    if (e.key === '-') zoomOut();
+    if (e.key === '0') resetZoom();
+  }
+  if (codeFullscreenVisible.value && e.key === 'Escape') {
+    closeCodeFullscreen();
+  }
+  if (mermaidFullscreenVisible.value) {
+    if (e.key === 'Escape') {
       closeMermaidFullscreen();
     }
-  });
+    if (e.key === '+' || e.key === '=') {
+      zoomInMermaidFullscreen();
+    }
+    if (e.key === '-') {
+      zoomOutMermaidFullscreen();
+    }
+    if (e.key === '0') {
+      resetMermaidFullscreenView();
+    }
+  }
+};
+
+onMounted(() => {
+  document.addEventListener('selectionchange', handleSelection);
+  document.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
   document.removeEventListener('selectionchange', handleSelection);
+  document.removeEventListener('keydown', handleKeydown);
   if (hideTimeout) {
     clearTimeout(hideTimeout);
   }
+  clearMermaidFullscreenFeedback();
 });
 
 // 暴露方法给父组件
@@ -675,8 +1006,52 @@ defineExpose({
 
 .mermaid-fullscreen-header {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   padding: 16px 20px 0;
+  flex-wrap: wrap;
+}
+
+.mermaid-fullscreen-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mermaid-fullscreen-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.mermaid-fullscreen-btn:hover,
+.mermaid-fullscreen-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.mermaid-fullscreen-scale-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+  color: #fff;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .mermaid-fullscreen-close {
@@ -692,8 +1067,25 @@ defineExpose({
   cursor: pointer;
 }
 
-.mermaid-fullscreen-close:hover {
-  background: rgba(255, 255, 255, 0.2);
+.mermaid-fullscreen-feedback {
+  margin: 12px 20px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.mermaid-fullscreen-feedback[data-status='success'] {
+  background: var(--chat-state-success-surface);
+  border-color: var(--chat-state-success-border);
+  color: var(--chat-state-success-text);
+}
+
+.mermaid-fullscreen-feedback[data-status='error'] {
+  background: var(--chat-state-error-surface);
+  border-color: var(--chat-state-error-border);
+  color: var(--chat-state-error-text);
 }
 
 .mermaid-fullscreen-content {
@@ -702,13 +1094,31 @@ defineExpose({
   padding: 20px 24px 28px;
 }
 
-.mermaid-fullscreen-stage {
+.mermaid-fullscreen-viewport {
   width: 100%;
   height: 100%;
   overflow: auto;
   border-radius: 12px;
   background: #fff;
   padding: 24px;
+  touch-action: none;
+}
+
+.mermaid-fullscreen-viewport[data-mermaid-scale]:not([data-mermaid-scale='1.00']) {
+  cursor: grab;
+}
+
+.mermaid-fullscreen-viewport[data-mermaid-dragging='true'] {
+  cursor: grabbing;
+}
+
+.mermaid-fullscreen-transform-layer {
+  min-width: fit-content;
+  will-change: transform;
+}
+
+.mermaid-fullscreen-stage {
+  min-width: fit-content;
 }
 
 .mermaid-fullscreen-stage :deep(svg) {

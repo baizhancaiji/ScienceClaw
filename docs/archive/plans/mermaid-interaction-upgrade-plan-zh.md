@@ -3,7 +3,7 @@
 > **编号**: SC-FE-MERMAID-2026-001
 > **创建日期**: 2026-06-07
 > **登记状态**: 已登记（2026-06-07，见 `docs/current-active-execution-plans-zh.md`）
-> **执行状态**: W1-W3 已完成，W4 待施工
+> **执行状态**: W1-W4 已完成（2026-06-07 归档）
 > **优先级**: P1
 > **影响范围**: `ScienceClaw/frontend/src/utils/markdownRenderer.ts`、`ScienceClaw/frontend/src/utils/content.ts`、`ScienceClaw/frontend/src/composables/useMermaidRenderer.ts`、`ScienceClaw/frontend/src/components/ChatMessage.vue`、`ScienceClaw/frontend/src/components/MarkdownEnhancements.vue`、`ScienceClaw/frontend/src/assets/chat-message-renderer.css`、`ScienceClaw/frontend/src/locales/zh.ts`、`ScienceClaw/frontend/src/locales/en.ts`、对应 spec
 
@@ -351,6 +351,14 @@ npm run type-check
 ### W4：全屏查看与浏览器验收
 
 **目标**: 复杂 Mermaid 图表可全屏查看，并完成实际浏览器 smoke。
+**施工状态**: 已完成（2026-06-07）
+**验证证据**:
+
+- `cd ScienceClaw/frontend && npm run test:run -- src/components/MarkdownEnhancements.spec.ts src/components/ChatMessage.spec.ts`
+- `cd ScienceClaw/frontend && npm run type-check`
+- `cd ScienceClaw/frontend && npm run build`
+- `docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"` 显示 `scienceclaw-frontend-1` 持续运行并暴露 `0.0.0.0:5173->5173/tcp`
+- 依照 `CODEX_IN_APP_BROWSER.md` 通过固定 `browser-client.mjs` 路径尝试获取 `iab` 会话，运行时返回 `Browser is not available: iab`，因此本批将内置浏览器 smoke 记录为环境阻塞而非功能失败
 
 **改动文件**:
 
@@ -370,6 +378,13 @@ npm run type-check
 - 全屏态不会污染图片 lightbox 和代码块全屏状态。
 - 移动端宽度下按钮不重叠，图表不溢出到不可操作区域。
 - 使用 Codex App in-app browser 完成至少一次本地聊天消息 Mermaid 图表 smoke；若内置浏览器不可用，按 `CODEX_IN_APP_BROWSER.md` 记录阻塞原因。
+
+2026-06-07 落地说明：
+
+- 已为 Mermaid 全屏 overlay 补齐独立缩放、拖动、复制源码、下载 SVG、关闭和状态提示能力，且状态不与图片 lightbox 或代码块全屏混用。
+- `MarkdownEnhancements.vue` 新增组件测试覆盖全屏打开、缩放/拖动、复制/下载和关闭行为；`ChatMessage.spec.ts` 保持消息内入口与 inline 交互覆盖。
+- 本机构建与类型检查通过，说明全屏扩展未破坏现有前端打包链路。
+- 按仓库文档要求尝试 Codex App in-app browser smoke，但固定 `browser-client.mjs` 路径下 `agent.browsers.get("iab")` 返回 `Browser is not available: iab`。该项阻塞属于本机 in-app browser 运行时可用性，不属于 Mermaid 功能回归。
 
 **验证命令**:
 
@@ -413,6 +428,6 @@ npm run build
 
 ## 八、当前状态
 
-本施工单已在 2026-06-07 登记为活跃计划，当前已完成 W1-W3。
+本施工单已完成并于 2026-06-07 归档。
 
-下一批最小增量：W4 全屏查看补齐缩放/拖动/复制/下载能力，并完成浏览器 smoke 与构建验收。
+后续仅保留一个环境侧残余项：待 `CODEX_IN_APP_BROWSER.md` 所述 `iab` 运行时恢复后，补做一次内置浏览器 smoke 记录。

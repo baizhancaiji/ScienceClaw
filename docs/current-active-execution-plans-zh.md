@@ -13,11 +13,11 @@
 
 ## 活跃计划
 
-当前无活跃执行计划。
+当前活跃执行计划如下。
 
 | 计划 | 当前状态 | 权威文档 | 下一批最小增量 | 验收命令 |
 | --- | --- | --- | --- | --- |
-| 暂无 | - | - | - | - |
+| 沙盒接管页扩展施工单 | 执行中。W1 已完成：`VNCViewer` 已支持运行时 `viewOnly` 切换，并补齐定向测试；当前等待进入 W2。 | `docs/sandbox-takeover-construction-plan.md` | W2 `TakeOverView` 双 tab + `?sandbox=1` 兼容；W3 `ActivityPanel`/`TakeOverView` 按 `sessionId` 的 BroadcastChannel 快照与增量同步；W4 `BrowserToolView` 新开独立标签页入口；W5 i18n 与最小测试。 | `cd D:\trae\ScienceClaw\ScienceClaw\frontend && npm run type-check && npm run test:run -- src/components/TakeOverView.spec.ts src/components/VNCViewer.spec.ts` |
 
 ## 非必须后续项
 

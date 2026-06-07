@@ -103,6 +103,12 @@ watch([() => props.sessionId, () => props.enabled], () => {
   }
 }, { immediate: true });
 
+watch(() => props.viewOnly, (next) => {
+  if (rfb) {
+    rfb.viewOnly = next ?? false;
+  }
+});
+
 // Watch for container availability
 watch(vncContainer, () => {
   if (vncContainer.value && props.enabled) {

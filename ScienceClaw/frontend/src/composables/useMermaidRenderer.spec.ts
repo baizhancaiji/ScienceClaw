@@ -327,10 +327,12 @@ describe("useMermaidRenderer", () => {
       'data-test="cached-diagram"',
     );
 
-    wrapper.vm.visible = false;
+    const vm = wrapper.vm as unknown as { visible: boolean };
+
+    vm.visible = false;
     await nextTick();
 
-    wrapper.vm.visible = true;
+    vm.visible = true;
     await nextTick();
     await new Promise((resolve) => setTimeout(resolve, 0));
     await nextTick();

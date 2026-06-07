@@ -623,6 +623,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
@@ -630,22 +631,22 @@
 .markdown-content .mermaid-action-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  min-height: 32px;
-  padding: 0.4rem 0.7rem;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border: none;
   border-radius: 6px;
   background: var(--chat-code-control-surface);
   color: var(--chat-code-control-text);
-  font-size: 0.75rem;
   line-height: 1;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, transform 0.2s;
 }
 
 .markdown-content .mermaid-action-button:hover {
-  background: var(--chat-code-control-surface-hover);
-  color: var(--chat-code-control-hover-text);
+  background: rgba(96, 165, 250, 0.16);
+  color: #60a5fa;
   transform: translateY(-1px);
 }
 
@@ -723,6 +724,29 @@
   height: auto;
   margin: 0 auto;
   display: block;
+  overflow: visible;
+  text-rendering: geometricPrecision;
+}
+
+.markdown-content .mermaid-content :is(foreignObject, .label, .nodeLabel, .edgeLabel) {
+  overflow: visible;
+}
+
+.markdown-content .mermaid-content :is(.label, .nodeLabel, .edgeLabel) {
+  line-height: 1.25;
+}
+
+.markdown-content .mermaid-content :is(.label, .nodeLabel, .edgeLabel) :is(p, div, span) {
+  margin: 0;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.markdown-content .mermaid-content .labelBkg {
+  rx: 6px;
+  ry: 6px;
 }
 
 .markdown-content .mermaid-source-panel {
@@ -731,7 +755,9 @@
 
 .markdown-content .mermaid-source-panel:not([hidden]) {
   display: block;
-  margin-top: 0.85rem;
+  margin: 0;
+  min-height: 100px;
+  max-height: min(70vh, 720px);
   padding: 0.9rem 1rem;
   border-radius: 10px;
   background: var(--chat-code-surface);
@@ -743,6 +769,11 @@
   white-space: pre-wrap;
   word-break: break-word;
   overflow-x: auto;
+  overflow-y: auto;
+}
+
+.markdown-content .mermaid-wrapper[data-mermaid-source-open="true"] .mermaid-viewport {
+  display: none;
 }
 
 .markdown-content .mermaid-feedback {
@@ -803,10 +834,12 @@
     gap: 0.4rem;
   }
   .markdown-content .mermaid-action-button {
-    flex: 1 1 auto;
-    justify-content: center;
+    flex: 0 0 auto;
   }
   .markdown-content .mermaid-viewport {
+    max-height: min(65vh, 560px);
+  }
+  .markdown-content .mermaid-source-panel:not([hidden]) {
     max-height: min(65vh, 560px);
   }
 }

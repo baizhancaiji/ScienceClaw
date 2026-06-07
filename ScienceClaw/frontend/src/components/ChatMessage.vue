@@ -334,10 +334,14 @@ const setMermaidFeedback = (
 
 const toggleMermaidSourcePanel = (wrapper: HTMLElement) => {
   const sourcePanel = wrapper.querySelector("[data-mermaid-source-panel]") as HTMLElement | null;
+  const viewport = wrapper.querySelector(".mermaid-viewport") as HTMLElement | null;
   if (!sourcePanel) {
     return;
   }
   sourcePanel.hidden = !sourcePanel.hidden;
+  if (viewport) {
+    viewport.hidden = !sourcePanel.hidden;
+  }
   wrapper.dataset.mermaidSourceOpen = sourcePanel.hidden ? "false" : "true";
 };
 

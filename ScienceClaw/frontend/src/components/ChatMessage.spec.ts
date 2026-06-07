@@ -265,12 +265,16 @@ describe('ChatMessage markdown rendering', () => {
     });
     const wrapper = mountMessage('assistant');
     const sourcePanel = wrapper.find('[data-mermaid-source-panel]').element as HTMLElement;
+    const viewport = wrapper.find('.mermaid-viewport').element as HTMLElement;
 
     expect(sourcePanel.hidden).toBe(true);
     expect(sourcePanel.textContent).toBe('graph TD; A-->B;');
+    expect(viewport.hidden).toBe(false);
 
     await wrapper.find('[data-mermaid-action="toggle-source"]').trigger('click');
     expect(sourcePanel.hidden).toBe(false);
+    expect(wrapper.find('.mermaid-wrapper').attributes('data-mermaid-source-open')).toBe('true');
+    expect(viewport.hidden).toBe(true);
 
     await wrapper.find('[data-mermaid-action="copy-source"]').trigger('click');
     expect(writeText).toHaveBeenCalledWith('graph TD; A-->B;');

@@ -1007,7 +1007,7 @@ defineExpose({
 .mermaid-fullscreen-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   padding: 16px 20px 0;
   flex-wrap: wrap;
@@ -1016,8 +1016,10 @@ defineExpose({
 .mermaid-fullscreen-toolbar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .mermaid-fullscreen-btn {
@@ -1036,7 +1038,8 @@ defineExpose({
 
 .mermaid-fullscreen-btn:hover,
 .mermaid-fullscreen-close:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(96, 165, 250, 0.18);
+  color: #93c5fd;
   transform: translateY(-1px);
 }
 

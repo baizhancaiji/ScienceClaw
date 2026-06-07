@@ -68,6 +68,11 @@ export function useMermaidRenderer({
 
   const createMermaidPlaceholderId = () => `mermaid-${mermaidCounter++}`;
 
+  const teardownMermaidObserver = () => {
+    mutationObserver?.disconnect();
+    mutationObserver = null;
+  };
+
   const renderMermaidDiagrams = async () => {
     if (!markdownRef.value) {
       return;
@@ -192,14 +197,27 @@ export function useMermaidRenderer({
       });
     }
 
+    watch(markdownRef, (currentEl, previousEl) => {
+      if (previousEl && previousEl !== currentEl) {
+        teardownMermaidObserver();
+      }
+
+      if (!currentEl) {
+        return;
+      }
+
+      setupMermaidObserver();
+      scheduleRenderMermaidDiagrams();
+      scheduleFinalRender();
+    });
+
     onMounted(() => {
       setupMermaidObserver();
       scheduleRenderMermaidDiagrams();
     });
 
     onBeforeUnmount(() => {
-      mutationObserver?.disconnect();
-      mutationObserver = null;
+      teardownMermaidObserver();
       if (finalRenderTimer) {
         clearTimeout(finalRenderTimer);
         finalRenderTimer = null;

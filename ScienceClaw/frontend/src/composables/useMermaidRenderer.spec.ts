@@ -278,4 +278,68 @@ describe("useMermaidRenderer", () => {
     expect(oldWrapper.querySelector(".mermaid-content")?.innerHTML).toBe("");
     expect(root.querySelector(".mermaid-content")?.innerHTML).toContain('data-test="new"');
   });
+
+  it("rehydrates recreated mermaid wrappers from cache after the markdown root is reattached", async () => {
+    const mermaid: MermaidLoaderAdapter = {
+      initialize: vi.fn(),
+      render: vi
+        .fn()
+        .mockResolvedValue({ svg: '<svg data-test="cached-diagram"></svg>' }),
+    };
+
+    const wrapper = mount({
+      template: `
+        <div>
+          <div v-if="visible" ref="root" v-html="html"></div>
+        </div>
+      `,
+      setup() {
+        const root = ref<HTMLElement | null>(null);
+        const visible = ref(true);
+        const html = ref(`
+          <div class="mermaid-wrapper" data-mermaid-code="${encodeURIComponent("graph TD; A-->B;")}">
+            <div class="mermaid-loading"></div>
+            <div class="mermaid-content"></div>
+          </div>
+        `);
+
+        useMermaidRenderer({
+          markdownRef: root,
+          importMermaid: async () => mermaid,
+        });
+
+        return {
+          root,
+          visible,
+          html,
+        };
+      },
+    }, {
+      attachTo: document.body,
+    });
+
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await nextTick();
+
+    expect(mermaid.render).toHaveBeenCalledTimes(1);
+    expect(wrapper.element.querySelector(".mermaid-content")?.innerHTML).toContain(
+      'data-test="cached-diagram"',
+    );
+
+    wrapper.vm.visible = false;
+    await nextTick();
+
+    wrapper.vm.visible = true;
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await nextTick();
+
+    expect(mermaid.render).toHaveBeenCalledTimes(1);
+    expect(wrapper.element.querySelector(".mermaid-content")?.innerHTML).toContain(
+      'data-test="cached-diagram"',
+    );
+
+    wrapper.unmount();
+  });
 });

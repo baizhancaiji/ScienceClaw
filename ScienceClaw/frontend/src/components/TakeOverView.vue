@@ -90,13 +90,11 @@ import { useI18n } from 'vue-i18n';
 
 import SandboxTerminal from './SandboxTerminal.vue';
 import VNCViewer from './VNCViewer.vue';
-
-interface SandboxExecEntry {
-  toolName: string;
-  command: string;
-  output?: string;
-  status: string;
-}
+import {
+  getSandboxHistoryChannelName,
+  type SandboxExecEntry,
+  type SandboxHistoryChannelMessage,
+} from '../utils/sandboxHistoryChannel';
 
 interface TakeOverDetail {
   active?: boolean;
@@ -112,6 +110,7 @@ const activeTab = ref<'terminal' | 'browser'>('browser');
 const browserViewOnly = ref(true);
 const terminalHistory = ref<SandboxExecEntry[]>([]);
 const routeTakeOverDismissed = ref(false);
+let sandboxHistoryChannel: BroadcastChannel | null = null;
 
 const availableTabs = computed(() => ([
   { id: 'terminal' as const, label: t('Terminal') },
@@ -150,6 +149,7 @@ const bindSession = (sessionId: string) => {
   boundSessionId.value = sessionId;
   activeTab.value = 'browser';
   browserViewOnly.value = true;
+  terminalHistory.value = [];
   routeTakeOverDismissed.value = false;
 };
 
@@ -158,6 +158,42 @@ const clearTakeOverState = () => {
   boundSessionId.value = '';
   activeTab.value = 'browser';
   browserViewOnly.value = true;
+  terminalHistory.value = [];
+};
+
+const closeSandboxHistoryChannel = () => {
+  sandboxHistoryChannel?.close();
+  sandboxHistoryChannel = null;
+};
+
+const rebuildSandboxHistoryChannel = (sessionId: string) => {
+  closeSandboxHistoryChannel();
+
+  if (!sessionId) {
+    return;
+  }
+
+  sandboxHistoryChannel = new BroadcastChannel(getSandboxHistoryChannelName(sessionId));
+  sandboxHistoryChannel.addEventListener('message', (event: MessageEvent<SandboxHistoryChannelMessage>) => {
+    const message = event.data;
+    if (!message || message.sessionId !== sessionId) {
+      return;
+    }
+
+    if (message.type === 'snapshot') {
+      terminalHistory.value = [...message.entries];
+      return;
+    }
+
+    if (message.type === 'incremental') {
+      terminalHistory.value = [...terminalHistory.value, message.entry];
+    }
+  });
+
+  sandboxHistoryChannel.postMessage({
+    type: 'request-snapshot',
+    sessionId,
+  } satisfies SandboxHistoryChannelMessage);
 };
 
 const handleTakeOverEvent = (event: Event) => {
@@ -209,6 +245,15 @@ watch(
   { immediate: true },
 );
 
+watch(boundSessionId, (sessionId) => {
+  if (!(takeOverActive.value || isRouteTakeOverMode.value)) {
+    closeSandboxHistoryChannel();
+    return;
+  }
+
+  rebuildSandboxHistoryChannel(sessionId);
+}, { immediate: true });
+
 const shouldShow = computed(() => {
   if (takeOverActive.value && boundSessionId.value) {
     return true;
@@ -232,6 +277,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('takeover', handleTakeOverEvent as EventListener);
+  closeSandboxHistoryChannel();
 });
 
 defineExpose({

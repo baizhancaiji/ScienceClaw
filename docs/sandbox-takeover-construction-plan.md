@@ -5,7 +5,7 @@
 > **修订日期**: 2026-06-07
 > **优先级**: P0
 > **影响范围**: `ScienceClaw/frontend/src/components/TakeOverView.vue`、`ScienceClaw/frontend/src/components/ActivityPanel.vue`、`ScienceClaw/frontend/src/components/SandboxPreview.vue`、`ScienceClaw/frontend/src/components/toolViews/BrowserToolView.vue`、`ScienceClaw/frontend/src/components/VNCViewer.vue`
-> **状态**: 执行中（W1/W2 已完成，下一批 W3）
+> **状态**: 执行中（W1/W2/W3 已完成，下一批 W4）
 
 ---
 
@@ -285,6 +285,16 @@ const browserViewOnly = ref(true)
 2. 主聊天页切到别的会话时，已打开接管页仍只接收原会话频道。
 3. 两个不同 session 同时开接管页时，历史互不串台。
 
+**本批结果（2026-06-07）**:
+
+1. 已新增 `ScienceClaw/frontend/src/utils/sandboxHistoryChannel.ts`，统一频道名和 `request-snapshot` / `snapshot` / `incremental` 协议结构。
+2. 已在 `ScienceClaw/frontend/src/components/ActivityPanel.vue` 增加按 `sessionId` 隔离的 BroadcastChannel 广播端；`sandboxHistory` 新增项会发增量，收到 `request-snapshot` 会回完整快照。
+3. 已在 `ScienceClaw/frontend/src/components/TakeOverView.vue` 增加订阅端；绑定会话后会先请求快照，再接收后续增量，且只消费当前绑定 `sessionId` 的消息。
+4. 已在 `ScienceClaw/frontend/src/pages/ChatPage.vue` 和 `ScienceClaw/frontend/src/pages/SharePage.vue` 补齐 `sessionId` 透传，避免在 `ActivityPanel` 内假设会话天然存在。
+5. 已新增 `ScienceClaw/frontend/src/components/ActivityPanel.spec.ts`，并扩展 `ScienceClaw/frontend/src/components/TakeOverView.spec.ts`，覆盖快照响应、增量广播、订阅端接收与跨会话隔离。
+6. 提交前已执行 `npm run test:run -- src/components/ActivityPanel.spec.ts src/components/TakeOverView.spec.ts` 与 `npm run type-check`，通过。
+7. 提交前已用本地 `codegraph impact ActivityPanel --depth 2`、`codegraph callers ActivityPanel`、`codegraph impact TakeOverView --depth 2` 做影响分析；W3 影响面收敛在 `ActivityPanel`、`TakeOverView` 以及它们的真实调用层 `ChatPage.vue` / `SharePage.vue`。
+
 ---
 
 ### W4：把 Browser 接管入口改为新建独立标签页
@@ -415,14 +425,15 @@ type SandboxHistoryChannelMessage =
 ```powershell
 cd D:\trae\ScienceClaw\ScienceClaw\frontend
 npm run type-check
-npm run test:run -- src/components/TakeOverView.spec.ts src/components/VNCViewer.spec.ts
+npm run test:run -- src/components/ActivityPanel.spec.ts src/components/TakeOverView.spec.ts src/components/VNCViewer.spec.ts
 ```
 
 如果测试文件拆分位置不同，允许替换为实际新增或更新后的对应 spec，但不得省略：
 
 1. 类型检查。
-2. `TakeOverView` 行为验证。
-3. `VNCViewer` 只读切换验证。
+2. `ActivityPanel` 历史同步协议验证。
+3. `TakeOverView` 行为验证。
+4. `VNCViewer` 只读切换验证。
 
 ---
 

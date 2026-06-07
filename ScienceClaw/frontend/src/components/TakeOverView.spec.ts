@@ -3,6 +3,49 @@ import { createI18n } from 'vue-i18n';
 import { defineComponent, nextTick, reactive } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+type Listener = (event: MessageEvent) => void;
+
+class MockBroadcastChannel {
+  static channels = new Map<string, Set<MockBroadcastChannel>>();
+
+  readonly listeners = new Set<Listener>();
+
+  constructor(public readonly name: string) {
+    const channelSet = MockBroadcastChannel.channels.get(name) ?? new Set<MockBroadcastChannel>();
+    channelSet.add(this);
+    MockBroadcastChannel.channels.set(name, channelSet);
+  }
+
+  postMessage(data: unknown) {
+    const peers = MockBroadcastChannel.channels.get(this.name) ?? new Set<MockBroadcastChannel>();
+    for (const peer of peers) {
+      if (peer === this) {
+        continue;
+      }
+      for (const listener of peer.listeners) {
+        listener({ data } as MessageEvent);
+      }
+    }
+  }
+
+  addEventListener(_type: 'message', listener: Listener) {
+    this.listeners.add(listener);
+  }
+
+  removeEventListener(_type: 'message', listener: Listener) {
+    this.listeners.delete(listener);
+  }
+
+  close() {
+    MockBroadcastChannel.channels.get(this.name)?.delete(this);
+    this.listeners.clear();
+  }
+
+  static reset() {
+    MockBroadcastChannel.channels.clear();
+  }
+}
+
 const route = reactive<{
   params: { sessionId?: string | string[] };
   query: Record<string, unknown>;
@@ -110,11 +153,15 @@ const mountTakeOverView = () => mount(TakeOverView, {
 
 describe('TakeOverView', () => {
   beforeEach(() => {
+    MockBroadcastChannel.reset();
+    vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
     route.params = {};
     route.query = {};
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
+    MockBroadcastChannel.reset();
     document.body.innerHTML = '';
   });
 
@@ -170,5 +217,45 @@ describe('TakeOverView', () => {
     await nextTick();
 
     expect(wrapper.get('.vnc-viewer-stub').attributes('data-session-id')).toBe('event-session');
+  });
+
+  it('requests a snapshot, applies incremental history, and ignores other sessions', async () => {
+    route.params = { sessionId: 'session-a' };
+    route.query = { sandbox: '1' };
+
+    const broadcaster = new MockBroadcastChannel('sandbox-history:session-a');
+    const wrapper = mountTakeOverView();
+    await nextTick();
+
+    await wrapper.get('[data-testid="takeover-tab-terminal"]').trigger('click');
+    await nextTick();
+
+    broadcaster.postMessage({
+      type: 'snapshot',
+      sessionId: 'session-a',
+      entries: [
+        { toolName: 'execute', command: 'echo one', status: 'calling' },
+      ],
+    });
+    await nextTick();
+
+    expect(wrapper.get('.sandbox-terminal-stub').attributes('data-history-length')).toBe('1');
+
+    const wrongChannel = new MockBroadcastChannel('sandbox-history:session-b');
+    wrongChannel.postMessage({
+      type: 'snapshot',
+      sessionId: 'session-b',
+      entries: [
+        { toolName: 'execute', command: 'echo wrong', status: 'calling' },
+      ],
+    });
+    broadcaster.postMessage({
+      type: 'incremental',
+      sessionId: 'session-a',
+      entry: { toolName: 'execute', command: 'echo two', status: 'called', output: 'done' },
+    });
+    await nextTick();
+
+    expect(wrapper.get('.sandbox-terminal-stub').attributes('data-history-length')).toBe('2');
   });
 });

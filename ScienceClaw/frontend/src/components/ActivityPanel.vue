@@ -247,6 +247,10 @@ import type { ToolContent } from '../types/message';
 import type { PlanEventData } from '../types/event';
 import type { SandboxPreviewMode } from '../utils/sandbox';
 import { getPreviewMode } from '../utils/sandbox';
+import {
+  getSandboxHistoryChannelName,
+  type SandboxHistoryChannelMessage,
+} from '../utils/sandboxHistoryChannel';
 import { getFirstToolArgPreview, getToolResultStringField, getToolStringArg } from '../types/toolPayload';
 import { useResizeObserver } from '../composables/useResizeObserver';
 import { eventBus } from '../utils/eventBus';
@@ -268,6 +272,7 @@ const props = withDefaults(defineProps<{
   plan?: PlanEventData;
   isLoading: boolean;
   lastTurnHadError?: boolean;
+  sessionId?: string;
 }>(), { lastTurnHadError: false });
 
 const emit = defineEmits<{
@@ -470,6 +475,40 @@ export interface SandboxExecEntry {
 }
 
 const sandboxHistory = ref<SandboxExecEntry[]>([]);
+let sandboxHistoryChannel: BroadcastChannel | null = null;
+
+const closeSandboxHistoryChannel = () => {
+  sandboxHistoryChannel?.close();
+  sandboxHistoryChannel = null;
+};
+
+const postSandboxHistoryMessage = (message: SandboxHistoryChannelMessage) => {
+  sandboxHistoryChannel?.postMessage(message);
+};
+
+const rebuildSandboxHistoryChannel = (sessionId?: string) => {
+  closeSandboxHistoryChannel();
+
+  if (!sessionId) {
+    return;
+  }
+
+  sandboxHistoryChannel = new BroadcastChannel(getSandboxHistoryChannelName(sessionId));
+  sandboxHistoryChannel.addEventListener('message', (event: MessageEvent<SandboxHistoryChannelMessage>) => {
+    const message = event.data;
+    if (!message || message.sessionId !== sessionId) {
+      return;
+    }
+
+    if (message.type === 'request-snapshot') {
+      postSandboxHistoryMessage({
+        type: 'snapshot',
+        sessionId,
+        entries: [...sandboxHistory.value],
+      });
+    }
+  });
+};
 
 function scanSandboxTools() {
   for (const item of props.items) {
@@ -484,23 +523,60 @@ function scanSandboxTools() {
     if (item.tool.status === 'calling' && !writtenToolCalls.has(callId + ':calling')) {
       activeSandboxMode.value = mode;
       writtenToolCalls.add(callId + ':calling');
-      sandboxHistory.value.push({ toolName: fn, command: extractCommand(item.tool!), status: 'calling' });
+      const entry = { toolName: fn, command: extractCommand(item.tool!), status: 'calling' } satisfies SandboxExecEntry;
+      sandboxHistory.value.push(entry);
+      if (props.sessionId) {
+        postSandboxHistoryMessage({
+          type: 'incremental',
+          sessionId: props.sessionId,
+          entry,
+        });
+      }
     }
 
     if (item.tool.status === 'called' && !writtenToolCalls.has(callId + ':called')) {
       activeSandboxMode.value = mode;
       if (!writtenToolCalls.has(callId + ':calling')) {
         writtenToolCalls.add(callId + ':calling');
-        sandboxHistory.value.push({ toolName: fn, command: extractCommand(item.tool!), status: 'calling' });
+        const callingEntry = { toolName: fn, command: extractCommand(item.tool!), status: 'calling' } satisfies SandboxExecEntry;
+        sandboxHistory.value.push(callingEntry);
+        if (props.sessionId) {
+          postSandboxHistoryMessage({
+            type: 'incremental',
+            sessionId: props.sessionId,
+            entry: callingEntry,
+          });
+        }
       }
       writtenToolCalls.add(callId + ':called');
-      sandboxHistory.value.push({ toolName: fn, command: extractCommand(item.tool!), output: extractOutput(item.tool!), status: 'called' });
+      const calledEntry = {
+        toolName: fn,
+        command: extractCommand(item.tool!),
+        output: extractOutput(item.tool!),
+        status: 'called',
+      } satisfies SandboxExecEntry;
+      sandboxHistory.value.push(calledEntry);
+      if (props.sessionId) {
+        postSandboxHistoryMessage({
+          type: 'incremental',
+          sessionId: props.sessionId,
+          entry: calledEntry,
+        });
+      }
     }
   }
 }
 
 // Watch both new items AND status changes on existing items
-watch(() => props.items.map(i => `${i.id}:${i.tool?.status}`).join(','), scanSandboxTools);
+watch(() => props.items.map(i => `${i.id}:${i.tool?.status}`).join(','), scanSandboxTools, { immediate: true });
+watch(() => props.sessionId, (sessionId, previousSessionId) => {
+  if (previousSessionId && previousSessionId !== sessionId) {
+    sandboxHistory.value = [];
+    writtenToolCalls.clear();
+    activeSandboxMode.value = 'none';
+  }
+  rebuildSandboxHistoryChannel(sessionId);
+}, { immediate: true });
 
 const show = () => {
   eventBus.emit(EVENT_SHOW_ACTIVITY_PANEL);
@@ -524,6 +600,7 @@ onMounted(() => {
 onUnmounted(() => {
   eventBus.off(EVENT_SHOW_FILE_PANEL);
   eventBus.off(EVENT_SHOW_TOOL_PANEL);
+  closeSandboxHistoryChannel();
 });
 
 defineExpose({

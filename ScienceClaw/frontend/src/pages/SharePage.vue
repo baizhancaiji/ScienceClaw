@@ -122,6 +122,7 @@
       <!-- Activity Panel (right side - thinking + execution timeline) -->
       <ActivityPanel
         ref="activityPanelRef"
+        :session-id="sessionId"
         :items="displayActivityItems"
         :plan="displayActivityPlan"
         :isLoading="isLoading && selectedActivityTurn === -1"

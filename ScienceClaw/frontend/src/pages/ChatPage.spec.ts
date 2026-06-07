@@ -121,10 +121,6 @@ vi.mock('../utils/toast', () => ({
   showSuccessToast: vi.fn(),
 }));
 
-vi.mock('../utils/dom', () => ({
-  copyToClipboard: vi.fn(),
-}));
-
 type ChatPageTestApi = {
   handleEvent: (event: AgentSSEEvent) => void;
   replayHistoryEvents: (events: AgentSSEEvent[]) => boolean;
@@ -136,7 +132,6 @@ type ChatPageTestApi = {
   setSessionRuntimeForTest: (nextState: {
     cancelCurrentChat?: (() => void) | null;
     sessionHasPassword?: boolean;
-    shareMode?: 'private' | 'public';
     showVerifyPasswordDialog?: boolean;
     activitySnapshots?: Array<{ items: any[]; plan: any }>;
     pendingSkillSave?: string | null;
@@ -150,7 +145,6 @@ type ChatPageTestApi = {
     realTime: boolean;
     isLoading: boolean;
     title: string;
-    shareMode: 'private' | 'public';
     activityItems: any[];
     activitySnapshots: Array<{ items: any[]; plan: any }>;
     plan: any;
@@ -201,10 +195,6 @@ const mountChatPageWrapper = () => {
         LoadingIndicator: true,
         SessionPasswordDialog: true,
         VerifySessionPasswordDialog: true,
-        Popover: { template: '<div><slot /></div>' },
-        PopoverContent: { template: '<div><slot /></div>' },
-        PopoverTrigger: { template: '<div><slot /></div>' },
-        ShareIcon: true,
       },
     },
   });
@@ -478,7 +468,6 @@ describe('ChatPage route session reuse', () => {
     page.setSessionRuntimeForTest({
       cancelCurrentChat: cancelOldSse,
       sessionHasPassword: true,
-      shareMode: 'public',
       showVerifyPasswordDialog: true,
       activitySnapshots: [{ items: [{ id: 'old-activity', type: 'thinking' }], plan: undefined }],
       pendingSkillSave: 'old-skill',
@@ -528,7 +517,6 @@ describe('ChatPage route session reuse', () => {
     const state = page.getState();
     expect(state.sessionId).toBe('session-b');
     expect(state.title).toBe('Session B');
-    expect(state.shareMode).toBe('private');
     expect(state.sessionHasPassword).toBe(false);
     expect(state.showVerifyPasswordDialog).toBe(false);
     expect(state.hasMoreEvents).toBe(true);

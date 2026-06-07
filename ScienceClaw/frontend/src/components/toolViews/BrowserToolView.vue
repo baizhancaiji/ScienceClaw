@@ -68,12 +68,7 @@ watch(screenshotUrl, async (screenshot) => {
 }, { immediate: true });
 
 const takeOver = () => {
-  window.dispatchEvent(new CustomEvent('takeover', {
-    detail: {
-      sessionId: props.sessionId,
-      active: true
-    }
-  }));
+  window.open(`/chat/${props.sessionId}?sandbox=1`, '_blank', 'noopener');
 };
 </script>
 

@@ -5,7 +5,7 @@
 > **修订日期**: 2026-06-07
 > **优先级**: P0
 > **影响范围**: `ScienceClaw/frontend/src/components/TakeOverView.vue`、`ScienceClaw/frontend/src/components/ActivityPanel.vue`、`ScienceClaw/frontend/src/components/SandboxPreview.vue`、`ScienceClaw/frontend/src/components/toolViews/BrowserToolView.vue`、`ScienceClaw/frontend/src/components/VNCViewer.vue`
-> **状态**: 执行中（W1/W2/W3 已完成，下一批 W4）
+> **状态**: 执行中（W1/W2/W3/W4 已完成，下一批 W5）
 
 ---
 
@@ -328,6 +328,14 @@ window.open(`/chat/${sessionId}?sandbox=1`, '_blank', 'noopener')
 1. 会话 A 点击后得到独立标签页 A。
 2. 会话 B 再点击后得到独立标签页 B。
 3. A 页不会被 B 页替换。
+
+**本批结果（2026-06-07）**:
+
+1. 已将 `ScienceClaw/frontend/src/components/toolViews/BrowserToolView.vue` 的接管入口从当前页 `takeover` 事件切换为 `window.open('/chat/${sessionId}?sandbox=1', '_blank', 'noopener')`。
+2. `TakeOverView` 对旧 `takeover` 事件和 `?vnc=1` 的兼容链路保持不变，W4 未回退 W2/W3 已完成能力。
+3. 已新增 `ScienceClaw/frontend/src/components/toolViews/BrowserToolView.spec.ts`，覆盖点击后新开绑定当前会话的独立标签页。
+4. 提交前已执行 `npm run test:run -- src/components/toolViews/BrowserToolView.spec.ts` 与 `npm run type-check`，通过。
+5. 提交前已用本地 `codegraph impact BrowserToolView --depth 2` 与 `codegraph callers BrowserToolView` 做影响分析；当前 W4 直接改动面收敛在 `BrowserToolView` 自身。
 
 ---
 

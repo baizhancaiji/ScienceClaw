@@ -1,101 +1,240 @@
 <template>
-    <div v-if="shouldShow" class="fixed bg-[var(--background-gray-main)] z-50 transition-all w-full h-full inset-0">
-        <div class="w-full h-full">
-            <VNCViewer 
-                :session-id="sessionId"
-                :enabled="shouldShow"
-                :view-only="false"
-                @connected="onVNCConnected"
-                @disconnected="onVNCDisconnected"
-                @credentials-required="onVNCCredentialsRequired"
-            />
+  <div
+    v-if="shouldShow"
+    class="fixed inset-0 z-50 flex h-full w-full flex-col bg-[var(--background-gray-main)]"
+  >
+    <div class="border-b border-[var(--border-main)] bg-[var(--background-white)]/90 px-4 py-3 backdrop-blur">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="min-w-0">
+          <div class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+            {{ t('Sandbox') }}
+          </div>
+          <div class="truncate text-sm font-medium text-[var(--text-primary)]">
+            {{ boundSessionId }}
+          </div>
         </div>
-        <div class="absolute bottom-4 left-1/2 -translate-x-1/2">
-            <button @click="exitTakeOver"
-                class="inline-flex items-center justify-center whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:opacity-90 active:opacity-80 bg-[var(--Button-primary-black)] text-[var(--text-onblack)] h-[36px] px-[12px] gap-[6px] text-sm rounded-full border-2 border-[var(--border-dark)] shadow-[0px_8px_32px_0px_rgba(0,0,0,0.32)]">
-                <span class="text-sm font-medium text-[var(--text-onblack)]">{{ t('Exit Takeover') }}</span>
-            </button>
+
+        <div class="ml-auto flex items-center gap-2" data-testid="takeover-tabs">
+          <button
+            v-for="tab in availableTabs"
+            :key="tab.id"
+            type="button"
+            :data-testid="`takeover-tab-${tab.id}`"
+            class="inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors"
+            :class="activeTab === tab.id
+              ? 'border-[var(--border-dark)] bg-[var(--Button-primary-black)] text-[var(--text-onblack)]'
+              : 'border-[var(--border-main)] bg-[var(--background-white)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'"
+            @click="activeTab = tab.id"
+          >
+            {{ tab.label }}
+          </button>
         </div>
+
+        <button
+          type="button"
+          class="inline-flex items-center justify-center whitespace-nowrap rounded-full border-2 border-[var(--border-dark)] bg-[var(--Button-primary-black)] px-3 py-1.5 text-sm font-medium text-[var(--text-onblack)] transition-colors hover:opacity-90 active:opacity-80"
+          @click="exitTakeOver"
+        >
+          {{ t('Exit Takeover') }}
+        </button>
+      </div>
     </div>
+
+    <div class="flex min-h-0 flex-1 flex-col">
+      <div
+        v-if="activeTab === 'browser'"
+        class="flex items-center justify-between gap-3 border-b border-[var(--border-main)] bg-[var(--background-white)] px-4 py-2"
+      >
+        <div class="text-sm text-[var(--text-secondary)]">
+          {{ t('Browser View Only') }}
+        </div>
+        <button
+          type="button"
+          data-testid="takeover-browser-control-toggle"
+          class="inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors"
+          :class="browserViewOnly
+            ? 'border-[var(--border-main)] bg-[var(--background-white)] text-[var(--text-secondary)]'
+            : 'border-[var(--border-dark)] bg-[var(--Button-primary-black)] text-[var(--text-onblack)]'"
+          :aria-pressed="!browserViewOnly"
+          @click="browserViewOnly = !browserViewOnly"
+        >
+          {{ browserViewOnly ? t('Enable Browser Control') : t('Disable Browser Control') }}
+        </button>
+      </div>
+
+      <div class="min-h-0 flex-1">
+        <SandboxTerminal
+          v-if="activeTab === 'terminal'"
+          :active="shouldShow && activeTab === 'terminal'"
+          :history="terminalHistory"
+        />
+
+        <VNCViewer
+          v-else
+          :session-id="boundSessionId"
+          :enabled="shouldShow && activeTab === 'browser'"
+          :view-only="browserViewOnly"
+          @connected="onVNCConnected"
+          @disconnected="onVNCDisconnected"
+          @credentials-required="onVNCCredentialsRequired"
+        />
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+
+import SandboxTerminal from './SandboxTerminal.vue';
 import VNCViewer from './VNCViewer.vue';
+
+interface SandboxExecEntry {
+  toolName: string;
+  command: string;
+  output?: string;
+  status: string;
+}
+
+interface TakeOverDetail {
+  active?: boolean;
+  sessionId?: string;
+}
 
 const route = useRoute();
 const { t } = useI18n();
 
-// Takeover state
 const takeOverActive = ref(false);
-const currentSessionId = ref('');
+const boundSessionId = ref('');
+const activeTab = ref<'terminal' | 'browser'>('browser');
+const browserViewOnly = ref(true);
+const terminalHistory = ref<SandboxExecEntry[]>([]);
+const routeTakeOverDismissed = ref(false);
 
+const availableTabs = computed(() => ([
+  { id: 'terminal' as const, label: t('Terminal') },
+  { id: 'browser' as const, label: t('Browser') },
+]));
 
+const isEnabledQueryFlag = (value: unknown): boolean => {
+  if (Array.isArray(value)) {
+    return value.includes('1');
+  }
+  return value === '1';
+};
 
-// Listen to takeover events
+const getRouteSessionId = (): string => {
+  const sessionParam = route.params.sessionId;
+  if (Array.isArray(sessionParam)) {
+    return sessionParam[0] ?? '';
+  }
+  return typeof sessionParam === 'string' ? sessionParam : '';
+};
+
+const isRouteTakeOverMode = computed(() => {
+  const sessionId = getRouteSessionId();
+  if (!sessionId) {
+    return false;
+  }
+
+  return isEnabledQueryFlag(route.query.sandbox) || isEnabledQueryFlag(route.query.vnc);
+});
+
+const bindSession = (sessionId: string) => {
+  if (!sessionId) {
+    return;
+  }
+
+  boundSessionId.value = sessionId;
+  activeTab.value = 'browser';
+  browserViewOnly.value = true;
+  routeTakeOverDismissed.value = false;
+};
+
+const clearTakeOverState = () => {
+  takeOverActive.value = false;
+  boundSessionId.value = '';
+  activeTab.value = 'browser';
+  browserViewOnly.value = true;
+};
+
 const handleTakeOverEvent = (event: Event) => {
-    const customEvent = event as CustomEvent;
-    takeOverActive.value = customEvent.detail.active;
-    currentSessionId.value = customEvent.detail.sessionId;
+  const customEvent = event as CustomEvent<TakeOverDetail>;
+  const detail = customEvent.detail ?? {};
+
+  if (detail.active && detail.sessionId) {
+    takeOverActive.value = true;
+    bindSession(detail.sessionId);
+    return;
+  }
+
+  clearTakeOverState();
 };
 
-// VNC event handlers
 const onVNCConnected = () => {
-    console.log('TakeOver VNC connection successful');
+  console.log('TakeOver VNC connection successful');
 };
 
-const onVNCDisconnected = (reason?: any) => {
-    console.log('TakeOver VNC connection disconnected', reason);
+const onVNCDisconnected = (reason?: unknown) => {
+  console.log('TakeOver VNC connection disconnected', reason);
 };
 
 const onVNCCredentialsRequired = () => {
-    console.log('TakeOver VNC credentials required');
+  console.log('TakeOver VNC credentials required');
 };
 
-// Calculate whether to show takeover view
-const shouldShow = computed(() => {
-    // Check component state first (from takeover event)
-    if (takeOverActive.value && currentSessionId.value) {
-        return true;
+watch(
+  () => [route.params.sessionId, route.query.sandbox, route.query.vnc],
+  () => {
+    if (takeOverActive.value) {
+      return;
     }
-    
-    // Also check route parameters (for direct URL access or page refresh)
-    const { params: { sessionId }, query: { vnc } } = route;
-    // Only show if both sessionId exists in route AND vnc=1 in query
-    return !!sessionId && vnc === '1';
+
+    if (!isRouteTakeOverMode.value) {
+      routeTakeOverDismissed.value = false;
+      return;
+    }
+
+    const routeSessionId = getRouteSessionId();
+    if (!routeSessionId) {
+      return;
+    }
+
+    if (boundSessionId.value !== routeSessionId || routeTakeOverDismissed.value) {
+      bindSession(routeSessionId);
+    }
+  },
+  { immediate: true },
+);
+
+const shouldShow = computed(() => {
+  if (takeOverActive.value && boundSessionId.value) {
+    return true;
+  }
+
+  if (routeTakeOverDismissed.value) {
+    return false;
+  }
+
+  return isRouteTakeOverMode.value && !!boundSessionId.value;
 });
 
-// Add event listener when component is mounted
-onMounted(() => {
-    window.addEventListener('takeover', handleTakeOverEvent as EventListener);
-});
-
-
-
-// Remove event listener when component is unmounted
-onBeforeUnmount(() => {
-    window.removeEventListener('takeover', handleTakeOverEvent as EventListener);
-});
-
-// Get session ID
-const sessionId = computed(() => {
-    return currentSessionId.value || route.params.sessionId as string || '';
-});
-
-// Exit takeover functionality
 const exitTakeOver = () => {
-    // Update local state
-    takeOverActive.value = false;
-    currentSessionId.value = '';
+  routeTakeOverDismissed.value = true;
+  clearTakeOverState();
 };
 
-// Expose sessionId for parent component to use
+onMounted(() => {
+  window.addEventListener('takeover', handleTakeOverEvent as EventListener);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('takeover', handleTakeOverEvent as EventListener);
+});
+
 defineExpose({
-    sessionId
+  sessionId: computed(() => boundSessionId.value),
 });
 </script>
-
-<style scoped>
-</style>

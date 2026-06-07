@@ -158,6 +158,9 @@ export default {
   'Close search': 'Close search',
   'Exit Takeover': 'Exit Takeover',
   'Take Over': 'Take Over',
+  'Browser View Only': 'Browser View Only',
+  'Enable Browser Control': 'Enable Browser Control',
+  'Disable Browser Control': 'Disable Browser Control',
   // Session File List
   'All Files in This Task': 'Session Files',
   'Session Files': 'Session Files',

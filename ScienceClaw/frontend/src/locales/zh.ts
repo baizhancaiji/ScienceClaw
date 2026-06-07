@@ -171,6 +171,9 @@ export default {
   'Close search': '关闭搜索',
   'Exit Takeover': '退出接管',
   'Take Over': '接管',
+  'Browser View Only': '浏览器只读',
+  'Enable Browser Control': '启用浏览器控制',
+  'Disable Browser Control': '禁用浏览器控制',
   // Session File List
   'All Files in This Task': '会话文件',
   'Session Files': '会话文件',

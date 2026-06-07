@@ -5,7 +5,7 @@
 > **修订日期**: 2026-06-07
 > **优先级**: P0
 > **影响范围**: `ScienceClaw/frontend/src/components/TakeOverView.vue`、`ScienceClaw/frontend/src/components/ActivityPanel.vue`、`ScienceClaw/frontend/src/components/SandboxPreview.vue`、`ScienceClaw/frontend/src/components/toolViews/BrowserToolView.vue`、`ScienceClaw/frontend/src/components/VNCViewer.vue`
-> **状态**: 执行中（W1 已完成，下一批 W2）
+> **状态**: 执行中（W1/W2 已完成，下一批 W3）
 
 ---
 
@@ -218,6 +218,15 @@ const browserViewOnly = ref(true)
 2. `/chat/:sessionId?vnc=1` 仍可打开。
 3. 页面内可切换 `Terminal` / `Browser`。
 4. Browser 默认只读，切换后即时生效。
+
+**本批结果（2026-06-07）**:
+
+1. 已将 `ScienceClaw/frontend/src/components/TakeOverView.vue` 重构为会话绑定的整页沙盒接管页，支持 `Terminal` / `Browser` 双 tab。
+2. 已兼容 `takeover` 事件入口、`/chat/:sessionId?vnc=1` 旧入口和 `/chat/:sessionId?sandbox=1` 新入口。
+3. 已在接管页内增加默认只读的 Browser 控制开关，并将新增文案写入 `ScienceClaw/frontend/src/locales/zh.ts` 与 `ScienceClaw/frontend/src/locales/en.ts`。
+4. 已新增 `ScienceClaw/frontend/src/components/TakeOverView.spec.ts`，覆盖 `?sandbox=1`、`?vnc=1` 兼容、浏览器只读切换和事件绑定后不随路由漂移。
+5. 提交前已执行 `npm run test:run -- src/components/TakeOverView.spec.ts` 与 `npm run type-check`，通过。
+6. 提交前已用本地 `codegraph impact TakeOverView --depth 2`、`codegraph callers TakeOverView` 和 `codegraph query TakeOverView` 做影响分析；当前 W2 直接改动面收敛在 `TakeOverView`，挂载入口仍是 `MainLayout.vue`。
 
 ---
 

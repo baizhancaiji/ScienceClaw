@@ -1,6 +1,6 @@
 # 当前活跃执行计划台账
 
-更新时间：2026-06-03
+更新时间：2026-06-07
 
 本文档是 ScienceClaw 当前执行计划的唯一滚动入口。新任务进入执行态前先登记到这里；计划完成后从本台账移除，并移动到 `docs/archive/plans/`。
 
@@ -13,12 +13,21 @@
 
 ## 活跃计划
 
-（当前无活跃计划。）
+| 计划 | 当前状态 | 权威文档 | 下一批最小增量 | 验收命令 |
+| --- | --- | --- | --- | --- |
+| Mermaid 图表交互增强 | W1 已完成，W2 待施工 | `docs/mermaid-interaction-upgrade-plan-zh.md` | 消息内缩放、缩小、重置和拖动交互；必要时抽出 `useMermaidInteraction.ts`，并补齐对应测试 | `cd ScienceClaw/frontend && npm run test:run -- src/components/ChatMessage.spec.ts && npm run type-check` |
+
+## 非必须后续项
+
+| 事项 | 当前结论 | 触发条件 | 参考文档 |
+| --- | --- | --- | --- |
+| Mermaid 持久化缓存（原前端性能施工单 W6） | 非必须项，暂不施工。W3 已完成内存 LRU 上限、失败重试和有限并发，已覆盖当前主要渲染可靠性与重复渲染成本。 | 只有当真实长会话中大量重复 Mermaid 图表在刷新页面、关闭重开浏览器或新 tab 重新进入后仍造成可感知渲染瓶颈，并有性能采样证据时，再单独建立施工单。 | `docs/archive/plans/frontend-perf-optimization-plan-zh.md` |
 
 ## 归档记录
 
 | 计划文档 | 归档原因 | 后续事项 |
 | --- | --- | --- |
+| `docs/archive/plans/frontend-perf-optimization-plan-zh.md` | 前端聊天页性能优化与 Mermaid 渲染可靠性施工单 W1-W5 已完成；W6 评估后转入“非必须后续项”，不再作为活跃施工单继续执行。 | 仅当持久化缓存出现真实可感知瓶颈并有采样证据时，再新建独立施工单。 |
 | `docs/archive/plans/tools-classification-rework-plan-zh.md` | Tools / MCP / ToolUniverse 中文分类治理、非 embedding 工具发现索引、三段式 adapter/API、README/skill/Agent 提示收口已完成并逐步提交。 | `npm --prefix ScienceClaw/frontend run build` 仍受既有 Vite/Rollup 绝对路径 `fileName` 问题影响；后续若要修复构建链路，应新建独立计划。 |
 | `docs/archive/plans/mcp-https-integration-completion-audit-zh.md` | 第三方 HTTPS MCP 接入第 0-5 批已完成；第 5 批联调和完成审计均已有提交证据。 | 残余未测项和累积警告已记录；后续若加强 live LLM chat/SSE 或前端自动化测试，应新建独立计划。 |
 | `docs/archive/plans/frontend-typescript-remediation-plan-zh.md` | 已完成主要目标：`vue-tsc` 从 63 条错误收敛到 0，生产构建通过。 | VNC 后端 signed URL 路由已闭环，见 `docs/archive/plans/vnc-signed-url-plan-zh.md`。 |

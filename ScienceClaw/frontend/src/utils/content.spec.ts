@@ -38,4 +38,22 @@ describe('sanitizeHtml', () => {
     expect(sanitized).toContain('molecule-viewer');
     expect(sanitized).not.toContain('src="/tmp/a.sdf"');
   });
+
+  it('keeps the Mermaid toolbar data attributes and accessibility metadata', () => {
+    const sanitized = sanitizeHtml(`
+      <div class="mermaid-wrapper" data-mermaid-id="m1" data-mermaid-code="graph" data-mermaid-rendered="false" data-mermaid-error="false">
+        <div class="mermaid-toolbar" role="toolbar" aria-label="Mermaid tools">
+          <button type="button" data-mermaid-action="copy-source" title="Copy" aria-label="Copy">Copy</button>
+        </div>
+        <pre class="mermaid-source-panel" data-mermaid-source-panel hidden>graph TD; A--&gt;B;</pre>
+      </div>
+    `);
+
+    expect(sanitized).toContain('data-mermaid-action="copy-source"');
+    expect(sanitized).toContain('role="toolbar"');
+    expect(sanitized).toContain('aria-label="Mermaid tools"');
+    expect(sanitized).toContain('title="Copy"');
+    expect(sanitized).toContain('data-mermaid-source-panel=""');
+    expect(sanitized).toContain('hidden=""');
+  });
 });

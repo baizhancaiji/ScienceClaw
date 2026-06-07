@@ -66,6 +66,11 @@ export default {
   'pdf_export.timeout': 'PDF generation timed out. Please try again later',
   'pdf_export.unknown_error': 'PDF export failed. Please try again later',
   'pdf_export.success': 'PDF download has started',
+  'mermaid.toolbar': 'Mermaid diagram tools',
+  'mermaid.fullscreen': 'Fullscreen',
+  'mermaid.copy_source': 'Copy source',
+  'mermaid.download_svg': 'Download SVG',
+  'mermaid.close_fullscreen': 'Close fullscreen',
   'Give ScienceClaw a task to work on...': 'Give ScienceClaw a research task...',
   // Shell tools
   'Executing command': 'Executing command',

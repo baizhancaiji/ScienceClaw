@@ -34,6 +34,14 @@ export interface HighlightedCodeBlockOptions {
 export interface MermaidPlaceholderOptions {
   id: string;
   code: string;
+  labels: MermaidToolbarLabels;
+}
+
+export interface MermaidToolbarLabels {
+  toolbar: string;
+  fullscreen: string;
+  copySource: string;
+  downloadSvg: string;
 }
 
 export interface MermaidRenderAdapter {
@@ -63,6 +71,13 @@ export interface RenderMermaidWrapperOptions {
   maxRetries?: number;
   retryDelayMs?: number;
 }
+
+const escapeHtml = (text: string): string => text
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
 
 export type MathPlaceholderKind = 'block' | 'inline';
 
@@ -156,8 +171,44 @@ export const renderHighlightedCodeBlock = ({
   </div>`;
 };
 
-export const renderMermaidPlaceholder = ({ id, code }: MermaidPlaceholderOptions): string => (
-  `<div class="mermaid-wrapper" data-mermaid-id="${id}" data-mermaid-code="${encodeURIComponent(code)}">
+export const renderMermaidPlaceholder = ({
+  id,
+  code,
+  labels,
+}: MermaidPlaceholderOptions): string => {
+  const escapedCode = escapeHtml(code);
+  const fullscreenLabel = escapeHtml(labels.fullscreen);
+  const copySourceLabel = escapeHtml(labels.copySource);
+  const downloadSvgLabel = escapeHtml(labels.downloadSvg);
+  const toolbarLabel = escapeHtml(labels.toolbar);
+
+  return `<div class="mermaid-wrapper" data-mermaid-id="${id}" data-mermaid-code="${encodeURIComponent(code)}" data-mermaid-rendered="false" data-mermaid-error="false">
+      <div class="mermaid-toolbar" role="toolbar" aria-label="${toolbarLabel}">
+        <button type="button" class="mermaid-action-button" data-mermaid-action="fullscreen" title="${fullscreenLabel}" aria-label="${fullscreenLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+          <span>${fullscreenLabel}</span>
+        </button>
+        <button type="button" class="mermaid-action-button" data-mermaid-action="copy-source" title="${copySourceLabel}" aria-label="${copySourceLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span>${copySourceLabel}</span>
+        </button>
+        <button type="button" class="mermaid-action-button" data-mermaid-action="download-svg" title="${downloadSvgLabel}" aria-label="${downloadSvgLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>${downloadSvgLabel}</span>
+        </button>
+      </div>
       <div class="mermaid-loading">
         <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -165,9 +216,14 @@ export const renderMermaidPlaceholder = ({ id, code }: MermaidPlaceholderOptions
         </svg>
         <span>正在渲染图表...</span>
       </div>
-      <div class="mermaid-content" id="${id}"></div>
-    </div>`
-);
+      <div class="mermaid-viewport">
+        <div class="mermaid-transform-layer">
+          <div class="mermaid-content" id="${id}"></div>
+        </div>
+      </div>
+      <pre class="mermaid-source-panel" data-mermaid-source-panel hidden>${escapedCode}</pre>
+    </div>`;
+};
 
 export const renderMermaidError = (code: string): string => (
   `<div class="mermaid-error">
@@ -176,7 +232,7 @@ export const renderMermaidError = (code: string): string => (
             </svg>
             <span>图表渲染失败</span>
           </div>
-          <pre class="mermaid-raw-code">${code}</pre>`
+          <pre class="mermaid-raw-code">${escapeHtml(code)}</pre>`
 );
 
 export const renderMermaidWrapper = async ({
@@ -203,6 +259,8 @@ export const renderMermaidWrapper = async ({
   if (cachedSvg !== undefined) {
     // DOM 有效性校验：节点已脱离文档树则跳过
     if (!wrapper.isConnected) return;
+    wrapper.setAttribute('data-mermaid-rendered', 'true');
+    wrapper.setAttribute('data-mermaid-error', 'false');
     contentEl.innerHTML = cachedSvg;
     if (loadingEl) loadingEl.style.display = 'none';
     contentEl.style.display = 'block';
@@ -222,6 +280,8 @@ export const renderMermaidWrapper = async ({
       // 异步操作后再次校验：流式输出期间 DOM 可能已被 Vue 替换
       // wrapper.isConnected 返回 false 说明节点已脱离文档树，无需写入
       if (!wrapper.isConnected) return;
+      wrapper.setAttribute('data-mermaid-rendered', 'true');
+      wrapper.setAttribute('data-mermaid-error', 'false');
       contentEl.innerHTML = svg;
       if (loadingEl) loadingEl.style.display = 'none';
       contentEl.style.display = 'block';
@@ -237,6 +297,10 @@ export const renderMermaidWrapper = async ({
 
   console.error(logPrefix, `Diagram ${index + 1}: render error:`, lastError);
   if (loadingEl && wrapper.isConnected) {
+    wrapper.setAttribute('data-mermaid-rendered', 'false');
+    wrapper.setAttribute('data-mermaid-error', 'true');
+    contentEl.style.display = 'none';
+    loadingEl.style.display = 'block';
     loadingEl.innerHTML = renderMermaidError(code);
   }
 };

@@ -32,6 +32,9 @@ describe("useMarkdownRenderer", () => {
     expect(html).toContain('class="mermaid-wrapper"');
     expect(html).toContain('data-mermaid-id="mermaid-test"');
     expect(html).toContain('data-mermaid-code="graph%20TD%3B%20A--%3EB%3B"');
+    expect(html).toContain('data-mermaid-action="copy-source"');
+    expect(html).toContain('data-mermaid-action="download-svg"');
+    expect(html).toContain('data-mermaid-action="fullscreen"');
   });
 
   it("creates mermaid placeholders for mermaid fences", () => {

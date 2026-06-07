@@ -116,6 +116,37 @@
     </Transition>
   </Teleport>
 
+  <!-- Mermaid 全屏 -->
+  <Teleport to="body">
+    <Transition name="fullscreen">
+      <div
+        v-if="mermaidFullscreenVisible"
+        class="mermaid-fullscreen-overlay"
+        @keydown.esc="closeMermaidFullscreen"
+      >
+        <div class="mermaid-fullscreen-container">
+          <div class="mermaid-fullscreen-header">
+            <button
+              class="mermaid-fullscreen-close"
+              type="button"
+              :title="mermaidFullscreenCloseLabel"
+              :aria-label="mermaidFullscreenCloseLabel"
+              @click="closeMermaidFullscreen"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="mermaid-fullscreen-content">
+            <div class="mermaid-fullscreen-stage" v-html="mermaidFullscreenSvg"></div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
   <!-- 文字选中菜单 -->
   <Teleport to="body">
     <Transition name="selection-menu">
@@ -243,6 +274,9 @@ const codeFullscreenHtml = ref('');
 const codeFullscreenLang = ref('plaintext');
 const codeFullscreenRaw = ref('');
 const codeCopied = ref(false);
+const mermaidFullscreenVisible = ref(false);
+const mermaidFullscreenSvg = ref('');
+const mermaidFullscreenCloseLabel = ref('Close');
 
 const openCodeFullscreen = (html: string, lang: string, rawCode: string) => {
   codeFullscreenHtml.value = html;
@@ -268,6 +302,23 @@ const copyCodeFullscreen = async () => {
   } catch (err) {
     console.error('Failed to copy:', err);
   }
+};
+
+const openMermaidFullscreen = (
+  svg: string,
+  _source: string,
+  options?: { closeLabel?: string },
+) => {
+  mermaidFullscreenSvg.value = svg;
+  mermaidFullscreenCloseLabel.value = options?.closeLabel || 'Close';
+  mermaidFullscreenVisible.value = true;
+  document.body.style.overflow = 'hidden';
+};
+
+const closeMermaidFullscreen = () => {
+  mermaidFullscreenVisible.value = false;
+  mermaidFullscreenSvg.value = '';
+  document.body.style.overflow = '';
 };
 
 // ==================== Selection Menu ====================
@@ -358,6 +409,9 @@ onMounted(() => {
     if (codeFullscreenVisible.value && e.key === 'Escape') {
       closeCodeFullscreen();
     }
+    if (mermaidFullscreenVisible.value && e.key === 'Escape') {
+      closeMermaidFullscreen();
+    }
   });
 });
 
@@ -374,6 +428,8 @@ defineExpose({
   closeLightbox,
   openCodeFullscreen,
   closeCodeFullscreen,
+  openMermaidFullscreen,
+  closeMermaidFullscreen,
 });
 </script>
 
@@ -597,6 +653,68 @@ defineExpose({
 
 .code-fullscreen-pre code {
   font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Consolas, Monaco, monospace;
+}
+
+.mermaid-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.9);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+}
+
+.mermaid-fullscreen-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mermaid-fullscreen-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 20px 0;
+}
+
+.mermaid-fullscreen-close {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mermaid-fullscreen-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-content {
+  flex: 1;
+  min-height: 0;
+  padding: 20px 24px 28px;
+}
+
+.mermaid-fullscreen-stage {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  border-radius: 12px;
+  background: #fff;
+  padding: 24px;
+}
+
+.mermaid-fullscreen-stage :deep(svg) {
+  display: block;
+  max-width: none;
+  margin: 0 auto;
 }
 
 /* ==================== Selection Menu ==================== */

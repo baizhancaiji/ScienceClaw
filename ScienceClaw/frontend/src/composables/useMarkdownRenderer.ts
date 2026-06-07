@@ -21,6 +21,7 @@ import {
   renderHighlightedCodeBlock,
   renderMarkdownLink,
   renderMermaidPlaceholder,
+  type MermaidToolbarLabels,
   type CreateMathPlaceholderId,
 } from "../utils/markdownRenderer";
 import { useMathRenderer } from "./useMathRenderer";
@@ -30,6 +31,7 @@ export interface UseMarkdownRendererOptions {
   createMathPlaceholderId?: CreateMathPlaceholderId;
   logPrefix?: string;
   renderMermaid?: boolean;
+  getMermaidLabels?: () => MermaidToolbarLabels;
 }
 
 const registerHighlightLanguages = () => {
@@ -72,8 +74,8 @@ const MERMAID_SOURCE_LANGUAGES = new Set([
 const MARKDOWN_CACHE_MAX_SIZE = 200;
 const markdownRenderCache = new Map<string, string>();
 
-const getCacheKey = (text: string, renderMermaid: boolean) =>
-  `${renderMermaid ? 1 : 0}:${text}`;
+const getCacheKey = (text: string, renderVariant: string) =>
+  `${renderVariant}:${text}`;
 
 const getCachedMarkdown = (key: string): string | undefined => markdownRenderCache.get(key);
 const setCachedMarkdown = (key: string, html: string): void => {
@@ -90,6 +92,12 @@ export function useMarkdownRenderer({
   createMathPlaceholderId,
   logPrefix = "[Markdown]",
   renderMermaid = true,
+  getMermaidLabels = () => ({
+    toolbar: "Mermaid diagram tools",
+    fullscreen: "Fullscreen",
+    copySource: "Copy Mermaid source",
+    downloadSvg: "Download SVG",
+  }),
 }: UseMarkdownRendererOptions) {
   let mathCounter = 0;
   const { postprocessMarkdownMath, preprocessMarkdownMath } = useMathRenderer({
@@ -127,6 +135,7 @@ export function useMarkdownRenderer({
       return renderMermaidPlaceholder({
         id: createMermaidPlaceholderId(),
         code,
+        labels: getMermaidLabels(),
       });
     }
 
@@ -159,9 +168,18 @@ export function useMarkdownRenderer({
 
   const renderMarkdown = (text: string): string => {
     if (typeof text !== "string") return "";
+    const mermaidLabels = getMermaidLabels();
+    const renderVariant = renderMermaid
+      ? `mermaid:${[
+        mermaidLabels.toolbar,
+        mermaidLabels.fullscreen,
+        mermaidLabels.copySource,
+        mermaidLabels.downloadSvg,
+      ].join('|')}`
+      : 'plain';
 
     // 全局缓存命中：相同 markdown 文本 + 相同渲染模式直接返回已渲染 HTML
-    const cacheKey = getCacheKey(text, renderMermaid);
+    const cacheKey = getCacheKey(text, renderVariant);
     const cached = getCachedMarkdown(cacheKey);
     if (cached !== undefined) return cached;
 

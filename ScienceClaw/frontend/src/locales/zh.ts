@@ -79,6 +79,11 @@ export default {
   'pdf_export.timeout': 'PDF 生成超时，请稍后重试',
   'pdf_export.unknown_error': 'PDF 导出失败，请稍后重试',
   'pdf_export.success': 'PDF 已开始下载',
+  'mermaid.toolbar': 'Mermaid 图表工具',
+  'mermaid.fullscreen': '全屏查看',
+  'mermaid.copy_source': '复制源码',
+  'mermaid.download_svg': '下载 SVG',
+  'mermaid.close_fullscreen': '关闭全屏',
   'Give ScienceClaw a task to work on...': '给 ScienceClaw 下达一个研究任务...',
   // Shell tools
   'Executing command': '正在执行命令',

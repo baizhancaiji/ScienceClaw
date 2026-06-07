@@ -121,15 +121,28 @@ describe('renderHighlightedCodeBlock', () => {
 });
 
 describe('renderMermaidPlaceholder', () => {
-  it('renders the existing mermaid loading placeholder', () => {
+  it('renders the Mermaid toolbar, source panel, and loading placeholder', () => {
     const html = renderMermaidPlaceholder({
       id: 'mermaid-1',
       code: 'graph TD; A-->B;',
+      labels: {
+        toolbar: 'Mermaid diagram tools',
+        fullscreen: 'Fullscreen',
+        copySource: 'Copy Mermaid source',
+        downloadSvg: 'Download SVG',
+      },
     });
 
     expect(html).toContain('class="mermaid-wrapper"');
     expect(html).toContain('data-mermaid-id="mermaid-1"');
     expect(html).toContain('data-mermaid-code="graph%20TD%3B%20A--%3EB%3B"');
+    expect(html).toContain('class="mermaid-toolbar"');
+    expect(html).toContain('data-mermaid-action="fullscreen"');
+    expect(html).toContain('data-mermaid-action="copy-source"');
+    expect(html).toContain('data-mermaid-action="download-svg"');
+    expect(html).toContain('class="mermaid-viewport"');
+    expect(html).toContain('class="mermaid-transform-layer"');
+    expect(html).toContain('data-mermaid-source-panel');
     expect(html).toContain('<span>正在渲染图表...</span>');
     expect(html).toContain('<div class="mermaid-content" id="mermaid-1"></div>');
   });
@@ -141,7 +154,7 @@ describe('renderMermaidError', () => {
 
     expect(html).toContain('class="mermaid-error"');
     expect(html).toContain('<span>图表渲染失败</span>');
-    expect(html).toContain('<pre class="mermaid-raw-code">graph TD; A-->B;</pre>');
+    expect(html).toContain('<pre class="mermaid-raw-code">graph TD; A--&gt;B;</pre>');
   });
 });
 

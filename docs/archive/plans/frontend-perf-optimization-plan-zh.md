@@ -5,7 +5,7 @@
 > **修订日期**: 2026-06-07
 > **优先级**: P0
 > **影响范围**: `ScienceClaw/frontend/src/`，`ScienceClaw/backend/route/sessions.py`
-> **状态**: W1-W5 已完成
+> **状态**: 已归档（2026-06-07，W1-W5 已完成，W6 转为非必须后续项）
 
 ---
 

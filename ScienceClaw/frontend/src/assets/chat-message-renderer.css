@@ -613,10 +613,44 @@
   margin: 1.2em 0;
   background: linear-gradient(135deg, var(--chat-diagram-surface-from) 0%, var(--chat-diagram-surface-to) 100%);
   border-radius: 12px;
-  padding: 1.5em;
-  overflow: auto;
+  padding: 1rem;
+  overflow: hidden;
   border: 1px solid var(--border-main);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.markdown-content .mermaid-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content .mermaid-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0.4rem 0.7rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--chat-code-control-surface);
+  color: var(--chat-code-control-text);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+}
+
+.markdown-content .mermaid-action-button:hover {
+  background: var(--chat-code-control-surface-hover);
+  color: var(--chat-code-control-hover-text);
+  transform: translateY(-1px);
+}
+
+.markdown-content .mermaid-action-button:active {
+  transform: translateY(0);
 }
 
 .markdown-content .mermaid-loading {
@@ -638,6 +672,17 @@
   to { transform: rotate(360deg); }
 }
 
+.markdown-content .mermaid-viewport {
+  width: 100%;
+  max-height: min(70vh, 720px);
+  overflow: auto;
+  border-radius: 10px;
+}
+
+.markdown-content .mermaid-transform-layer {
+  min-width: fit-content;
+}
+
 .markdown-content .mermaid-content {
   display: none;
   min-height: 100px;
@@ -648,6 +693,10 @@
   height: auto;
   margin: 0 auto;
   display: block;
+}
+
+.markdown-content .mermaid-source-panel {
+  display: none;
 }
 
 .markdown-content .mermaid-error {
@@ -676,4 +725,17 @@
 /* 移动端适配 */
 @media (max-width: 640px) {
   .markdown-content table { font-size: 0.85em; }
+  .markdown-content .mermaid-wrapper {
+    padding: 0.85rem;
+  }
+  .markdown-content .mermaid-toolbar {
+    gap: 0.4rem;
+  }
+  .markdown-content .mermaid-action-button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .markdown-content .mermaid-viewport {
+    max-height: min(65vh, 560px);
+  }
 }

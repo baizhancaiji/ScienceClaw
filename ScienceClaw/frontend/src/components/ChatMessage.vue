@@ -222,7 +222,7 @@ const roundFiles = computed(() => messageContent.value.round_files || []);
 const { showFileListPanel } = useFilePanel();
 
 // 处理 Markdown 内容区域的点击事件（图片 Lightbox + 代码块全屏）
-const handleMarkdownClick = (event: MouseEvent) => {
+const handleMarkdownClick = async (event: MouseEvent) => {
   const target = event.target as HTMLElement;
 
   // 点击图片 - 打开 Lightbox
@@ -253,6 +253,73 @@ const handleMarkdownClick = (event: MouseEvent) => {
       }
     }
     return;
+  }
+
+  const mermaidActionButton = target.closest("[data-mermaid-action]");
+  if (mermaidActionButton) {
+    const wrapper = mermaidActionButton.closest(".mermaid-wrapper") as HTMLElement | null;
+    if (!wrapper) {
+      return;
+    }
+
+    const action = mermaidActionButton.getAttribute("data-mermaid-action");
+    const encodedCode = wrapper.getAttribute("data-mermaid-code") || "";
+    const source = decodeURIComponent(encodedCode);
+    const svgEl = wrapper.querySelector(".mermaid-content svg") as SVGElement | null;
+
+    if (action === "copy-source") {
+      if (!source) {
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(source);
+        wrapper.setAttribute("data-mermaid-copy-state", "success");
+      } catch (error) {
+        console.error("Failed to copy Mermaid source:", error);
+        wrapper.setAttribute("data-mermaid-copy-state", "error");
+      }
+      window.setTimeout(() => {
+        if (wrapper.isConnected) {
+          wrapper.removeAttribute("data-mermaid-copy-state");
+        }
+      }, 2000);
+      return;
+    }
+
+    if (!svgEl) {
+      return;
+    }
+
+    if (action === "download-svg") {
+      try {
+        const serializer = new XMLSerializer();
+        const svgNode = svgEl.cloneNode(true) as SVGElement;
+        if (!svgNode.getAttribute("xmlns")) {
+          svgNode.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        }
+        const svgMarkup = serializer.serializeToString(svgNode);
+        const blob = new Blob([svgMarkup], {
+          type: "image/svg+xml;charset=utf-8",
+        });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = `${wrapper.getAttribute("data-mermaid-id") || "mermaid-diagram"}.svg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+      } catch (error) {
+        console.error("Failed to download Mermaid SVG:", error);
+      }
+      return;
+    }
+
+    if (action === "fullscreen" && markdownEnhancementsRef.value) {
+      markdownEnhancementsRef.value.openMermaidFullscreen(svgEl.outerHTML, source, {
+        closeLabel: t("mermaid.close_fullscreen"),
+      });
+    }
   }
 };
 
@@ -291,6 +358,12 @@ const { createMermaidPlaceholderId } = useMermaidRenderer({
 const { renderMarkdown } = useMarkdownRenderer({
   createMermaidPlaceholderId,
   renderMermaid: isAssistant,
+  getMermaidLabels: () => ({
+    toolbar: t("mermaid.toolbar"),
+    fullscreen: t("mermaid.fullscreen"),
+    copySource: t("mermaid.copy_source"),
+    downloadSvg: t("mermaid.download_svg"),
+  }),
 });
 
 // 用户消息：纯文本显示，不渲染 Markdown/Mermaid/公式

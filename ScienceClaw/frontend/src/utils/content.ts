@@ -23,9 +23,9 @@ export const domPurifyConfig = {
   ADD_ATTR: [
     'src', 'alt',
     // Mermaid attributes
-    'data-mermaid-id', 'data-mermaid-code', 'id',
+    'data-mermaid-id', 'data-mermaid-code', 'data-mermaid-rendered', 'data-mermaid-error', 'data-mermaid-action', 'data-mermaid-source-panel', 'id',
     // KaTeX attributes (allow all data-* and aria-* attributes)
-    'aria-hidden', 'aria-label', 'role',
+    'aria-hidden', 'aria-label', 'role', 'title', 'hidden', 'type',
     // SVG attributes
     'viewbox', 'preserveaspectratio', 'd', 'fill', 'stroke', 'stroke-width',
     'stroke-linecap', 'stroke-linejoin', 'transform', 'x', 'y', 'width', 'height',

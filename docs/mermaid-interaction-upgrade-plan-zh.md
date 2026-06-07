@@ -3,7 +3,7 @@
 > **编号**: SC-FE-MERMAID-2026-001
 > **创建日期**: 2026-06-07
 > **登记状态**: 已登记（2026-06-07，见 `docs/current-active-execution-plans-zh.md`）
-> **执行状态**: W1 已完成，W2 待施工
+> **执行状态**: W1-W2 已完成，W3 待施工
 > **优先级**: P1
 > **影响范围**: `ScienceClaw/frontend/src/utils/markdownRenderer.ts`、`ScienceClaw/frontend/src/utils/content.ts`、`ScienceClaw/frontend/src/composables/useMermaidRenderer.ts`、`ScienceClaw/frontend/src/components/ChatMessage.vue`、`ScienceClaw/frontend/src/components/MarkdownEnhancements.vue`、`ScienceClaw/frontend/src/assets/chat-message-renderer.css`、`ScienceClaw/frontend/src/locales/zh.ts`、`ScienceClaw/frontend/src/locales/en.ts`、对应 spec
 
@@ -263,6 +263,11 @@ npm run type-check
 ### W2：内嵌缩放与拖动
 
 **目标**: 在消息内对 Mermaid 图表进行放大、缩小、重置和拖动。
+**施工状态**: 已完成（2026-06-07）
+**验证证据**:
+
+- `cd ScienceClaw/frontend && npm run test:run -- src/components/ChatMessage.spec.ts`
+- `cd ScienceClaw/frontend && npm run type-check`
 
 **改动文件**:
 
@@ -285,6 +290,12 @@ npm run type-check
 - 图表 viewport 高度自适应内容和容器宽度，但有最大高度上限；复杂图表超出上限时仍可通过滚动或拖动查看。
 - 如果实现滚轮缩放，滚轮缩放不会导致页面滚动和图表缩放互相抢占；如果暂不实现，必须在 W2 记录原因并保留后续入口。
 - 如果实现滚轮缩放，缩放中心必须跟随当前鼠标光标位置；光标指向的图表区域在缩放前后应尽量保持在同一屏幕位置。
+
+2026-06-07 落地说明：
+
+- 本批已实现消息内放大、缩小、重置和放大后拖动，状态按图表实例隔离。
+- 图表 viewport 保持最大高度上限，缩放和平移作用在 `.mermaid-transform-layer`，不改写 Mermaid 生成的 SVG 内部节点。
+- 本批暂未实现滚轮缩放。原因是当前消息区本身承载长会话滚动、分页加载和搜索定位，若在没有额外命中区域与锚点计算测试的前提下直接截获滚轮，容易与页面滚动互相抢占；因此先保留消息内按钮缩放与拖动的稳定交互，把滚轮缩放留到后续明确批次再做。
 
 **验证命令**:
 
@@ -391,6 +402,6 @@ npm run build
 
 ## 八、当前状态
 
-本施工单已在 2026-06-07 登记为活跃计划，当前已完成 W1。
+本施工单已在 2026-06-07 登记为活跃计划，当前已完成 W1-W2。
 
-下一批最小增量：W2 消息内缩放、缩小、重置和拖动交互，以及对应测试。
+下一批最小增量：W3 源码面板切换、复制/下载失败反馈、渲染错误态与源码面板收口，以及对应测试。

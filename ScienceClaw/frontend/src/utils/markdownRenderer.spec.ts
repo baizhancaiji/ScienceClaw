@@ -130,6 +130,9 @@ describe('renderMermaidPlaceholder', () => {
         fullscreen: 'Fullscreen',
         copySource: 'Copy Mermaid source',
         downloadSvg: 'Download SVG',
+        zoomIn: 'Zoom in',
+        zoomOut: 'Zoom out',
+        resetZoom: 'Reset zoom',
       },
     });
 

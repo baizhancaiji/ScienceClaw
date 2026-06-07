@@ -15,7 +15,7 @@
 
 | 计划 | 当前状态 | 权威文档 | 下一批最小增量 | 验收命令 |
 | --- | --- | --- | --- | --- |
-| Mermaid 图表交互增强 | W1 已完成，W2 待施工 | `docs/mermaid-interaction-upgrade-plan-zh.md` | 消息内缩放、缩小、重置和拖动交互；必要时抽出 `useMermaidInteraction.ts`，并补齐对应测试 | `cd ScienceClaw/frontend && npm run test:run -- src/components/ChatMessage.spec.ts && npm run type-check` |
+| Mermaid 图表交互增强 | W1-W2 已完成，W3 待施工 | `docs/mermaid-interaction-upgrade-plan-zh.md` | 源码面板切换、复制/下载失败反馈、渲染错误态与源码面板收口 | `cd ScienceClaw/frontend && npm run test:run -- src/utils/markdownRenderer.spec.ts src/components/ChatMessage.spec.ts && npm run type-check` |
 
 ## 非必须后续项
 

@@ -97,6 +97,9 @@ export function useMarkdownRenderer({
     fullscreen: "Fullscreen",
     copySource: "Copy Mermaid source",
     downloadSvg: "Download SVG",
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
+    resetZoom: "Reset zoom",
   }),
 }: UseMarkdownRendererOptions) {
   let mathCounter = 0;
@@ -175,6 +178,9 @@ export function useMarkdownRenderer({
         mermaidLabels.fullscreen,
         mermaidLabels.copySource,
         mermaidLabels.downloadSvg,
+        mermaidLabels.zoomIn,
+        mermaidLabels.zoomOut,
+        mermaidLabels.resetZoom,
       ].join('|')}`
       : 'plain';
 

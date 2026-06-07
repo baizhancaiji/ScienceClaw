@@ -653,6 +653,20 @@
   transform: translateY(0);
 }
 
+.markdown-content .mermaid-scale-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 32px;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .markdown-content .mermaid-loading {
   display: flex;
   align-items: center;
@@ -677,10 +691,26 @@
   max-height: min(70vh, 720px);
   overflow: auto;
   border-radius: 10px;
+  touch-action: none;
+  cursor: default;
 }
 
 .markdown-content .mermaid-transform-layer {
   min-width: fit-content;
+  transition: transform 0.2s ease;
+  will-change: transform;
+}
+
+.markdown-content .mermaid-viewport[data-mermaid-scale]:not([data-mermaid-scale="1.00"]) {
+  cursor: grab;
+}
+
+.markdown-content .mermaid-viewport[data-mermaid-dragging="true"] {
+  cursor: grabbing;
+}
+
+.markdown-content .mermaid-viewport[data-mermaid-dragging="true"] .mermaid-transform-layer {
+  transition: none;
 }
 
 .markdown-content .mermaid-content {

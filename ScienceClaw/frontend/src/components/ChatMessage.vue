@@ -76,6 +76,10 @@
         ref="markdownRef"
         class="p-4 markdown-content text-[15px] text-[var(--text-primary)] leading-relaxed"
         @click="handleMarkdownClick"
+        @pointerdown="handleMermaidPointerDown"
+        @pointermove="handleMermaidPointerMove"
+        @pointerup="handleMermaidPointerEnd"
+        @pointercancel="handleMermaidPointerEnd"
       >
         <template
           v-for="(part, index) in parseContent(messageContent.content)"
@@ -134,7 +138,7 @@
 
 <script setup lang="ts">
 import { Message, MessageContent, AttachmentsContent } from "../types/message";
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { ToolContent } from "../types/message";
 import { useRelativeTime } from "../composables/useTime";
@@ -221,6 +225,166 @@ const handleConvertToPdf = async () => {
 const roundFiles = computed(() => messageContent.value.round_files || []);
 const { showFileListPanel } = useFilePanel();
 
+interface MermaidViewState {
+  scale: number;
+  x: number;
+  y: number;
+  dragging: boolean;
+  dragPointerId: number | null;
+  dragStartX: number;
+  dragStartY: number;
+  originX: number;
+  originY: number;
+}
+
+const MERMAID_MIN_SCALE = 0.3;
+const MERMAID_MAX_SCALE = 3;
+const MERMAID_SCALE_STEP = 0.25;
+const mermaidViewStates = new WeakMap<HTMLElement, MermaidViewState>();
+
+const clampMermaidScale = (scale: number) =>
+  Math.min(MERMAID_MAX_SCALE, Math.max(MERMAID_MIN_SCALE, scale));
+
+const getMermaidViewState = (wrapper: HTMLElement): MermaidViewState => {
+  const existing = mermaidViewStates.get(wrapper);
+  if (existing) {
+    return existing;
+  }
+
+  const initialState: MermaidViewState = {
+    scale: 1,
+    x: 0,
+    y: 0,
+    dragging: false,
+    dragPointerId: null,
+    dragStartX: 0,
+    dragStartY: 0,
+    originX: 0,
+    originY: 0,
+  };
+  mermaidViewStates.set(wrapper, initialState);
+  return initialState;
+};
+
+const syncMermaidView = (wrapper: HTMLElement) => {
+  const state = getMermaidViewState(wrapper);
+  const transformLayer = wrapper.querySelector(".mermaid-transform-layer") as HTMLElement | null;
+  const viewport = wrapper.querySelector(".mermaid-viewport") as HTMLElement | null;
+  const scaleIndicator = wrapper.querySelector(".mermaid-scale-indicator") as HTMLElement | null;
+
+  if (transformLayer) {
+    transformLayer.style.transformOrigin = "center top";
+    transformLayer.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+  }
+
+  if (viewport) {
+    viewport.dataset.mermaidScale = state.scale.toFixed(2);
+    viewport.dataset.mermaidDragging = state.dragging ? "true" : "false";
+  }
+
+  if (scaleIndicator) {
+    scaleIndicator.textContent = `${Math.round(state.scale * 100)}%`;
+  }
+};
+
+const setMermaidScale = (wrapper: HTMLElement, nextScale: number) => {
+  const state = getMermaidViewState(wrapper);
+  state.scale = clampMermaidScale(nextScale);
+  if (state.scale <= 1) {
+    state.x = 0;
+    state.y = 0;
+    state.dragging = false;
+    state.dragPointerId = null;
+  }
+  syncMermaidView(wrapper);
+};
+
+const resetMermaidView = (wrapper: HTMLElement) => {
+  const state = getMermaidViewState(wrapper);
+  state.scale = 1;
+  state.x = 0;
+  state.y = 0;
+  state.dragging = false;
+  state.dragPointerId = null;
+  syncMermaidView(wrapper);
+};
+
+const stopMermaidDrag = (wrapper: HTMLElement) => {
+  const viewport = wrapper.querySelector(".mermaid-viewport") as HTMLElement | null;
+  const state = getMermaidViewState(wrapper);
+  if (!state.dragging) {
+    return;
+  }
+  const pointerId = state.dragPointerId;
+  state.dragging = false;
+  state.dragPointerId = null;
+  if (viewport && pointerId !== null) {
+    viewport.releasePointerCapture?.(pointerId);
+  }
+  syncMermaidView(wrapper);
+};
+
+const handleMermaidPointerDown = (event: PointerEvent) => {
+  const target = event.target as HTMLElement | null;
+  const viewport = target?.closest(".mermaid-viewport") as HTMLElement | null;
+  if (!viewport) {
+    return;
+  }
+  const wrapper = viewport.closest(".mermaid-wrapper") as HTMLElement | null;
+  if (!wrapper) {
+    return;
+  }
+  const state = getMermaidViewState(wrapper);
+  if (state.scale <= 1) {
+    return;
+  }
+
+  state.dragging = true;
+  state.dragPointerId = event.pointerId;
+  state.dragStartX = event.clientX;
+  state.dragStartY = event.clientY;
+  state.originX = state.x;
+  state.originY = state.y;
+  viewport.setPointerCapture?.(event.pointerId);
+  syncMermaidView(wrapper);
+  event.preventDefault();
+};
+
+const handleMermaidPointerMove = (event: PointerEvent) => {
+  const target = event.target as HTMLElement | null;
+  const viewport = target?.closest(".mermaid-viewport") as HTMLElement | null;
+  if (!viewport) {
+    return;
+  }
+  const wrapper = viewport.closest(".mermaid-wrapper") as HTMLElement | null;
+  if (!wrapper) {
+    return;
+  }
+  const state = getMermaidViewState(wrapper);
+  if (!state.dragging || state.dragPointerId !== event.pointerId) {
+    return;
+  }
+
+  state.x = state.originX + (event.clientX - state.dragStartX);
+  state.y = state.originY + (event.clientY - state.dragStartY);
+  syncMermaidView(wrapper);
+  event.preventDefault();
+};
+
+const handleMermaidPointerEnd = (event: PointerEvent) => {
+  const target = event.target as HTMLElement | null;
+  const viewport = target?.closest(".mermaid-viewport") as HTMLElement | null;
+  const wrapper = viewport?.closest(".mermaid-wrapper") as HTMLElement | null;
+  if (!wrapper) {
+    return;
+  }
+  const state = getMermaidViewState(wrapper);
+  if (state.dragPointerId !== event.pointerId) {
+    return;
+  }
+  stopMermaidDrag(wrapper);
+};
+
 // 处理 Markdown 内容区域的点击事件（图片 Lightbox + 代码块全屏）
 const handleMarkdownClick = async (event: MouseEvent) => {
   const target = event.target as HTMLElement;
@@ -283,6 +447,21 @@ const handleMarkdownClick = async (event: MouseEvent) => {
           wrapper.removeAttribute("data-mermaid-copy-state");
         }
       }, 2000);
+      return;
+    }
+
+    if (action === "zoom-in") {
+      setMermaidScale(wrapper, getMermaidViewState(wrapper).scale + MERMAID_SCALE_STEP);
+      return;
+    }
+
+    if (action === "zoom-out") {
+      setMermaidScale(wrapper, getMermaidViewState(wrapper).scale - MERMAID_SCALE_STEP);
+      return;
+    }
+
+    if (action === "reset-zoom") {
+      resetMermaidView(wrapper);
       return;
     }
 
@@ -363,6 +542,9 @@ const { renderMarkdown } = useMarkdownRenderer({
     fullscreen: t("mermaid.fullscreen"),
     copySource: t("mermaid.copy_source"),
     downloadSvg: t("mermaid.download_svg"),
+    zoomIn: t("mermaid.zoom_in"),
+    zoomOut: t("mermaid.zoom_out"),
+    resetZoom: t("mermaid.reset_zoom"),
   }),
 });
 
@@ -390,6 +572,15 @@ const parseContent = (markdown: string) => {
   _lastParsedResult = result;
   return result;
 };
+
+onBeforeUnmount(() => {
+  if (!markdownRef.value) {
+    return;
+  }
+  Array.from(markdownRef.value.querySelectorAll(".mermaid-wrapper")).forEach(node => {
+    stopMermaidDrag(node as HTMLElement);
+  });
+});
 </script>
 
 <style src="../assets/chat-message-renderer.css"></style>

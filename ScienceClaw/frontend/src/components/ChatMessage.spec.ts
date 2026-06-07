@@ -66,6 +66,9 @@ const i18n = createI18n({
       'mermaid.copy_source': '复制源码',
       'mermaid.download_svg': '下载 SVG',
       'mermaid.close_fullscreen': '关闭全屏',
+      'mermaid.zoom_in': '放大图表',
+      'mermaid.zoom_out': '缩小图表',
+      'mermaid.reset_zoom': '重置缩放',
     },
   },
 });
@@ -138,6 +141,93 @@ describe('ChatMessage markdown rendering', () => {
     expect(wrapper.find('[data-mermaid-action="fullscreen"]').exists()).toBe(true);
     expect(wrapper.find('[data-mermaid-action="copy-source"]').exists()).toBe(true);
     expect(wrapper.find('[data-mermaid-action="download-svg"]').exists()).toBe(true);
+    expect(wrapper.find('[data-mermaid-action="zoom-in"]').exists()).toBe(true);
+    expect(wrapper.find('[data-mermaid-action="zoom-out"]').exists()).toBe(true);
+    expect(wrapper.find('[data-mermaid-action="reset-zoom"]').exists()).toBe(true);
+    expect(wrapper.find('.mermaid-scale-indicator').text()).toBe('100%');
+  });
+
+  it('updates the Mermaid scale indicator and transform on zoom actions', async () => {
+    const wrapper = mountMessage('assistant');
+    const transformLayer = wrapper.find('.mermaid-transform-layer').element as HTMLElement;
+
+    await wrapper.find('[data-mermaid-action="zoom-in"]').trigger('click');
+
+    expect(wrapper.find('.mermaid-scale-indicator').text()).toBe('125%');
+    expect(transformLayer.style.transform).toContain('scale(1.25)');
+
+    await wrapper.find('[data-mermaid-action="zoom-out"]').trigger('click');
+
+    expect(wrapper.find('.mermaid-scale-indicator').text()).toBe('100%');
+    expect(transformLayer.style.transform).toContain('scale(1)');
+  });
+
+  it('resets Mermaid zoom and offset through the reset action', async () => {
+    const wrapper = mountMessage('assistant');
+    const viewport = wrapper.find('.mermaid-viewport');
+    const transformLayer = wrapper.find('.mermaid-transform-layer').element as HTMLElement;
+
+    await wrapper.find('[data-mermaid-action="zoom-in"]').trigger('click');
+    await viewport.trigger('pointerdown', {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 120,
+    });
+    await viewport.trigger('pointermove', {
+      pointerId: 1,
+      clientX: 140,
+      clientY: 150,
+    });
+    await viewport.trigger('pointerup', {
+      pointerId: 1,
+      clientX: 140,
+      clientY: 150,
+    });
+
+    expect(transformLayer.style.transform).toContain('translate(40px, 30px) scale(1.25)');
+
+    await wrapper.find('[data-mermaid-action="reset-zoom"]').trigger('click');
+
+    expect(wrapper.find('.mermaid-scale-indicator').text()).toBe('100%');
+    expect(transformLayer.style.transform).toBe('translate(0px, 0px) scale(1)');
+  });
+
+  it('only allows Mermaid dragging after zooming in', async () => {
+    const wrapper = mountMessage('assistant');
+    const viewport = wrapper.find('.mermaid-viewport');
+    const transformLayer = wrapper.find('.mermaid-transform-layer').element as HTMLElement;
+
+    await viewport.trigger('pointerdown', {
+      pointerId: 3,
+      clientX: 80,
+      clientY: 90,
+    });
+    await viewport.trigger('pointermove', {
+      pointerId: 3,
+      clientX: 120,
+      clientY: 130,
+    });
+
+    expect(transformLayer.style.transform).toBe('');
+
+    await wrapper.find('[data-mermaid-action="zoom-in"]').trigger('click');
+    await viewport.trigger('pointerdown', {
+      pointerId: 3,
+      clientX: 80,
+      clientY: 90,
+    });
+    await viewport.trigger('pointermove', {
+      pointerId: 3,
+      clientX: 120,
+      clientY: 130,
+    });
+    await viewport.trigger('pointerup', {
+      pointerId: 3,
+      clientX: 120,
+      clientY: 130,
+    });
+
+    expect(transformLayer.style.transform).toContain('translate(40px, 40px) scale(1.25)');
   });
 
   it('copies Mermaid source through the markdown action toolbar', async () => {

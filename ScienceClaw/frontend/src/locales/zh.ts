@@ -84,6 +84,9 @@ export default {
   'mermaid.copy_source': '复制源码',
   'mermaid.download_svg': '下载 SVG',
   'mermaid.close_fullscreen': '关闭全屏',
+  'mermaid.zoom_in': '放大图表',
+  'mermaid.zoom_out': '缩小图表',
+  'mermaid.reset_zoom': '重置缩放',
   'Give ScienceClaw a task to work on...': '给 ScienceClaw 下达一个研究任务...',
   // Shell tools
   'Executing command': '正在执行命令',

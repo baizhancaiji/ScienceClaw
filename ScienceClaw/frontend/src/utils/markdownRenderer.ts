@@ -42,6 +42,9 @@ export interface MermaidToolbarLabels {
   fullscreen: string;
   copySource: string;
   downloadSvg: string;
+  zoomIn: string;
+  zoomOut: string;
+  resetZoom: string;
 }
 
 export interface MermaidRenderAdapter {
@@ -180,6 +183,9 @@ export const renderMermaidPlaceholder = ({
   const fullscreenLabel = escapeHtml(labels.fullscreen);
   const copySourceLabel = escapeHtml(labels.copySource);
   const downloadSvgLabel = escapeHtml(labels.downloadSvg);
+  const zoomInLabel = escapeHtml(labels.zoomIn);
+  const zoomOutLabel = escapeHtml(labels.zoomOut);
+  const resetZoomLabel = escapeHtml(labels.resetZoom);
   const toolbarLabel = escapeHtml(labels.toolbar);
 
   return `<div class="mermaid-wrapper" data-mermaid-id="${id}" data-mermaid-code="${encodeURIComponent(code)}" data-mermaid-rendered="false" data-mermaid-error="false">
@@ -207,6 +213,33 @@ export const renderMermaidPlaceholder = ({
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
           <span>${downloadSvgLabel}</span>
+        </button>
+        <button type="button" class="mermaid-action-button" data-mermaid-action="zoom-out" title="${zoomOutLabel}" aria-label="${zoomOutLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="8" y1="11" x2="14" y2="11"></line>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span>${zoomOutLabel}</span>
+        </button>
+        <span class="mermaid-scale-indicator">100%</span>
+        <button type="button" class="mermaid-action-button" data-mermaid-action="zoom-in" title="${zoomInLabel}" aria-label="${zoomInLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="11" y1="8" x2="11" y2="14"></line>
+            <line x1="8" y1="11" x2="14" y2="11"></line>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span>${zoomInLabel}</span>
+        </button>
+        <button type="button" class="mermaid-action-button" data-mermaid-action="reset-zoom" title="${resetZoomLabel}" aria-label="${resetZoomLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 3.5v6h6"></path>
+            <path d="M20.5 20.5v-6h-6"></path>
+            <path d="M4 12a8 8 0 0 1 14-5.3"></path>
+            <path d="M20 12a8 8 0 0 1-14 5.3"></path>
+          </svg>
+          <span>${resetZoomLabel}</span>
         </button>
       </div>
       <div class="mermaid-loading">

@@ -9,6 +9,8 @@ const i18n = createI18n({
   locale: 'en',
   messages: {
     en: {
+      'Collapse message': 'Collapse message',
+      'Expand message': 'Expand message',
       'pdf_export.action': 'Export PDF',
       'pdf_export.exporting': 'Exporting PDF',
     },
@@ -17,7 +19,7 @@ const i18n = createI18n({
 
 const mountFooter = (props: Record<string, unknown>) => mount(MessageFooter, {
   props: {
-    feedback: null,
+    collapsed: false,
     isCopied: false,
     roundFileCount: 0,
     ...props,
@@ -30,7 +32,7 @@ const mountFooter = (props: Record<string, unknown>) => mount(MessageFooter, {
 describe('MessageFooter', () => {
   it('renders feedback, file count, copy state, and statistics', () => {
     const wrapper = mountFooter({
-      feedback: 'like',
+      collapsed: true,
       isCopied: true,
       roundFileCount: 2,
       statistics: {
@@ -41,7 +43,7 @@ describe('MessageFooter', () => {
       },
     });
 
-    expect(wrapper.find('.msg-action-btn--liked').exists()).toBe(true);
+    expect(wrapper.find('.msg-action-btn--collapsed').exists()).toBe(true);
     expect(wrapper.find('.msg-action-btn--copied').exists()).toBe(true);
     expect(wrapper.text()).toContain('2');
     expect(wrapper.text()).toContain('1.5s');
@@ -58,9 +60,8 @@ describe('MessageFooter', () => {
     await buttons[1].trigger('click');
     await buttons[2].trigger('click');
     await buttons[3].trigger('click');
-    await buttons[4].trigger('click');
 
-    expect(wrapper.emitted('toggleFeedback')).toEqual([[ 'like' ], [ 'dislike' ]]);
+    expect(wrapper.emitted('toggleCollapse')).toHaveLength(1);
     expect(wrapper.emitted('copy')).toHaveLength(1);
     expect(wrapper.emitted('convertToPdf')).toHaveLength(1);
     expect(wrapper.emitted('showFiles')).toHaveLength(1);
@@ -68,7 +69,7 @@ describe('MessageFooter', () => {
 
   it('uses i18n title and aria for the pdf button', () => {
     const wrapper = mountFooter({});
-    const pdfButton = wrapper.findAll('button')[3];
+    const pdfButton = wrapper.findAll('button')[2];
 
     expect(pdfButton.attributes('title')).toBe('Export PDF');
     expect(pdfButton.attributes('aria-label')).toBe('Export PDF');
@@ -79,7 +80,7 @@ describe('MessageFooter', () => {
       pdfExporting: true,
       pdfDisabled: true,
     });
-    const pdfButton = wrapper.findAll('button')[3];
+    const pdfButton = wrapper.findAll('button')[2];
 
     expect(pdfButton.attributes('disabled')).toBeDefined();
     expect(pdfButton.attributes('title')).toBe('Exporting PDF');

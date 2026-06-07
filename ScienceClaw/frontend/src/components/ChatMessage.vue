@@ -66,6 +66,13 @@
         class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-red-400 to-amber-400"
       ></div>
       <div
+        v-if="isCollapsed"
+        class="px-4 py-3 text-sm text-[var(--text-secondary)] leading-relaxed"
+      >
+        {{ collapsedPreview }}
+      </div>
+      <div
+        v-else
         ref="markdownRef"
         class="p-4 markdown-content text-[15px] text-[var(--text-primary)] leading-relaxed"
         @click="handleMarkdownClick"
@@ -102,13 +109,13 @@
 
     <MessageFooter
       v-if="!(isLast && isLoading)"
-      :feedback="feedback"
+      :collapsed="isCollapsed"
       :is-copied="isCopied"
       :round-file-count="roundFiles.length"
       :statistics="messageContent.statistics"
       :pdf-exporting="pdfExport.exporting.value"
       :pdf-disabled="!props.sessionId || pdfExport.exporting.value"
-      @toggle-feedback="toggleFeedback"
+      @toggle-collapse="toggleCollapse"
       @copy="copyMessage"
       @convert-to-pdf="handleConvertToPdf"
       @show-files="showFileListPanel()"
@@ -180,15 +187,11 @@ const emit = defineEmits<{
 }>();
 
 // Feedback state
-const feedback = ref<"like" | "dislike" | null>(null);
+const isCollapsed = ref(false);
 const isCopied = ref(false);
 
-const toggleFeedback = (type: "like" | "dislike") => {
-  if (feedback.value === type) {
-    feedback.value = null;
-  } else {
-    feedback.value = type;
-  }
+const toggleCollapse = () => {
+  isCollapsed.value = !isCollapsed.value;
 };
 
 const copyMessage = async () => {
@@ -258,6 +261,13 @@ const messageContent = computed(() => props.message.content as MessageContent);
 const attachmentsContent = computed(
   () => props.message.content as AttachmentsContent,
 );
+const collapsedPreview = computed(() => {
+  const text = messageContent.value?.content?.replace(/\s+/g, " ").trim() || "";
+  if (!text) {
+    return t("Message collapsed");
+  }
+  return text.length > 140 ? `${text.slice(0, 140)}...` : text;
+});
 const messageFlashClass = computed(() =>
   props.flashToken ? "session-search-hit-flash" : "",
 );

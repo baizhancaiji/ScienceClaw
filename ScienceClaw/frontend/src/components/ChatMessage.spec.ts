@@ -40,6 +40,9 @@ const i18n = createI18n({
   locale: 'zh',
   messages: {
     zh: {
+      'Collapse message': '折叠消息',
+      'Expand message': '展开消息',
+      'Message collapsed': '消息已折叠',
       'pdf_export.action': '导出 PDF',
       'pdf_export.unavailable': '当前消息无法导出 PDF',
     },

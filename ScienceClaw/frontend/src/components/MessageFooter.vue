@@ -4,19 +4,15 @@
     <div class="msg-actions-capsule">
       <button
         class="msg-action-btn"
-        :class="{ 'msg-action-btn--liked': feedback === 'like' }"
-        @click="emit('toggleFeedback', 'like')"
-        :title="feedback === 'like' ? '取消' : '有帮助'"
+        :class="{ 'msg-action-btn--collapsed': collapsed }"
+        @click="emit('toggleCollapse')"
+        :title="collapsed ? t('Expand message') : t('Collapse message')"
+        :aria-label="collapsed ? t('Expand message') : t('Collapse message')"
       >
-        <ThumbsUpIcon class="w-4 h-4" :class="{ 'fill-current': feedback === 'like' }" />
-      </button>
-      <button
-        class="msg-action-btn"
-        :class="{ 'msg-action-btn--disliked': feedback === 'dislike' }"
-        @click="emit('toggleFeedback', 'dislike')"
-        :title="feedback === 'dislike' ? '取消' : '无帮助'"
-      >
-        <ThumbsDownIcon class="w-4 h-4" :class="{ 'fill-current': feedback === 'dislike' }" />
+        <span class="msg-collapse-glyph" aria-hidden="true">
+          <component :is="collapsed ? ChevronUpIcon : ChevronDownIcon" class="w-3 h-3" />
+          <component :is="collapsed ? ChevronDownIcon : ChevronUpIcon" class="w-3 h-3 -mt-1" />
+        </span>
       </button>
       <div class="msg-action-divider"></div>
       <button
@@ -85,22 +81,20 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   ClockIcon,
   CopyIcon,
   FolderOpen,
   LoaderCircleIcon,
-  ThumbsDownIcon,
-  ThumbsUpIcon,
   WrenchIcon,
 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import PdfIcon from './icons/PdfIcon.vue';
 import type { StatisticsData } from '../types/event';
 
-type FeedbackType = 'like' | 'dislike';
-
 const props = defineProps<{
-  feedback: FeedbackType | null;
+  collapsed: boolean;
   isCopied: boolean;
   roundFileCount: number;
   statistics?: StatisticsData;
@@ -111,7 +105,7 @@ const props = defineProps<{
 const { t } = useI18n();
 
 const emit = defineEmits<{
-  (e: 'toggleFeedback', feedback: FeedbackType): void;
+  (e: 'toggleCollapse'): void;
   (e: 'copy'): void;
   (e: 'convertToPdf'): void;
   (e: 'showFiles'): void;
@@ -170,16 +164,14 @@ const formatTokenCount = (count: number): string => {
   @apply active:scale-95;
 }
 
-.msg-action-btn--liked {
-  @apply bg-green-100/80 dark:bg-green-900/30;
-  @apply text-green-600 dark:text-green-400;
-  @apply hover:bg-green-200/80 dark:hover:bg-green-900/40;
+.msg-action-btn--collapsed {
+  @apply bg-amber-100/80 dark:bg-amber-900/30;
+  @apply text-amber-600 dark:text-amber-400;
+  @apply hover:bg-amber-200/80 dark:hover:bg-amber-900/40;
 }
 
-.msg-action-btn--disliked {
-  @apply bg-red-100/80 dark:bg-red-900/30;
-  @apply text-red-600 dark:text-red-400;
-  @apply hover:bg-red-200/80 dark:hover:bg-red-900/40;
+.msg-collapse-glyph {
+  @apply flex flex-col items-center justify-center leading-none;
 }
 
 .msg-action-btn--copied {

@@ -126,6 +126,24 @@ class GetSessionData(BaseModel):
     has_more: bool = Field(default=False, description="Whether more session events are available")
 
 
+class SessionSearchResult(BaseModel):
+    id: str = Field(..., description="Search result ID")
+    event_id: str = Field(..., description="Matched message event ID")
+    event_index: int = Field(..., description="Matched event index in full session events")
+    role: str = Field(..., description="Message role")
+    text: str = Field(..., description="Matched message text")
+    snippet: str = Field(..., description="Search snippet")
+    match_start: int = Field(..., description="Match start offset")
+    match_end: int = Field(..., description="Match end offset")
+    timestamp: int = Field(default=0, description="Message timestamp")
+
+
+class SessionSearchData(BaseModel):
+    query: str = Field(..., description="Search query")
+    results: List[SessionSearchResult] = Field(default_factory=list, description="Session search results")
+    total: int = Field(default=0, description="Total result count")
+
+
 class ChatRequest(BaseModel):
     message: str = Field(default="", description="User message content")
     timestamp: Optional[int] = Field(default=None, description="Message timestamp")
@@ -252,8 +270,31 @@ def _slice_session_events(
         return events, False
 
     safe_limit = max(1, min(int(limit), 200))
+
+    def is_visible_message(event: Dict[str, Any]) -> bool:
+        if event.get("event") != "message":
+            return False
+        role = (event.get("data") or {}).get("role")
+        return role is None or role in {"user", "assistant"}
+
+    visible_message_indexes = [
+        idx for idx, event in enumerate(events)
+        if is_visible_message(event)
+    ]
+
+    def has_visible_before(index: int) -> bool:
+        return any(message_index < index for message_index in visible_message_indexes)
+
+    def has_visible_after(index: int) -> bool:
+        return any(message_index > index for message_index in visible_message_indexes)
+
     if direction == "latest":
-        return events[-safe_limit:], len(events) > safe_limit
+        if not visible_message_indexes:
+            start = max(0, len(events) - safe_limit)
+            return events[start:], start > 0
+        selected = visible_message_indexes[-safe_limit:]
+        start = selected[0]
+        return events[start:], has_visible_before(start)
 
     index_by_id = {
         ((event.get("data") or {}).get("event_id")): idx
@@ -264,13 +305,103 @@ def _slice_session_events(
         return [], False
 
     if direction == "before":
-        start = max(0, cursor_index - safe_limit)
-        return events[start:cursor_index], start > 0
+        previous_messages = [
+            message_index for message_index in visible_message_indexes
+            if message_index < cursor_index
+        ]
+        if not previous_messages:
+            return [], False
+        selected = previous_messages[-safe_limit:]
+        start = selected[0]
+        return events[start:cursor_index], has_visible_before(start)
     if direction == "after":
-        end = min(len(events), cursor_index + 1 + safe_limit)
-        return events[cursor_index + 1:end], end < len(events)
+        next_messages = [
+            message_index for message_index in visible_message_indexes
+            if message_index > cursor_index
+        ]
+        if not next_messages:
+            return [], False
+        selected = next_messages[:safe_limit]
+        end_message_index = selected[-1]
+        later_messages = [
+            message_index for message_index in visible_message_indexes
+            if message_index > end_message_index
+        ]
+        end = later_messages[0] if later_messages else len(events)
+        return events[cursor_index + 1:end], bool(later_messages)
 
-    return events[-safe_limit:], len(events) > safe_limit
+    return _slice_session_events(
+        events,
+        cursor_event_id=cursor_event_id,
+        limit=safe_limit,
+        direction="latest",
+    )
+
+
+def _collapse_search_whitespace(value: str) -> str:
+    return " ".join(value.split())
+
+
+def _build_session_search_snippet(text: str, match_start: int, match_end: int, radius: int = 42) -> str:
+    cleaned = _collapse_search_whitespace(text)
+    if not cleaned:
+        return ""
+
+    safe_start = max(0, min(match_start, len(cleaned)))
+    safe_end = max(safe_start, min(match_end, len(cleaned)))
+    snippet_start = max(0, safe_start - radius)
+    snippet_end = min(len(cleaned), safe_end + radius)
+    prefix = "..." if snippet_start > 0 else ""
+    suffix = "..." if snippet_end < len(cleaned) else ""
+    return f"{prefix}{cleaned[snippet_start:snippet_end]}{suffix}"
+
+
+def _search_session_events(
+    events: List[Dict[str, Any]],
+    *,
+    query: str,
+    limit: int,
+) -> List[SessionSearchResult]:
+    normalized_query = query.casefold()
+    if not normalized_query:
+        return []
+
+    results: List[SessionSearchResult] = []
+    safe_limit = max(1, min(int(limit), 100))
+    for event_index, event in enumerate(events):
+        if event.get("event") != "message":
+            continue
+        data = event.get("data") or {}
+        role = data.get("role")
+        if role not in {"user", "assistant"}:
+            continue
+        content = data.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+
+        normalized_text = content.casefold()
+        search_from = 0
+        while search_from < len(normalized_text):
+            match_start = normalized_text.find(normalized_query, search_from)
+            if match_start == -1:
+                break
+            match_end = match_start + len(normalized_query)
+            event_id = data.get("event_id") or ""
+            results.append(SessionSearchResult(
+                id=f"{event_index}-{match_start}",
+                event_id=event_id,
+                event_index=event_index,
+                role=role,
+                text=content,
+                snippet=_build_session_search_snippet(content, match_start, match_end),
+                match_start=match_start,
+                match_end=match_end,
+                timestamp=int(data.get("timestamp") or 0),
+            ))
+            if len(results) >= safe_limit:
+                return results
+            search_from = match_end
+    return results
 
 
 def _format_pdf_exported_at(exported_at: datetime, locale: str) -> str:
@@ -2250,6 +2381,43 @@ async def proxy_vnc_websocket(
 # ═══════════════════════════════════════════════════════════════════
 # Session CRUD（/{session_id} 路由必须在 /skills, /tools 之后）
 # ═══════════════════════════════════════════════════════════════════
+
+@router.get("/{session_id}/search", response_model=ApiResponse)
+async def search_session_messages(
+    session_id: str,
+    query: str,
+    limit: int = 30,
+    current_user: User = Depends(require_user),
+) -> ApiResponse:
+    try:
+        session = await _get_owned_session_or_404(session_id, current_user)
+        locked = _session_has_password(session) and not _is_session_unlocked(session, current_user)
+        if locked:
+            return ApiResponse(data=SessionSearchData(
+                query=query,
+                results=[],
+                total=0,
+            ).model_dump())
+
+        trimmed_query = query.strip()
+        results = _search_session_events(
+            getattr(session, "events", []) or [],
+            query=trimmed_query,
+            limit=limit,
+        )
+        return ApiResponse(data=SessionSearchData(
+            query=trimmed_query,
+            results=results,
+            total=len(results),
+        ).model_dump())
+    except ScienceSessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("search_session_messages failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
 
 @router.get("/{session_id}", response_model=ApiResponse)
 async def get_session(

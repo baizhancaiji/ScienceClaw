@@ -21,6 +21,9 @@ const i18n = createI18n({
   locale: 'en',
   messages: {
     en: {
+      'Browser': 'Browser',
+      'Browser Preview Image': 'Browser Preview Image',
+      'No screenshot available': 'No screenshot available',
       'Take Over': 'Take Over',
     },
   },
@@ -40,6 +43,16 @@ const toolContent: ToolContent = {
   content: {
     screenshot: 'https://example.com/screenshot.png',
   },
+};
+
+const toolContentWithoutPreview: ToolContent = {
+  timestamp: 2,
+  tool_call_id: 'tool-2',
+  name: 'browser_view',
+  function: 'browser_view',
+  args: {},
+  status: 'called',
+  content: {},
 };
 
 describe('BrowserToolView', () => {
@@ -67,5 +80,22 @@ describe('BrowserToolView', () => {
     await wrapper.get('button').trigger('click');
 
     expect(window.open).toHaveBeenCalledWith('/chat/session-a?sandbox=1', '_blank', 'noopener');
+  });
+
+  it('renders translated fallback browser strings for empty previews', () => {
+    const wrapper = mount(BrowserToolView, {
+      props: {
+        sessionId: 'session-a',
+        toolContent: toolContentWithoutPreview,
+        live: false,
+        isShare: false,
+      },
+      global: {
+        plugins: [i18n],
+      },
+    });
+
+    expect(wrapper.text()).toContain('Browser');
+    expect(wrapper.text()).toContain('No screenshot available');
   });
 });

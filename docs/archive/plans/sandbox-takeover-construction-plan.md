@@ -5,7 +5,7 @@
 > **修订日期**: 2026-06-07
 > **优先级**: P0
 > **影响范围**: `ScienceClaw/frontend/src/components/TakeOverView.vue`、`ScienceClaw/frontend/src/components/ActivityPanel.vue`、`ScienceClaw/frontend/src/components/SandboxPreview.vue`、`ScienceClaw/frontend/src/components/toolViews/BrowserToolView.vue`、`ScienceClaw/frontend/src/components/VNCViewer.vue`
-> **状态**: 执行中（W1/W2/W3/W4 已完成，下一批 W5）
+> **状态**: 已归档（2026-06-07，W1-W5 已完成）
 
 ---
 
@@ -370,6 +370,14 @@ window.open(`/chat/${sessionId}?sandbox=1`, '_blank', 'noopener')
 2. `VNCViewer` 能响应 `viewOnly` 变化。
 3. 历史同步消息协议在快照与增量场景下不会重复或漏写。
 
+**本批结果（2026-06-07）**:
+
+1. 已将 `ScienceClaw/frontend/src/components/toolViews/BrowserToolView.vue` 中剩余的 `Browser` fallback、空截图提示和预览图 `alt` 文案全部改为 i18n。
+2. 已在 `ScienceClaw/frontend/src/locales/zh.ts` 与 `ScienceClaw/frontend/src/locales/en.ts` 补齐 `Browser Preview Image`、`No screenshot available` 文案。
+3. 已扩展 `ScienceClaw/frontend/src/components/toolViews/BrowserToolView.spec.ts`，覆盖空预览场景下的翻译 fallback。
+4. 已执行 `npm run type-check` 与 `npm run test:run -- src/components/ActivityPanel.spec.ts src/components/TakeOverView.spec.ts src/components/VNCViewer.spec.ts src/components/toolViews/BrowserToolView.spec.ts`，通过。
+5. 提交前已用本地 `codegraph impact BrowserToolView --depth 2` 与 `codegraph callers BrowserToolView` 完成 W5 影响分析；当前批次影响面收敛在 `BrowserToolView` 与 locale 文案。
+
 ---
 
 ## 六、消息协议
@@ -457,3 +465,36 @@ npm run test:run -- src/components/ActivityPanel.spec.ts src/components/TakeOver
 6. `?sandbox=1` 新入口可用，`?vnc=1` 老入口仍可用。
 7. 所有新增用户可见文案完成中英文 i18n。
 8. 本施工单与 `docs/current-active-execution-plans-zh.md` 保持一致。
+
+---
+
+## 十一、完成审计
+
+### 11.1 完成标准核对
+
+1. BrowserToolView 点击后新开 `/chat/:sessionId?sandbox=1` 独立标签页：已完成，见 `ScienceClaw/frontend/src/components/toolViews/BrowserToolView.vue` 与 `BrowserToolView.spec.ts`。
+2. 接管页内可切 `Terminal` / `Browser`：已完成，见 `ScienceClaw/frontend/src/components/TakeOverView.vue` 与 `TakeOverView.spec.ts`。
+3. Terminal 先拿快照、再收增量：已完成，见 `ScienceClaw/frontend/src/components/ActivityPanel.vue`、`ScienceClaw/frontend/src/components/TakeOverView.vue`、`ScienceClaw/frontend/src/utils/sandboxHistoryChannel.ts`。
+4. 不同 session 的接管页不会串台：已完成，频道按 `sandbox-history:${sessionId}` 隔离，且测试已覆盖。
+5. Browser 默认只读，且可切换、可切回：已完成，见 `TakeOverView.vue` 与 `VNCViewer.vue`。
+6. `?sandbox=1` 新入口可用，`?vnc=1` 老入口仍可用：已完成，见 `TakeOverView.spec.ts`。
+7. 所有新增用户可见文案完成中英文 i18n：已完成，W5 已补齐 `BrowserToolView` 剩余文案。
+8. 本施工单与活跃台账保持一致：本次归档同步完成后闭环。
+
+### 11.2 最终验证记录
+
+```powershell
+cd D:\trae\ScienceClaw\ScienceClaw\frontend
+npm run type-check
+npm run test:run -- src/components/ActivityPanel.spec.ts src/components/TakeOverView.spec.ts src/components/VNCViewer.spec.ts src/components/toolViews/BrowserToolView.spec.ts
+```
+
+结果：
+
+1. `vue-tsc` 通过。
+2. `ActivityPanel.spec.ts`、`TakeOverView.spec.ts`、`VNCViewer.spec.ts`、`BrowserToolView.spec.ts` 共 4 个测试文件、9 个测试全部通过。
+
+### 11.3 归档动作
+
+1. 本施工单已完成，移入 `docs/archive/plans/`。
+2. `docs/current-active-execution-plans-zh.md` 已移除该活跃项，并在“归档记录”补充归档原因与后续事项。

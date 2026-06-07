@@ -161,6 +161,8 @@ export default {
   'Browser View Only': 'Browser View Only',
   'Enable Browser Control': 'Enable Browser Control',
   'Disable Browser Control': 'Disable Browser Control',
+  'Browser Preview Image': 'Browser Preview Image',
+  'No screenshot available': 'No screenshot available',
   // Session File List
   'All Files in This Task': 'Session Files',
   'Session Files': 'Session Files',

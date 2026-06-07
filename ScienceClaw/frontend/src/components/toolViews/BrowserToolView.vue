@@ -3,7 +3,7 @@
     class="h-[36px] flex items-center px-3 w-full bg-[var(--background-gray-main)] border-b border-[var(--border-main)] rounded-t-[12px] shadow-[inset_0px_1px_0px_0px_#FFFFFF] dark:shadow-[inset_0px_1px_0px_0px_#FFFFFF30]">
     <div class="flex-1 flex items-center justify-center">
       <div class="max-w-[250px] truncate text-[var(--text-tertiary)] text-sm font-medium text-center">
-        {{ pageUrl || 'Browser' }}
+        {{ pageUrl || t('Browser') }}
       </div>
     </div>
   </div>
@@ -18,9 +18,15 @@
             sandbox="allow-same-origin allow-scripts allow-popups"
             referrerpolicy="no-referrer"
           />
-          <img v-else-if="imageUrl" alt="Image Preview" class="cursor-pointer w-full" referrerpolicy="no-referrer" :src="imageUrl">
+          <img
+            v-else-if="imageUrl"
+            :alt="t('Browser Preview Image')"
+            class="cursor-pointer w-full"
+            referrerpolicy="no-referrer"
+            :src="imageUrl"
+          >
           <div v-else class="p-6 text-center text-sm text-[var(--text-tertiary)]">
-            <div class="font-medium text-[var(--text-secondary)] mb-2">无截图可展示</div>
+            <div class="font-medium text-[var(--text-secondary)] mb-2">{{ t('No screenshot available') }}</div>
             <div class="break-all">{{ pageUrl }}</div>
           </div>
         </div>

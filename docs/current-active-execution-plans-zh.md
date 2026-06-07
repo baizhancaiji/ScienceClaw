@@ -17,7 +17,7 @@
 
 | 计划 | 当前状态 | 权威文档 | 下一批最小增量 | 验收命令 |
 | --- | --- | --- | --- | --- |
-| 沙盒接管页扩展施工单 | 执行中。W1/W2/W3/W4 已完成：`VNCViewer` 已支持运行时 `viewOnly` 切换；`TakeOverView` 已升级为会话绑定双 tab 接管页；`ActivityPanel`/`TakeOverView` 已补齐按 `sessionId` 隔离的 BroadcastChannel 快照与增量同步；`BrowserToolView` 已改为新开独立标签页入口。 | `docs/sandbox-takeover-construction-plan.md` | W5 i18n 与最小测试收口。 | `cd D:\trae\ScienceClaw\ScienceClaw\frontend && npm run type-check && npm run test:run -- src/components/ActivityPanel.spec.ts src/components/TakeOverView.spec.ts src/components/VNCViewer.spec.ts src/components/toolViews/BrowserToolView.spec.ts` |
+| 当前无活跃执行计划 | 已清空。新的执行任务进入施工前，先在本台账登记权威计划、下一批最小增量和验收命令。 | - | - | - |
 
 ## 非必须后续项
 
@@ -30,6 +30,7 @@
 | 计划文档 | 归档原因 | 后续事项 |
 | --- | --- | --- |
 | `docs/archive/plans/frontend-perf-optimization-plan-zh.md` | 前端聊天页性能优化与 Mermaid 渲染可靠性施工单 W1-W5 已完成；W6 评估后转入“非必须后续项”，不再作为活跃施工单继续执行。 | 仅当持久化缓存出现真实可感知瓶颈并有采样证据时，再新建独立施工单。 |
+| `docs/archive/plans/sandbox-takeover-construction-plan.md` | 沙盒接管页扩展施工单 W1-W5 已完成；`TakeOverView` 已升级为会话绑定双 tab 接管页，Terminal/Browser 跨标签同步、浏览器只读切换、新标签页接管入口与 i18n 收口均已闭环。 | 无残余阻塞项；若后续要加入持久化历史回放、独立路由页或更强的多标签协调能力，应另建新施工单。 |
 | `docs/archive/plans/mermaid-interaction-upgrade-plan-zh.md` | Mermaid 图表交互增强 W1-W4 已完成，消息内与全屏交互、测试、构建验收已闭环；Codex App in-app browser smoke 尝试受本机 `iab` 运行时不可用阻塞，已在计划文档中记录。 | 若后续需要补做内置浏览器 smoke，先恢复 `CODEX_IN_APP_BROWSER.md` 所述 `iab` 运行时，再基于同一交互面单独补记验证。 |
 | `docs/archive/plans/tools-classification-rework-plan-zh.md` | Tools / MCP / ToolUniverse 中文分类治理、非 embedding 工具发现索引、三段式 adapter/API、README/skill/Agent 提示收口已完成并逐步提交。 | `npm --prefix ScienceClaw/frontend run build` 仍受既有 Vite/Rollup 绝对路径 `fileName` 问题影响；后续若要修复构建链路，应新建独立计划。 |
 | `docs/archive/plans/mcp-https-integration-completion-audit-zh.md` | 第三方 HTTPS MCP 接入第 0-5 批已完成；第 5 批联调和完成审计均已有提交证据。 | 残余未测项和累积警告已记录；后续若加强 live LLM chat/SSE 或前端自动化测试，应新建独立计划。 |

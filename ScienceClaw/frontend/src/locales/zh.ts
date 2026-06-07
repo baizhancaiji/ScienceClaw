@@ -174,6 +174,8 @@ export default {
   'Browser View Only': '浏览器只读',
   'Enable Browser Control': '启用浏览器控制',
   'Disable Browser Control': '禁用浏览器控制',
+  'Browser Preview Image': '浏览器预览图',
+  'No screenshot available': '无截图可展示',
   // Session File List
   'All Files in This Task': '会话文件',
   'Session Files': '会话文件',

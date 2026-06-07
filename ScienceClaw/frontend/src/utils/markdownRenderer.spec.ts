@@ -133,6 +133,7 @@ describe('renderMermaidPlaceholder', () => {
         zoomIn: 'Zoom in',
         zoomOut: 'Zoom out',
         resetZoom: 'Reset zoom',
+        showSource: 'Show source',
       },
     });
 
@@ -143,8 +144,10 @@ describe('renderMermaidPlaceholder', () => {
     expect(html).toContain('data-mermaid-action="fullscreen"');
     expect(html).toContain('data-mermaid-action="copy-source"');
     expect(html).toContain('data-mermaid-action="download-svg"');
+    expect(html).toContain('data-mermaid-action="toggle-source"');
     expect(html).toContain('class="mermaid-viewport"');
     expect(html).toContain('class="mermaid-transform-layer"');
+    expect(html).toContain('class="mermaid-feedback" role="status" hidden');
     expect(html).toContain('data-mermaid-source-panel');
     expect(html).toContain('<span>正在渲染图表...</span>');
     expect(html).toContain('<div class="mermaid-content" id="mermaid-1"></div>');

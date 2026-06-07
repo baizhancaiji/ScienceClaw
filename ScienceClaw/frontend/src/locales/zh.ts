@@ -87,6 +87,11 @@ export default {
   'mermaid.zoom_in': '放大图表',
   'mermaid.zoom_out': '缩小图表',
   'mermaid.reset_zoom': '重置缩放',
+  'mermaid.show_source': '显示源码',
+  'mermaid.copy_source_success': 'Mermaid 源码已复制',
+  'mermaid.copy_source_failed': '复制 Mermaid 源码失败',
+  'mermaid.download_svg_success': 'Mermaid SVG 已开始下载',
+  'mermaid.download_svg_failed': '下载 Mermaid SVG 失败',
   'Give ScienceClaw a task to work on...': '给 ScienceClaw 下达一个研究任务...',
   // Shell tools
   'Executing command': '正在执行命令',

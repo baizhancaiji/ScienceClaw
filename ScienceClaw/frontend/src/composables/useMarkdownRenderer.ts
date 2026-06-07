@@ -100,6 +100,7 @@ export function useMarkdownRenderer({
     zoomIn: "Zoom in",
     zoomOut: "Zoom out",
     resetZoom: "Reset zoom",
+    showSource: "Show source",
   }),
 }: UseMarkdownRendererOptions) {
   let mathCounter = 0;
@@ -181,6 +182,7 @@ export function useMarkdownRenderer({
         mermaidLabels.zoomIn,
         mermaidLabels.zoomOut,
         mermaidLabels.resetZoom,
+        mermaidLabels.showSource,
       ].join('|')}`
       : 'plain';
 

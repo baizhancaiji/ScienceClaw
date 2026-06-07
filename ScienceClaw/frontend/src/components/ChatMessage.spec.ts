@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createI18n } from 'vue-i18n';
 
 import ChatMessage from './ChatMessage.vue';
@@ -69,6 +69,11 @@ const i18n = createI18n({
       'mermaid.zoom_in': '放大图表',
       'mermaid.zoom_out': '缩小图表',
       'mermaid.reset_zoom': '重置缩放',
+      'mermaid.show_source': '显示源码',
+      'mermaid.copy_source_success': 'Mermaid 源码已复制',
+      'mermaid.copy_source_failed': '复制 Mermaid 源码失败',
+      'mermaid.download_svg_success': 'Mermaid SVG 已开始下载',
+      'mermaid.download_svg_failed': '下载 Mermaid SVG 失败',
     },
   },
 });
@@ -100,6 +105,10 @@ const mountMessage = (type: 'user' | 'assistant', props: Record<string, unknown>
 });
 
 describe('ChatMessage markdown rendering', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     mermaidRendererCalls.length = 0;
     pdfExportMock.exportPdf.mockReset();
@@ -144,6 +153,7 @@ describe('ChatMessage markdown rendering', () => {
     expect(wrapper.find('[data-mermaid-action="zoom-in"]').exists()).toBe(true);
     expect(wrapper.find('[data-mermaid-action="zoom-out"]').exists()).toBe(true);
     expect(wrapper.find('[data-mermaid-action="reset-zoom"]').exists()).toBe(true);
+    expect(wrapper.find('[data-mermaid-action="toggle-source"]').exists()).toBe(true);
     expect(wrapper.find('.mermaid-scale-indicator').text()).toBe('100%');
   });
 
@@ -241,6 +251,64 @@ describe('ChatMessage markdown rendering', () => {
     await wrapper.find('[data-mermaid-action="copy-source"]').trigger('click');
 
     expect(writeText).toHaveBeenCalledWith('graph TD; A-->B;');
+    const feedback = wrapper.find('.mermaid-feedback');
+    expect(feedback.attributes('data-status')).toBe('success');
+    expect(feedback.text()).toBe('Mermaid 源码已复制');
+    expect((feedback.element as HTMLElement).hidden).toBe(false);
+  });
+
+  it('toggles the Mermaid source panel without changing the copied payload', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const wrapper = mountMessage('assistant');
+    const sourcePanel = wrapper.find('[data-mermaid-source-panel]').element as HTMLElement;
+
+    expect(sourcePanel.hidden).toBe(true);
+    expect(sourcePanel.textContent).toBe('graph TD; A-->B;');
+
+    await wrapper.find('[data-mermaid-action="toggle-source"]').trigger('click');
+    expect(sourcePanel.hidden).toBe(false);
+
+    await wrapper.find('[data-mermaid-action="copy-source"]').trigger('click');
+    expect(writeText).toHaveBeenCalledWith('graph TD; A-->B;');
+  });
+
+  it('shows error feedback when copying Mermaid source fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard denied'));
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const wrapper = mountMessage('assistant');
+
+    await wrapper.find('[data-mermaid-action="copy-source"]').trigger('click');
+
+    expect(errorSpy).toHaveBeenCalled();
+    const feedback = wrapper.find('.mermaid-feedback');
+    expect(feedback.attributes('data-status')).toBe('error');
+    expect(feedback.text()).toBe('复制 Mermaid 源码失败');
+  });
+
+  it('shows error feedback when downloading Mermaid SVG fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
+      throw new Error('blob failure');
+    });
+    const wrapper = mountMessage('assistant');
+    const mermaidContent = wrapper.find('.mermaid-content').element as HTMLElement;
+    mermaidContent.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"><g></g></svg>';
+
+    await wrapper.find('[data-mermaid-action="download-svg"]').trigger('click');
+
+    expect(createObjectUrlSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    const feedback = wrapper.find('.mermaid-feedback');
+    expect(feedback.attributes('data-status')).toBe('error');
+    expect(feedback.text()).toBe('下载 Mermaid SVG 失败');
   });
 
   it('routes Mermaid fullscreen actions to MarkdownEnhancements', async () => {

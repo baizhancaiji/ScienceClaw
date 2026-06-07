@@ -240,6 +240,7 @@ interface MermaidViewState {
 const MERMAID_MIN_SCALE = 0.3;
 const MERMAID_MAX_SCALE = 3;
 const MERMAID_SCALE_STEP = 0.25;
+const MERMAID_FEEDBACK_DURATION_MS = 2000;
 const mermaidViewStates = new WeakMap<HTMLElement, MermaidViewState>();
 
 const clampMermaidScale = (scale: number) =>
@@ -307,6 +308,37 @@ const resetMermaidView = (wrapper: HTMLElement) => {
   state.dragging = false;
   state.dragPointerId = null;
   syncMermaidView(wrapper);
+};
+
+const setMermaidFeedback = (
+  wrapper: HTMLElement,
+  message: string,
+  status: "success" | "error",
+) => {
+  const feedbackEl = wrapper.querySelector(".mermaid-feedback") as HTMLElement | null;
+  if (!feedbackEl) {
+    return;
+  }
+  feedbackEl.textContent = message;
+  feedbackEl.dataset.status = status;
+  feedbackEl.hidden = false;
+  window.setTimeout(() => {
+    if (!feedbackEl.isConnected) {
+      return;
+    }
+    feedbackEl.hidden = true;
+    feedbackEl.textContent = "";
+    delete feedbackEl.dataset.status;
+  }, MERMAID_FEEDBACK_DURATION_MS);
+};
+
+const toggleMermaidSourcePanel = (wrapper: HTMLElement) => {
+  const sourcePanel = wrapper.querySelector("[data-mermaid-source-panel]") as HTMLElement | null;
+  if (!sourcePanel) {
+    return;
+  }
+  sourcePanel.hidden = !sourcePanel.hidden;
+  wrapper.dataset.mermaidSourceOpen = sourcePanel.hidden ? "false" : "true";
 };
 
 const stopMermaidDrag = (wrapper: HTMLElement) => {
@@ -437,16 +469,11 @@ const handleMarkdownClick = async (event: MouseEvent) => {
       }
       try {
         await navigator.clipboard.writeText(source);
-        wrapper.setAttribute("data-mermaid-copy-state", "success");
+        setMermaidFeedback(wrapper, t("mermaid.copy_source_success"), "success");
       } catch (error) {
         console.error("Failed to copy Mermaid source:", error);
-        wrapper.setAttribute("data-mermaid-copy-state", "error");
+        setMermaidFeedback(wrapper, t("mermaid.copy_source_failed"), "error");
       }
-      window.setTimeout(() => {
-        if (wrapper.isConnected) {
-          wrapper.removeAttribute("data-mermaid-copy-state");
-        }
-      }, 2000);
       return;
     }
 
@@ -462,6 +489,11 @@ const handleMarkdownClick = async (event: MouseEvent) => {
 
     if (action === "reset-zoom") {
       resetMermaidView(wrapper);
+      return;
+    }
+
+    if (action === "toggle-source") {
+      toggleMermaidSourcePanel(wrapper);
       return;
     }
 
@@ -488,8 +520,10 @@ const handleMarkdownClick = async (event: MouseEvent) => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(objectUrl);
+        setMermaidFeedback(wrapper, t("mermaid.download_svg_success"), "success");
       } catch (error) {
         console.error("Failed to download Mermaid SVG:", error);
+        setMermaidFeedback(wrapper, t("mermaid.download_svg_failed"), "error");
       }
       return;
     }
@@ -545,6 +579,7 @@ const { renderMarkdown } = useMarkdownRenderer({
     zoomIn: t("mermaid.zoom_in"),
     zoomOut: t("mermaid.zoom_out"),
     resetZoom: t("mermaid.reset_zoom"),
+    showSource: t("mermaid.show_source"),
   }),
 });
 

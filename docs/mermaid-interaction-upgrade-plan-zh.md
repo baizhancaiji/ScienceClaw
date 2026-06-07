@@ -3,7 +3,7 @@
 > **编号**: SC-FE-MERMAID-2026-001
 > **创建日期**: 2026-06-07
 > **登记状态**: 已登记（2026-06-07，见 `docs/current-active-execution-plans-zh.md`）
-> **执行状态**: W1-W2 已完成，W3 待施工
+> **执行状态**: W1-W3 已完成，W4 待施工
 > **优先级**: P1
 > **影响范围**: `ScienceClaw/frontend/src/utils/markdownRenderer.ts`、`ScienceClaw/frontend/src/utils/content.ts`、`ScienceClaw/frontend/src/composables/useMermaidRenderer.ts`、`ScienceClaw/frontend/src/components/ChatMessage.vue`、`ScienceClaw/frontend/src/components/MarkdownEnhancements.vue`、`ScienceClaw/frontend/src/assets/chat-message-renderer.css`、`ScienceClaw/frontend/src/locales/zh.ts`、`ScienceClaw/frontend/src/locales/en.ts`、对应 spec
 
@@ -308,6 +308,11 @@ npm run type-check
 ### W3：源码面板与错误态收口
 
 **目标**: 支持图表内查看源码，并补齐渲染失败、下载失败、复制失败状态。
+**施工状态**: 已完成（2026-06-07）
+**验证证据**:
+
+- `cd ScienceClaw/frontend && npm run test:run -- src/utils/markdownRenderer.spec.ts src/components/ChatMessage.spec.ts`
+- `cd ScienceClaw/frontend && npm run type-check`
 
 **改动文件**:
 
@@ -328,6 +333,12 @@ npm run type-check
 - 源码面板内容不影响复制源码结果。
 - 渲染失败时仍展示现有错误信息和原始源码。
 - 下载失败、复制失败有明确可见反馈。
+
+2026-06-07 落地说明：
+
+- 已新增消息内 Mermaid 源码面板切换入口，源码面板内容与复制逻辑解耦，复制仍以 `data-mermaid-code` 为准。
+- 已把复制源码和下载 SVG 的成功/失败反馈统一收口为图表内短暂状态提示，不再依赖隐式 DOM 标记。
+- 保持 Mermaid 渲染失败时继续显示现有错误提示和原始源码，避免源码查看路径与错误态分叉。
 
 **验证命令**:
 
@@ -402,6 +413,6 @@ npm run build
 
 ## 八、当前状态
 
-本施工单已在 2026-06-07 登记为活跃计划，当前已完成 W1-W2。
+本施工单已在 2026-06-07 登记为活跃计划，当前已完成 W1-W3。
 
-下一批最小增量：W3 源码面板切换、复制/下载失败反馈、渲染错误态与源码面板收口，以及对应测试。
+下一批最小增量：W4 全屏查看补齐缩放/拖动/复制/下载能力，并完成浏览器 smoke 与构建验收。

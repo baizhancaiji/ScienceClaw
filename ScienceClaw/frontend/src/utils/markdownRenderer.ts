@@ -45,6 +45,7 @@ export interface MermaidToolbarLabels {
   zoomIn: string;
   zoomOut: string;
   resetZoom: string;
+  showSource: string;
 }
 
 export interface MermaidRenderAdapter {
@@ -186,6 +187,7 @@ export const renderMermaidPlaceholder = ({
   const zoomInLabel = escapeHtml(labels.zoomIn);
   const zoomOutLabel = escapeHtml(labels.zoomOut);
   const resetZoomLabel = escapeHtml(labels.resetZoom);
+  const showSourceLabel = escapeHtml(labels.showSource);
   const toolbarLabel = escapeHtml(labels.toolbar);
 
   return `<div class="mermaid-wrapper" data-mermaid-id="${id}" data-mermaid-code="${encodeURIComponent(code)}" data-mermaid-rendered="false" data-mermaid-error="false">
@@ -241,6 +243,13 @@ export const renderMermaidPlaceholder = ({
           </svg>
           <span>${resetZoomLabel}</span>
         </button>
+        <button type="button" class="mermaid-action-button" data-mermaid-action="toggle-source" title="${showSourceLabel}" aria-label="${showSourceLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
+          <span>${showSourceLabel}</span>
+        </button>
       </div>
       <div class="mermaid-loading">
         <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -254,6 +263,7 @@ export const renderMermaidPlaceholder = ({
           <div class="mermaid-content" id="${id}"></div>
         </div>
       </div>
+      <div class="mermaid-feedback" role="status" hidden></div>
       <pre class="mermaid-source-panel" data-mermaid-source-panel hidden>${escapedCode}</pre>
     </div>`;
 };

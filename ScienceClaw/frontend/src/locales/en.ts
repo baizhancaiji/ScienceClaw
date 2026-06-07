@@ -74,6 +74,11 @@ export default {
   'mermaid.zoom_in': 'Zoom in',
   'mermaid.zoom_out': 'Zoom out',
   'mermaid.reset_zoom': 'Reset zoom',
+  'mermaid.show_source': 'Show source',
+  'mermaid.copy_source_success': 'Mermaid source copied',
+  'mermaid.copy_source_failed': 'Failed to copy Mermaid source',
+  'mermaid.download_svg_success': 'Mermaid SVG download started',
+  'mermaid.download_svg_failed': 'Failed to download Mermaid SVG',
   'Give ScienceClaw a task to work on...': 'Give ScienceClaw a research task...',
   // Shell tools
   'Executing command': 'Executing command',

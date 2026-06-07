@@ -729,6 +729,47 @@
   display: none;
 }
 
+.markdown-content .mermaid-source-panel:not([hidden]) {
+  display: block;
+  margin-top: 0.85rem;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  background: var(--chat-code-surface);
+  border: 1px solid var(--chat-code-subtle-border);
+  color: var(--chat-code-text);
+  font-family: 'Fira Code', 'JetBrains Mono', 'SF Mono', Consolas, Monaco, monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.markdown-content .mermaid-feedback {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.markdown-content .mermaid-feedback[hidden] {
+  display: none;
+}
+
+.markdown-content .mermaid-feedback[data-status="success"] {
+  background: var(--chat-state-success-surface);
+  border-color: var(--chat-state-success-border);
+  color: var(--chat-state-success-text);
+}
+
+.markdown-content .mermaid-feedback[data-status="error"] {
+  background: var(--chat-state-error-surface);
+  border-color: var(--chat-state-error-border);
+  color: var(--chat-state-error-text);
+}
+
 .markdown-content .mermaid-error {
   display: flex;
   align-items: center;

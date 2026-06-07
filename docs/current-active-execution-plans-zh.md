@@ -15,7 +15,7 @@
 
 | 计划 | 当前状态 | 权威文档 | 下一批最小增量 | 验收命令 |
 | --- | --- | --- | --- | --- |
-| Mermaid 图表交互增强 | W1-W2 已完成，W3 待施工 | `docs/mermaid-interaction-upgrade-plan-zh.md` | 源码面板切换、复制/下载失败反馈、渲染错误态与源码面板收口 | `cd ScienceClaw/frontend && npm run test:run -- src/utils/markdownRenderer.spec.ts src/components/ChatMessage.spec.ts && npm run type-check` |
+| Mermaid 图表交互增强 | W1-W3 已完成，W4 待施工 | `docs/mermaid-interaction-upgrade-plan-zh.md` | 全屏查看补齐缩放/拖动/复制/下载能力，并完成浏览器 smoke | `cd ScienceClaw/frontend && npm run test:run -- src/components/MarkdownEnhancements.spec.ts src/components/ChatMessage.spec.ts && npm run type-check && npm run build` |
 
 ## 非必须后续项
 

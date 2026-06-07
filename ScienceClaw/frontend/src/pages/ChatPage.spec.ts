@@ -10,6 +10,25 @@ import { SessionStatus } from '../types/response';
 const currentRoute = ref<{ params: { sessionId?: string } }>({ params: {} });
 const routerReplace = vi.fn();
 const mountedWrappers: VueWrapper[] = [];
+const simpleBarApi = {
+  scrollToBottom: vi.fn(),
+  scrollToElement: vi.fn(),
+  isScrolledToBottom: vi.fn(() => false),
+  contentWrapperRef: {
+    scrollTop: 0,
+    scrollHeight: 1000,
+    clientHeight: 500,
+  },
+};
+const activityPanelApi = {
+  isShow: false,
+  show: vi.fn(() => {
+    activityPanelApi.isShow = true;
+  }),
+  hide: vi.fn(() => {
+    activityPanelApi.isShow = false;
+  }),
+};
 
 vi.mock('vue-router', () => ({
   createRouter: () => ({
@@ -54,6 +73,7 @@ vi.mock('../api/agent', () => ({
   clearUnreadMessageCount: vi.fn(),
   getSession: vi.fn(),
   lockSessionPassword: vi.fn().mockResolvedValue({ locked: true }),
+  searchSessionMessages: vi.fn(),
   stopSession: vi.fn(),
 }));
 
@@ -108,6 +128,9 @@ vi.mock('../utils/dom', () => ({
 type ChatPageTestApi = {
   handleEvent: (event: AgentSSEEvent) => void;
   replayHistoryEvents: (events: AgentSSEEvent[]) => boolean;
+  loadOlderSessionEvents: () => Promise<void>;
+  runSessionSearch: (query: string) => Promise<void>;
+  handleSessionSearchResultClick: (resultIndex: number) => Promise<void>;
   flushPendingMessageChunks: () => void;
   resetSessionRuntimeState: () => void;
   setSessionRuntimeForTest: (nextState: {
@@ -139,8 +162,15 @@ type ChatPageTestApi = {
     lastTurnHadError: boolean;
     sessionSearchQuery: string;
     isSessionSearchOpen: boolean;
+    sessionSearchResults: any[];
     hasMoreEvents: boolean;
     isLoadingMoreEvents: boolean;
+    isApplyingLoadedEvents: boolean;
+    loadedSessionEvents: AgentSSEEvent[];
+    firstLoadedEventId: string | null;
+    visibleGroupedEntries: Array<{ group: any; index: number }>;
+    topGroupSpacerHeight: number;
+    bottomGroupSpacerHeight: number;
   };
 };
 
@@ -151,17 +181,19 @@ const mountChatPageWrapper = () => {
         SimpleBar: {
           template: '<div><slot /></div>',
           methods: {
-            scrollToBottom: vi.fn(),
-            scrollToElement: vi.fn(),
+            scrollToBottom: simpleBarApi.scrollToBottom,
+            scrollToElement: simpleBarApi.scrollToElement,
+          },
+          setup(_, { expose }) {
+            expose(simpleBarApi);
           },
         },
         ChatBox: true,
         ChatMessage: true,
         ActivityPanel: {
           template: '<div />',
-          methods: {
-            show: vi.fn(),
-            hide: vi.fn(),
+          setup(_, { expose }) {
+            expose(activityPanelApi);
           },
         },
         ToolPanel: true,
@@ -293,6 +325,15 @@ describe('ChatPage history replay batching', () => {
     vi.clearAllMocks();
     vi.mocked(agentApi.lockSessionPassword).mockResolvedValue({ locked: true });
     currentRoute.value = { params: {} };
+    simpleBarApi.scrollToBottom.mockClear();
+    simpleBarApi.scrollToElement.mockClear();
+    simpleBarApi.isScrolledToBottom.mockReturnValue(false);
+    simpleBarApi.contentWrapperRef.scrollTop = 0;
+    simpleBarApi.contentWrapperRef.scrollHeight = 1000;
+    simpleBarApi.contentWrapperRef.clientHeight = 500;
+    activityPanelApi.isShow = false;
+    activityPanelApi.show.mockClear();
+    activityPanelApi.hide.mockClear();
   });
 
   it('keeps handleEvent semantics while replaying history into one final messages assignment', () => {
@@ -302,6 +343,7 @@ describe('ChatPage history replay batching', () => {
 
     events.forEach(event => live.handleEvent(event));
     live.flushPendingMessageChunks();
+    activityPanelApi.show.mockClear();
 
     expect(replay.replayHistoryEvents(events)).toBe(true);
 
@@ -340,6 +382,7 @@ describe('ChatPage history replay batching', () => {
     expect(replayState.plan).toBeUndefined();
     expect(replayState.realTime).toBe(true);
     expect(replayState.isReplayingHistory).toBe(false);
+    expect(activityPanelApi.show).not.toHaveBeenCalled();
   });
 
   it('does not enter replay mode for realtime SSE events', () => {
@@ -365,6 +408,16 @@ describe('ChatPage history replay batching', () => {
         content: expect.objectContaining({ content: 'Live message' }),
       }),
     ]);
+
+    page.handleEvent({
+      event: 'thinking',
+      data: {
+        event_id: 'evt-live-thinking',
+        timestamp: 2,
+        content: 'Live reasoning',
+      },
+    });
+    expect(activityPanelApi.show).toHaveBeenCalledOnce();
   });
 });
 
@@ -374,6 +427,15 @@ describe('ChatPage route session reuse', () => {
     vi.clearAllMocks();
     vi.mocked(agentApi.lockSessionPassword).mockResolvedValue({ locked: true });
     currentRoute.value = { params: { sessionId: 'session-a' } };
+    simpleBarApi.scrollToBottom.mockClear();
+    simpleBarApi.scrollToElement.mockClear();
+    simpleBarApi.isScrolledToBottom.mockReturnValue(false);
+    simpleBarApi.contentWrapperRef.scrollTop = 0;
+    simpleBarApi.contentWrapperRef.scrollHeight = 1000;
+    simpleBarApi.contentWrapperRef.clientHeight = 500;
+    activityPanelApi.isShow = false;
+    activityPanelApi.show.mockClear();
+    activityPanelApi.hide.mockClear();
     vi.mocked(agentApi.getSession).mockResolvedValue({
       session_id: 'session-a',
       title: 'Session A',
@@ -459,7 +521,7 @@ describe('ChatPage route session reuse', () => {
     expect(cancelOldSse).toHaveBeenCalledOnce();
     expect(agentApi.lockSessionPassword).toHaveBeenCalledWith('session-a');
     expect(agentApi.getSession).toHaveBeenLastCalledWith('session-b', {
-      limit: 100,
+      limit: 20,
       direction: 'latest',
     });
 
@@ -493,10 +555,352 @@ describe('ChatPage route session reuse', () => {
     await nextTick();
 
     expect(agentApi.getSession).toHaveBeenLastCalledWith('session-a', {
-      limit: 100,
+      limit: 20,
       direction: 'latest',
     });
     expect(page.getState().hasMoreEvents).toBe(false);
     expect(page.getState().isLoadingMoreEvents).toBe(false);
+  });
+
+  it('loads older paginated events before the current event window and replays them in order', async () => {
+    vi.mocked(agentApi.getSession).mockResolvedValueOnce({
+      session_id: 'session-a',
+      title: 'Session A',
+      status: SessionStatus.COMPLETED,
+      events: [
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-3',
+            timestamp: 3,
+            role: 'user',
+            content: 'third message',
+            attachments: [],
+          },
+        },
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-4',
+            timestamp: 4,
+            role: 'assistant',
+            content: 'fourth message',
+            attachments: [],
+          },
+        },
+      ],
+      is_shared: false,
+      mode: 'deep',
+      model_config_id: null,
+      selected_skill_names: [],
+      has_password: false,
+      locked: false,
+      has_more: true,
+    });
+
+    const wrapper = mountChatPageWrapper();
+    const page = (wrapper.vm as unknown as { __test: ChatPageTestApi }).__test;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(page.getState().firstLoadedEventId).toBe('evt-3');
+
+    vi.mocked(agentApi.getSession).mockResolvedValueOnce({
+      session_id: 'session-a',
+      title: 'Session A',
+      status: SessionStatus.COMPLETED,
+      events: [
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-1',
+            timestamp: 1,
+            role: 'user',
+            content: 'first message',
+            attachments: [],
+          },
+        },
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-2',
+            timestamp: 2,
+            role: 'assistant',
+            content: 'second message',
+            attachments: [],
+          },
+        },
+      ],
+      is_shared: false,
+      mode: 'deep',
+      model_config_id: null,
+      selected_skill_names: [],
+      has_password: false,
+      locked: false,
+      has_more: false,
+    });
+
+    await page.loadOlderSessionEvents();
+    await nextTick();
+
+    expect(agentApi.getSession).toHaveBeenLastCalledWith('session-a', {
+      cursorEventId: 'evt-3',
+      limit: 20,
+      direction: 'before',
+    });
+    expect(page.getState().hasMoreEvents).toBe(false);
+    expect(page.getState().firstLoadedEventId).toBe('evt-1');
+    expect(page.getState().loadedSessionEvents.map(event => event.data.event_id)).toEqual([
+      'evt-1',
+      'evt-2',
+      'evt-3',
+      'evt-4',
+    ]);
+    expect(page.getState().messages.map(message => (message.content as any).content)).toEqual([
+      'first message',
+      'second message',
+      'third message',
+      'fourth message',
+    ]);
+  });
+
+  it('keeps the current window stable while an older batch is loading, then applies the batch once', async () => {
+    vi.mocked(agentApi.getSession).mockResolvedValueOnce({
+      session_id: 'session-a',
+      title: 'Session A',
+      status: SessionStatus.COMPLETED,
+      events: [
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-3',
+            timestamp: 3,
+            role: 'user',
+            content: 'third message',
+            attachments: [],
+          },
+        },
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-4',
+            timestamp: 4,
+            role: 'assistant',
+            content: 'fourth message',
+            attachments: [],
+          },
+        },
+      ],
+      is_shared: false,
+      mode: 'deep',
+      model_config_id: null,
+      selected_skill_names: [],
+      has_password: false,
+      locked: false,
+      has_more: true,
+    });
+
+    const wrapper = mountChatPageWrapper();
+    const page = (wrapper.vm as unknown as { __test: ChatPageTestApi }).__test;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    const originalQuerySelector = Element.prototype.querySelector;
+    const querySelectorSpy = vi.spyOn(Element.prototype, 'querySelector').mockImplementation(function (this: Element, selector: string) {
+      if (selector.includes('|event:evt-3|')) {
+        return {
+          offsetTop: page.getState().loadedSessionEvents[0]?.data.event_id === 'evt-3' ? 0 : 300,
+        } as HTMLElement;
+      }
+      return originalQuerySelector.call(this, selector);
+    });
+
+    let resolveOlderPage: (value: Awaited<ReturnType<typeof agentApi.getSession>>) => void;
+    vi.mocked(agentApi.getSession).mockReturnValueOnce(new Promise(resolve => {
+      resolveOlderPage = resolve;
+    }));
+
+    const loadPromise = page.loadOlderSessionEvents();
+    await nextTick();
+
+    expect(page.getState().isLoadingMoreEvents).toBe(true);
+    expect(wrapper.text()).toContain('Loading earlier messages');
+    expect(page.getState().loadedSessionEvents.map(event => event.data.event_id)).toEqual(['evt-3', 'evt-4']);
+    expect(page.getState().messages.map(message => (message.content as any).content)).toEqual([
+      'third message',
+      'fourth message',
+    ]);
+    expect(simpleBarApi.contentWrapperRef.scrollTop).toBe(0);
+
+    resolveOlderPage!({
+      session_id: 'session-a',
+      title: 'Session A',
+      status: SessionStatus.COMPLETED,
+      events: [
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-1',
+            timestamp: 1,
+            role: 'user',
+            content: 'first message',
+            attachments: [],
+          },
+        },
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-2',
+            timestamp: 2,
+            role: 'assistant',
+            content: 'second message',
+            attachments: [],
+          },
+        },
+      ],
+      is_shared: false,
+      mode: 'deep',
+      model_config_id: null,
+      selected_skill_names: [],
+      has_password: false,
+      locked: false,
+      has_more: false,
+    });
+
+    await loadPromise;
+    await nextTick();
+    querySelectorSpy.mockRestore();
+
+    expect(page.getState().isLoadingMoreEvents).toBe(false);
+    expect(page.getState().isApplyingLoadedEvents).toBe(false);
+    expect(wrapper.text()).not.toContain('Loading earlier messages');
+    expect(simpleBarApi.contentWrapperRef.scrollTop).toBe(300);
+    expect(page.getState().loadedSessionEvents.map(event => event.data.event_id)).toEqual([
+      'evt-1',
+      'evt-2',
+      'evt-3',
+      'evt-4',
+    ]);
+    expect(page.getState().messages.map(message => (message.content as any).content)).toEqual([
+      'first message',
+      'second message',
+      'third message',
+      'fourth message',
+    ]);
+  });
+
+  it('searches through backend results and only loads older pages after selecting an unloaded target', async () => {
+    vi.mocked(agentApi.getSession).mockResolvedValueOnce({
+      session_id: 'session-a',
+      title: 'Session A',
+      status: SessionStatus.COMPLETED,
+      events: [
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-3',
+            timestamp: 3,
+            role: 'user',
+            content: 'third message',
+            attachments: [],
+          },
+        },
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-4',
+            timestamp: 4,
+            role: 'assistant',
+            content: 'fourth message',
+            attachments: [],
+          },
+        },
+      ],
+      is_shared: false,
+      mode: 'deep',
+      model_config_id: null,
+      selected_skill_names: [],
+      has_password: false,
+      locked: false,
+      has_more: true,
+    });
+    vi.mocked(agentApi.searchSessionMessages).mockResolvedValueOnce({
+      query: 'first',
+      total: 1,
+      results: [{
+        id: '0-0',
+        event_id: 'evt-1',
+        event_index: 0,
+        role: 'user',
+        text: 'first message',
+        snippet: 'first message',
+        match_start: 0,
+        match_end: 5,
+        timestamp: 1,
+      }],
+    });
+
+    const wrapper = mountChatPageWrapper();
+    const page = (wrapper.vm as unknown as { __test: ChatPageTestApi }).__test;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    await page.runSessionSearch('first');
+    expect(agentApi.searchSessionMessages).toHaveBeenCalledWith('session-a', 'first');
+    expect(agentApi.getSession).toHaveBeenCalledTimes(1);
+    expect(page.getState().sessionSearchResults.map(result => result.eventId)).toEqual(['evt-1']);
+    expect(page.getState().loadedSessionEvents.map(event => event.data.event_id)).toEqual(['evt-3', 'evt-4']);
+
+    vi.mocked(agentApi.getSession).mockResolvedValueOnce({
+      session_id: 'session-a',
+      title: 'Session A',
+      status: SessionStatus.COMPLETED,
+      events: [
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-1',
+            timestamp: 1,
+            role: 'user',
+            content: 'first message',
+            attachments: [],
+          },
+        },
+        {
+          event: 'message',
+          data: {
+            event_id: 'evt-2',
+            timestamp: 2,
+            role: 'assistant',
+            content: 'second message',
+            attachments: [],
+          },
+        },
+      ],
+      is_shared: false,
+      mode: 'deep',
+      model_config_id: null,
+      selected_skill_names: [],
+      has_password: false,
+      locked: false,
+      has_more: false,
+    });
+
+    await page.handleSessionSearchResultClick(0);
+
+    expect(agentApi.getSession).toHaveBeenLastCalledWith('session-a', {
+      cursorEventId: 'evt-3',
+      limit: 20,
+      direction: 'before',
+    });
+    expect(page.getState().loadedSessionEvents.map(event => event.data.event_id)).toEqual([
+      'evt-1',
+      'evt-2',
+      'evt-3',
+      'evt-4',
+    ]);
   });
 });

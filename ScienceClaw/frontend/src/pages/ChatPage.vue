@@ -188,23 +188,43 @@
 
       <div class="mx-auto w-full max-w-full sm:max-w-[1056px] sm:min-w-[390px] flex flex-col flex-1">
         <div class="flex flex-col w-full gap-[12px] pb-[80px] pt-[12px] flex-1 overflow-y-auto">
-          <template v-for="(group, index) in groupedMessages" :key="group.id">
+          <div
+            v-if="isLoadingMoreEvents"
+            role="status"
+            aria-live="polite"
+            class="history-batch-loading flex items-center justify-center gap-2 self-center px-3 py-1.5 rounded-full border text-xs font-medium"
+          >
+            <span class="history-batch-loading__spinner" aria-hidden="true"></span>
+            <span>{{ t('Loading earlier messages') }}</span>
+          </div>
+          <div
+            v-if="topGroupSpacerHeight > 0"
+            aria-hidden="true"
+            :style="{ height: `${topGroupSpacerHeight}px` }"
+            class="flex-shrink-0"
+          ></div>
+          <template v-for="entry in visibleGroupedEntries" :key="entry.group.id">
+            <div
+              :ref="(el) => setGroupElementRef(el as Element | null, entry.index)"
+              :data-group-index="entry.index"
+              class="flex flex-col"
+            >
             <!-- Process groups: compact reasoning indicator -->
-            <div v-if="group.type === 'process'" class="flex items-start py-1 my-1">
+            <div v-if="entry.group.type === 'process'" class="flex items-start py-1 my-1">
               <div
-                @click="showActivityForTurn(getProcessTurnIndex(index))"
+                @click="showActivityForTurn(getProcessTurnIndex(entry.index))"
                 class="process-indicator flex items-center gap-2.5 px-3.5 py-2 rounded-xl cursor-pointer transition-all duration-200 select-none group/proc border"
-                :class="isLoading && index === lastProcessGroupIndex
+                :class="isLoading && entry.index === lastProcessGroupIndex
                   ? 'bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-950/30 dark:to-indigo-950/20 border-blue-200/50 dark:border-blue-800/30 shadow-sm shadow-blue-500/5 hover:shadow-md hover:shadow-blue-500/10'
                   : 'bg-white dark:bg-gray-800/50 border-gray-100 dark:border-gray-700/50 hover:border-gray-200 dark:hover:border-gray-600 hover:shadow-sm'"
               >
                 <!-- Spinning ring when running -->
-                <div v-if="isLoading && index === lastProcessGroupIndex" class="relative size-4 flex-shrink-0">
+                <div v-if="isLoading && entry.index === lastProcessGroupIndex" class="relative size-4 flex-shrink-0">
                   <div class="absolute inset-0 rounded-full border-2 border-blue-200 dark:border-blue-800"></div>
                   <div class="absolute inset-0 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div>
                 </div>
                 <!-- Failed: amber circle -->
-                <div v-else-if="lastTurnHadError && index === lastProcessGroupIndex" class="size-4 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0 shadow-sm shadow-amber-400/30">
+                <div v-else-if="lastTurnHadError && entry.index === lastProcessGroupIndex" class="size-4 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0 shadow-sm shadow-amber-400/30">
                   <svg class="size-2.5 text-white" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M8 16A8 8 0 108 0a8 8 0 000 16zM7.25 4.75a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zM8 11a1 1 0 100-2 1 1 0 000 2z"/></svg>
                 </div>
                 <!-- Completed: gradient check circle -->
@@ -214,37 +234,44 @@
 
                 <!-- Title -->
                 <span class="text-[13px] font-semibold transition-colors"
-                  :class="isLoading && index === lastProcessGroupIndex
+                  :class="isLoading && entry.index === lastProcessGroupIndex
                     ? 'text-blue-600 dark:text-blue-400'
-                    : lastTurnHadError && index === lastProcessGroupIndex
+                    : lastTurnHadError && entry.index === lastProcessGroupIndex
                       ? 'text-amber-600 dark:text-amber-400'
                       : 'text-gray-500 dark:text-gray-400 group-hover/proc:text-gray-700 dark:group-hover/proc:text-gray-200'"
                 >
-                  {{ isLoading && index === lastProcessGroupIndex ? t('Reasoning') + '...' : (lastTurnHadError && index === lastProcessGroupIndex ? t('Reasoning failed') : t('Reasoning completed')) }}
+                  {{ isLoading && entry.index === lastProcessGroupIndex ? t('Reasoning') + '...' : (lastTurnHadError && entry.index === lastProcessGroupIndex ? t('Reasoning failed') : t('Reasoning completed')) }}
                 </span>
 
                 <!-- Tool count badge -->
-                <span v-if="(group.messages || []).filter(m => m.type === 'tool').length > 0"
+                <span v-if="(entry.group.messages || []).filter(m => m.type === 'tool').length > 0"
                   class="text-[10px] font-bold px-2 py-0.5 rounded-full tabular-nums"
-                  :class="isLoading && index === lastProcessGroupIndex
+                  :class="isLoading && entry.index === lastProcessGroupIndex
                     ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'"
                 >
-                  {{ (group.messages || []).filter(m => m.type === 'tool').length }} {{ (group.messages || []).filter(m => m.type === 'tool').length === 1 ? t('tool') : t('tools') }}
+                  {{ (entry.group.messages || []).filter(m => m.type === 'tool').length }} {{ (entry.group.messages || []).filter(m => m.type === 'tool').length === 1 ? t('tool') : t('tools') }}
                 </span>
 
                 <!-- Arrow hint -->
                 <svg class="size-3.5 text-gray-300 dark:text-gray-600 group-hover/proc:text-gray-400 dark:group-hover/proc:text-gray-500 transition-colors flex-shrink-0 ml-0.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
               </div>
             </div>
-            <ChatMessage v-else-if="group.type === 'single' && group.message" :message="group.message"
+            <ChatMessage v-else-if="entry.group.type === 'single' && entry.group.message" :message="entry.group.message"
               :sessionId="sessionId"
               @toolClick="handleToolClick" @suggestionClick="handleSuggestionClick" :mode="mode"
-              :isLast="index === lastProcessGroupIndex" :isLoading="isLoading"
-              :messageKey="getPrimaryMessageKey(group)"
-              :messageKeys="getGroupMessageKeys(group)"
-              :flashToken="getGroupFlashToken(group)" />
+              :isLast="entry.index === lastProcessGroupIndex" :isLoading="isLoading"
+              :messageKey="getPrimaryMessageKey(entry.group)"
+              :messageKeys="getGroupMessageKeys(entry.group)"
+              :flashToken="getGroupFlashToken(entry.group)" />
+            </div>
           </template>
+          <div
+            v-if="bottomGroupSpacerHeight > 0"
+            aria-hidden="true"
+            :style="{ height: `${bottomGroupSpacerHeight}px` }"
+            class="flex-shrink-0"
+          ></div>
 
           <!-- Loading indicator -->
           <LoadingIndicator v-if="isLoading" :text="$t('Thinking')" />
@@ -396,13 +423,25 @@ import { findBestStepForFlush } from '../utils/planSteps';
 import { createActivitySnapshot } from '../utils/activitySnapshot';
 import { flushPendingToolsIntoStep } from '../utils/pendingTools';
 
-import { useMessageGrouper } from '../composables/useMessageGrouper';
+import { useMessageGrouper, type GroupedMessage } from '../composables/useMessageGrouper';
 import { getSessionSearchMessageKey, useSessionSearch } from '../composables/useSessionSearch';
 import type { ActivityItem } from '../components/ActivityPanel.vue';
 
 const ChatMessage = defineAsyncComponent(() => import('../components/ChatMessage.vue'));
 const ActivityPanel = defineAsyncComponent(() => import('../components/ActivityPanel.vue'));
 const ChatTimeline = defineAsyncComponent(() => import('../components/ChatTimeline.vue'));
+
+const SESSION_EVENT_PAGE_SIZE = 20;
+const GROUP_RENDER_WINDOW_SIZE = 45;
+const GROUP_RENDER_OVERSCAN = 12;
+const ESTIMATED_GROUP_HEIGHT = 150;
+const PROCESS_GROUP_ESTIMATED_HEIGHT = 44;
+const TOP_LOAD_THRESHOLD_PX = 80;
+
+type GroupedEntry = {
+  group: GroupedMessage;
+  index: number;
+};
 
 const router = useRouter()
 const { t, locale } = useI18n()
@@ -482,26 +521,27 @@ const _streamingMsgIndex = ref<number | null>(null);
 let _pendingChunkText = '';
 let _chunkFlushFrame: number | null = null;
 let _chunkFlushUsesRaf = false;
-const sessionSearchExcludedIndexes = computed(() =>
-  _streamingMsgIndex.value === null ? [] : [_streamingMsgIndex.value],
-);
+let _sessionSearchTimer: ReturnType<typeof setTimeout> | null = null;
+let _sessionSearchRequestId = 0;
 const {
   activeIndex: sessionSearchActiveIndex,
   canSelectNext: canSelectNextSearchResult,
   canSelectPrevious: canSelectPreviousSearchResult,
+  clearSearchResults,
   closeSearch: closeSessionSearchState,
   query: sessionSearchQuery,
   results: sessionSearchResults,
   currentResult: currentSearchResult,
   isOpen: isSessionSearchOpen,
+  isSearching: isSessionSearching,
   openSearch: openSessionSearchState,
   selectNext: selectNextSearchResult,
   selectPrevious: selectPreviousSearchResult,
   selectResult: selectSearchResult,
-} = useSessionSearch(messages, {
-  excludedMessageIndexes: sessionSearchExcludedIndexes,
-});
+  setSearchResults,
+} = useSessionSearch();
 const sessionSearchCountLabel = computed(() => {
+  if (isSessionSearching.value) return t('Searching');
   if (!sessionSearchQuery.value.trim()) return '0 / 0';
   if (!sessionSearchResults.value.length) return '0 / 0';
   return `${sessionSearchActiveIndex.value + 1} / ${sessionSearchResults.value.length}`;
@@ -546,6 +586,9 @@ const showSessionPasswordDialog = ref(false);
 const sessionPasswordDialogMode = ref<'set' | 'update' | 'remove'>('set');
 const hasMoreEvents = ref(false);
 const isLoadingMoreEvents = ref(false);
+const isApplyingLoadedEvents = ref(false);
+const loadedSessionEvents = ref<AgentSSEEvent[]>([]);
+const firstLoadedEventId = ref<string | null>(null);
 
 // 上一轮是否因报错结束（用于显示「推理失败」而非「推理完成」）
 const lastTurnHadError = ref(false);
@@ -562,6 +605,10 @@ const observerRef = ref<HTMLDivElement>();
 const chatContainerRef = ref<HTMLDivElement>();
 const messageFlashTokens = ref<Record<string, number>>({});
 const sessionSearchInputRef = ref<HTMLInputElement | null>(null);
+const firstRenderedGroupIndex = ref(0);
+const visibleGroupStartIndex = ref(0);
+const measuredGroupHeights = ref<Record<number, number>>({});
+const groupResizeObservers = new Map<number, ResizeObserver>();
 
 // Watch message changes and automatically scroll to bottom
 watch(messages, async () => {
@@ -571,10 +618,156 @@ watch(messages, async () => {
   }
 }, { deep: true });
 
+const getEstimatedGroupHeight = (group?: GroupedMessage) => {
+  return group?.type === 'process' ? PROCESS_GROUP_ESTIMATED_HEIGHT : ESTIMATED_GROUP_HEIGHT;
+};
+
+const getGroupHeight = (groupIndex: number) => {
+  return measuredGroupHeights.value[groupIndex] ?? getEstimatedGroupHeight(groupedMessages.value[groupIndex]);
+};
+
+const getEstimatedOffsetForGroup = (groupIndex: number) => {
+  let offset = 0;
+  for (let i = 0; i < Math.max(0, groupIndex); i++) {
+    offset += getGroupHeight(i);
+  }
+  return offset;
+};
+
+const setMeasuredGroupHeight = (groupIndex: number, height: number) => {
+  if (!Number.isFinite(height) || height <= 0) return;
+  if (Math.abs((measuredGroupHeights.value[groupIndex] ?? 0) - height) < 1) return;
+  measuredGroupHeights.value = {
+    ...measuredGroupHeights.value,
+    [groupIndex]: height,
+  };
+};
+
+const setGroupElementRef = (element: Element | null, groupIndex: number) => {
+  groupResizeObservers.get(groupIndex)?.disconnect();
+  groupResizeObservers.delete(groupIndex);
+
+  if (!(element instanceof HTMLElement)) return;
+  setMeasuredGroupHeight(groupIndex, element.offsetHeight);
+  if (typeof ResizeObserver === 'undefined') return;
+
+  const observer = new ResizeObserver((entries) => {
+    const entry = entries[0];
+    const height = entry?.borderBoxSize?.[0]?.blockSize ?? element.offsetHeight;
+    setMeasuredGroupHeight(groupIndex, height);
+  });
+  observer.observe(element);
+  groupResizeObservers.set(groupIndex, observer);
+};
+
+const resetGroupMeasurements = () => {
+  measuredGroupHeights.value = {};
+  groupResizeObservers.forEach(observer => observer.disconnect());
+  groupResizeObservers.clear();
+};
+
+const eventWindowContains = (eventId: string) => {
+  return loadedSessionEvents.value.some(event => getEventId(event) === eventId);
+};
+
+const runSessionSearch = async (query: string) => {
+  const trimmedQuery = query.trim();
+  const requestId = ++_sessionSearchRequestId;
+  if (!trimmedQuery || !sessionId.value) {
+    clearSearchResults();
+    isSessionSearching.value = false;
+    return;
+  }
+
+  isSessionSearching.value = true;
+  try {
+    const response = await agentApi.searchSessionMessages(sessionId.value, trimmedQuery);
+    if (requestId !== _sessionSearchRequestId) return;
+    setSearchResults(response.results);
+  } catch (error) {
+    if (requestId !== _sessionSearchRequestId) return;
+    console.error('Failed to search session messages:', error);
+    clearSearchResults();
+  } finally {
+    if (requestId === _sessionSearchRequestId) {
+      isSessionSearching.value = false;
+    }
+  }
+};
+
+const updateVisibleGroupWindow = () => {
+  const groups = groupedMessages.value;
+  const container = simpleBarRef.value?.contentWrapperRef;
+  if (!groups.length) {
+    visibleGroupStartIndex.value = 0;
+    firstRenderedGroupIndex.value = 0;
+    return;
+  }
+
+  const scrollTop = container?.scrollTop ?? 0;
+  let cumulativeHeight = 0;
+  let firstVisibleIndex = 0;
+  for (let i = 0; i < groups.length; i++) {
+    const nextHeight = cumulativeHeight + getGroupHeight(i);
+    if (nextHeight >= scrollTop) {
+      firstVisibleIndex = i;
+      break;
+    }
+    cumulativeHeight = nextHeight;
+    firstVisibleIndex = i;
+  }
+
+  firstRenderedGroupIndex.value = firstVisibleIndex;
+  visibleGroupStartIndex.value = Math.max(0, firstVisibleIndex - GROUP_RENDER_OVERSCAN);
+};
+
+watch(groupedMessages, async () => {
+  if (follow.value) {
+    visibleGroupStartIndex.value = Math.max(0, groupedMessages.value.length - GROUP_RENDER_WINDOW_SIZE);
+    firstRenderedGroupIndex.value = visibleGroupStartIndex.value;
+    return;
+  }
+  await nextTick();
+  updateVisibleGroupWindow();
+});
+
+const visibleGroupEndIndex = computed(() => {
+  return Math.min(groupedMessages.value.length, visibleGroupStartIndex.value + GROUP_RENDER_WINDOW_SIZE + GROUP_RENDER_OVERSCAN * 2);
+});
+
+const visibleGroupedEntries = computed<GroupedEntry[]>(() => {
+  return groupedMessages.value
+    .slice(visibleGroupStartIndex.value, visibleGroupEndIndex.value)
+    .map((group, offset) => ({
+      group,
+      index: visibleGroupStartIndex.value + offset,
+    }));
+});
+
+const topGroupSpacerHeight = computed(() => {
+  let height = 0;
+  for (let i = 0; i < visibleGroupStartIndex.value; i++) {
+    height += getGroupHeight(i);
+  }
+  return height;
+});
+
+const bottomGroupSpacerHeight = computed(() => {
+  let height = 0;
+  for (let i = visibleGroupEndIndex.value; i < groupedMessages.value.length; i++) {
+    height += getGroupHeight(i);
+  }
+  return height;
+});
+
 
 
 const getGroupMessageKeys = (group: { sourceMessageIndexes?: number[] }) => {
-  return (group.sourceMessageIndexes ?? []).map(getSessionSearchMessageKey);
+  return (group.sourceMessageIndexes ?? [])
+    .map(index => {
+      const eventId = (messages.value[index]?.content as any)?.event_id;
+      return eventId ? getSessionSearchMessageKey(eventId) : getSessionSearchMessageKey(index);
+    });
 };
 
 const getPrimaryMessageKey = (group: { sourceMessageIndexes?: number[] }) => {
@@ -589,11 +782,57 @@ const getGroupFlashToken = (group: { sourceMessageIndexes?: number[] }) => {
   return tokens.length ? Math.max(...tokens) : 0;
 };
 
+const findGroupIndexByMessageKey = (messageKey: string) => {
+  return groupedMessages.value.findIndex(group => getGroupMessageKeys(group).includes(messageKey));
+};
+
+const queryMessageElement = (messageKey: string) => {
+  return chatContainerRef.value?.querySelector<HTMLElement>(`[data-message-keys*="|${messageKey}|"]`) ?? null;
+};
+
+const captureMessageAnchor = (eventId: string) => {
+  const messageKey = getSessionSearchMessageKey(eventId);
+  const scrollContainer = simpleBarRef.value?.contentWrapperRef ?? null;
+  const target = queryMessageElement(messageKey);
+  return {
+    messageKey,
+    offsetWithinViewport: target && scrollContainer ? target.offsetTop - scrollContainer.scrollTop : 0,
+  };
+};
+
+const restoreMessageAnchor = async (anchor: { messageKey: string; offsetWithinViewport: number }) => {
+  const groupIndex = findGroupIndexByMessageKey(anchor.messageKey);
+  if (groupIndex < 0) return false;
+
+  visibleGroupStartIndex.value = Math.max(0, groupIndex - GROUP_RENDER_OVERSCAN);
+  await nextTick();
+
+  const scrollContainer = simpleBarRef.value?.contentWrapperRef;
+  if (!scrollContainer) return false;
+
+  const target = queryMessageElement(anchor.messageKey);
+  const anchorTop = target?.offsetTop ?? getEstimatedOffsetForGroup(groupIndex);
+  scrollContainer.scrollTop = Math.max(0, anchorTop - anchor.offsetWithinViewport);
+  updateVisibleGroupWindow();
+  return true;
+};
+
 const scrollToMessageKey = async (messageKey: string) => {
   await nextTick();
 
-  const container = chatContainerRef.value;
-  const target = container?.querySelector<HTMLElement>(`[data-message-keys*="|${messageKey}|"]`);
+  let target = queryMessageElement(messageKey);
+  if (!target) {
+    const groupIndex = findGroupIndexByMessageKey(messageKey);
+    if (groupIndex < 0) return false;
+
+    visibleGroupStartIndex.value = Math.max(0, groupIndex - GROUP_RENDER_OVERSCAN);
+    const scrollContainer = simpleBarRef.value?.contentWrapperRef;
+    if (scrollContainer) {
+      scrollContainer.scrollTop = Math.max(0, getEstimatedOffsetForGroup(groupIndex) - 160);
+    }
+    await nextTick();
+    target = queryMessageElement(messageKey);
+  }
   if (!target) return false;
 
   simpleBarRef.value?.scrollToElement(target, 160);
@@ -620,22 +859,46 @@ const toggleSessionSearch = async () => {
 };
 
 const closeSessionSearch = () => {
+  if (_sessionSearchTimer) {
+    clearTimeout(_sessionSearchTimer);
+    _sessionSearchTimer = null;
+  }
   closeSessionSearchState();
 };
 
-const handleSessionSearchResultClick = (resultIndex: number) => {
-  selectSearchResult(resultIndex);
+const navigateToSessionSearchResult = async (result: typeof currentSearchResult.value) => {
+  if (!result) return;
+
+  if (!eventWindowContains(result.eventId)) {
+    const loaded = await loadUntilEventVisible(result.eventId);
+    if (!loaded) return;
+  }
+
+  const found = await scrollToMessageKey(result.messageKey);
+  if (found) {
+    triggerMessageFlash(result.messageKey);
+  }
 };
 
-const handleSessionSearchPrevious = () => {
-  selectPreviousSearchResult();
+const handleSessionSearchResultClick = async (resultIndex: number) => {
+  const result = selectSearchResult(resultIndex);
+  if (!result) return;
+  await navigateToSessionSearchResult(result);
 };
 
-const handleSessionSearchNext = () => {
+const handleSessionSearchPrevious = async () => {
+  const result = selectPreviousSearchResult();
+  if (!result) return;
+  await navigateToSessionSearchResult(result);
+};
+
+const handleSessionSearchNext = async () => {
   if (currentSearchResult.value && !canSelectNextSearchResult.value) {
     return;
   }
-  selectNextSearchResult();
+  const result = selectNextSearchResult();
+  if (!result) return;
+  await navigateToSessionSearchResult(result);
 };
 
 const openSessionPasswordManager = () => {
@@ -676,21 +939,20 @@ const handleSessionPasswordCancelled = () => {
   router.replace('/');
 };
 
-watch(sessionSearchResults, (results) => {
-  if (!sessionSearchQuery.value.trim() || !results.length) {
+watch(sessionSearchQuery, (query) => {
+  if (_sessionSearchTimer) {
+    clearTimeout(_sessionSearchTimer);
+    _sessionSearchTimer = null;
+  }
+  if (!query.trim()) {
+    _sessionSearchRequestId++;
+    clearSearchResults();
+    isSessionSearching.value = false;
     return;
   }
-
-  selectSearchResult(0);
-});
-
-watch(currentSearchResult, async (result) => {
-  if (!result) return;
-
-  const found = await scrollToMessageKey(result.messageKey);
-  if (found) {
-    triggerMessageFlash(result.messageKey);
-  }
+  _sessionSearchTimer = setTimeout(() => {
+    void runSessionSearch(query);
+  }, 180);
 });
 
 // Determine which conversation turn a process group belongs to
@@ -716,6 +978,11 @@ const showActivityForTurn = (turnIndex: number) => {
   }
 
   selectedActivityTurn.value = targetTurn;
+  activityPanelRef.value?.show();
+};
+
+const showActivityPanelForLiveEvent = () => {
+  if (_isReplayingHistory) return;
   activityPanelRef.value?.show();
 };
 
@@ -775,55 +1042,91 @@ const flushPendingMessageChunks = () => {
   appendPendingMessageChunks();
 };
 
-const resetSessionRuntimeState = () => {
+const getEventId = (event: AgentSSEEvent) => event.data?.event_id || '';
+
+const mergeOlderEvents = (olderEvents: AgentSSEEvent[], currentEvents: AgentSSEEvent[]) => {
+  const seen = new Set<string>();
+  const merged: AgentSSEEvent[] = [];
+  for (const event of [...olderEvents, ...currentEvents]) {
+    const eventId = getEventId(event);
+    if (eventId) {
+      if (seen.has(eventId)) continue;
+      seen.add(eventId);
+    }
+    merged.push(event);
+  }
+  return merged;
+};
+
+const appendLoadedSessionEvent = (event: AgentSSEEvent) => {
+  loadedSessionEvents.value = mergeOlderEvents(loadedSessionEvents.value, [event]);
+  updateLoadedEventCursor();
+};
+
+const updateLoadedEventCursor = () => {
+  firstLoadedEventId.value = loadedSessionEvents.value.map(getEventId).find(Boolean) ?? null;
+};
+
+const resetEventDerivedState = () => {
   flushPendingMessageChunks();
   cancelScheduledChunkFlush();
-  if (cancelCurrentChat.value) {
-    cancelCurrentChat.value();
-    cancelCurrentChat.value = null;
-  }
-
   _processedEventIds.clear();
   _pendingChunkText = '';
   _streamingMsgIndex.value = null;
   _isReplayingHistory = false;
   _replayMessagesBuffer = null;
 
-  inputMessage.value = '';
-  isLoading.value = false;
   messages.value = [];
   realTime.value = true;
-  follow.value = true;
-  title.value = t('New Chat');
   plan.value = undefined;
   lastNoMessageTool.value = undefined;
   lastTool.value = undefined;
   lastEventId.value = undefined;
-  attachments.value = [];
-  shareMode.value = 'private';
-  linkCopied.value = false;
-  sharingLoading.value = false;
-  mode.value = 'deep';
   thinkingContent.value = '';
   activityItems.value = [];
   activitySnapshots.value = [];
   selectedActivityTurn.value = -1;
   pendingToolCallIds.value = [];
-
   pendingSkillSave.value = null;
   pendingToolSave.value = null;
   pendingToolReplaces.value = null;
   savingSkill.value = false;
   savingTool.value = false;
+  lastTurnHadError.value = false;
+  messageFlashTokens.value = {};
+  resetGroupMeasurements();
+  closeSessionSearchState();
+};
+
+const resetSessionRuntimeState = () => {
+  if (cancelCurrentChat.value) {
+    cancelCurrentChat.value();
+    cancelCurrentChat.value = null;
+  }
+
+  resetEventDerivedState();
+
+  inputMessage.value = '';
+  isLoading.value = false;
+  follow.value = true;
+  title.value = t('New Chat');
+  attachments.value = [];
+  shareMode.value = 'private';
+  linkCopied.value = false;
+  sharingLoading.value = false;
+  mode.value = 'deep';
+
   sessionHasPassword.value = false;
   showVerifyPasswordDialog.value = false;
   showSessionPasswordDialog.value = false;
   sessionPasswordDialogMode.value = 'set';
   hasMoreEvents.value = false;
   isLoadingMoreEvents.value = false;
-  lastTurnHadError.value = false;
-  messageFlashTokens.value = {};
-  closeSessionSearchState();
+  loadedSessionEvents.value = [];
+  firstLoadedEventId.value = null;
+  visibleGroupStartIndex.value = 0;
+  firstRenderedGroupIndex.value = 0;
+  resetGroupMeasurements();
 };
 
 const schedulePendingChunkFlush = () => {
@@ -1012,7 +1315,7 @@ const handleToolEvent = (toolData: ToolEventData) => {
         timestamp: toolContent.timestamp || Date.now(),
       });
     }
-    activityPanelRef.value?.show();
+    showActivityPanelForLiveEvent();
   }
 }
 
@@ -1077,7 +1380,7 @@ const handleThinkingEvent = (thinkingData: ThinkingEventData) => {
       });
     }
   }
-  activityPanelRef.value?.show();
+  showActivityPanelForLiveEvent();
 }
 
 // Handle done event with statistics
@@ -1191,6 +1494,9 @@ const handleEvent = (event: AgentSSEEvent) => {
   const eid = event.data?.event_id;
   if (eid && _processedEventIds.has(eid)) return;
   if (eid) _processedEventIds.add(eid);
+  if (!_isReplayingHistory) {
+    appendLoadedSessionEvent(event);
+  }
 
   if (event.event === 'message_chunk') {
     handleMessageChunkEvent(event.data);
@@ -1232,7 +1538,14 @@ const handleEvent = (event: AgentSSEEvent) => {
   lastEventId.value = event.data.event_id;
 }
 
-const replayHistoryEvents = (events: AgentSSEEvent[], isStale: () => boolean = () => false) => {
+const replayHistoryEvents = (
+  events: AgentSSEEvent[],
+  isStale: () => boolean = () => false,
+  options: { resetDerivedState?: boolean } = {},
+) => {
+  if (options.resetDerivedState) {
+    resetEventDerivedState();
+  }
   realTime.value = false;
   _isReplayingHistory = true;
   _replayMessagesBuffer = [];
@@ -1249,6 +1562,66 @@ const replayHistoryEvents = (events: AgentSSEEvent[], isStale: () => boolean = (
     realTime.value = true;
   }
 }
+
+const replayLoadedSessionEvents = (isStale: () => boolean = () => false) => {
+  return replayHistoryEvents(loadedSessionEvents.value, isStale, { resetDerivedState: true });
+};
+
+const loadOlderSessionEvents = async () => {
+  if (!sessionId.value || !hasMoreEvents.value || isLoadingMoreEvents.value || !firstLoadedEventId.value) {
+    return false;
+  }
+
+  const loadTarget = sessionId.value;
+  const cursorEventId = firstLoadedEventId.value;
+  const isStale = () => _unmounted || sessionId.value !== loadTarget;
+
+  isLoadingMoreEvents.value = true;
+  try {
+    await nextTick();
+    const anchor = captureMessageAnchor(cursorEventId);
+    const page = await agentApi.getSession(loadTarget, {
+      cursorEventId,
+      limit: SESSION_EVENT_PAGE_SIZE,
+      direction: 'before',
+    });
+    if (isStale()) return;
+
+    const olderEvents = page.events ?? [];
+    hasMoreEvents.value = page.has_more ?? false;
+    if (!olderEvents.length) {
+      hasMoreEvents.value = false;
+      return false;
+    }
+
+    isApplyingLoadedEvents.value = true;
+    loadedSessionEvents.value = mergeOlderEvents(olderEvents, loadedSessionEvents.value);
+    updateLoadedEventCursor();
+    if (!replayLoadedSessionEvents(isStale)) return;
+
+    await nextTick();
+    await restoreMessageAnchor(anchor);
+    await nextTick();
+    return true;
+  } catch (error) {
+    console.error('Failed to load older session events:', error);
+    showErrorToast(t('Failed to load more messages'));
+    return false;
+  } finally {
+    if (!isStale()) {
+      isLoadingMoreEvents.value = false;
+      isApplyingLoadedEvents.value = false;
+    }
+  }
+};
+
+const loadUntilEventVisible = async (eventId: string) => {
+  while (!eventWindowContains(eventId) && hasMoreEvents.value && firstLoadedEventId.value) {
+    const loaded = await loadOlderSessionEvents();
+    if (!loaded) break;
+  }
+  return eventWindowContains(eventId);
+};
 
 const onFilesChanged = (files: FileInfo[]) => {
   attachments.value = [...files];
@@ -1417,8 +1790,10 @@ const restoreSession = async () => {
 
   let session;
   try {
-    session = await agentApi.getSession(restoreTarget, { limit: 100, direction: 'latest' });
+    session = await agentApi.getSession(restoreTarget, { limit: SESSION_EVENT_PAGE_SIZE, direction: 'latest' });
     hasMoreEvents.value = session.has_more ?? false;
+    loadedSessionEvents.value = session.events ?? [];
+    updateLoadedEventCursor();
     console.log('[restoreSession] loaded, status:', session.status, 'events:', session.events?.length, '_unmounted:', _unmounted);
   } catch (error: any) {
     console.warn('[restoreSession] FAILED to load session:', error);
@@ -1448,13 +1823,15 @@ const restoreSession = async () => {
 
   if (session.has_password && session.locked) {
     showVerifyPasswordDialog.value = true;
+    loadedSessionEvents.value = [];
+    firstLoadedEventId.value = null;
     messages.value = [];
     realTime.value = true;
     isLoading.value = false;
     return;
   }
 
-  if (!replayHistoryEvents(session.events, isStale)) return;
+  if (!replayLoadedSessionEvents(isStale)) return;
 
   // 批量重放完毕后，滚动到最新消息（用户主动滚动过后 follow 会被 handleScroll 置 false，不再自动滚）
   await nextTick();
@@ -1464,11 +1841,11 @@ const restoreSession = async () => {
   if (isStale()) return;
 
   if (session.status === SessionStatus.RUNNING || session.status === SessionStatus.PENDING) {
-    const hasEvents = session.events && session.events.length > 0;
+    const hasEvents = loadedSessionEvents.value.length > 0;
     if (!hasEvents && session.status === SessionStatus.PENDING) {
       console.log('[restoreSession] PENDING with no events, idle');
     } else {
-      const lastEvent = session.events?.[session.events.length - 1];
+      const lastEvent = loadedSessionEvents.value[loadedSessionEvents.value.length - 1];
       const lastTs = lastEvent?.data?.timestamp || 0;
       const staleThresholdSec = 15 * 60;
       const sessionIsStale = lastTs > 0 && (Math.floor(Date.now() / 1000) - lastTs) > staleThresholdSec;
@@ -1583,17 +1960,25 @@ onUnmounted(() => {
   }
   _unmounted = true;
   cancelScheduledChunkFlush();
+  if (_sessionSearchTimer) {
+    clearTimeout(_sessionSearchTimer);
+    _sessionSearchTimer = null;
+  }
   _pendingChunkText = '';
   if (cancelCurrentChat.value) {
     cancelCurrentChat.value();
     cancelCurrentChat.value = null;
   }
+  resetGroupMeasurements();
 })
 
 defineExpose({
   __test: {
     handleEvent,
     replayHistoryEvents,
+    loadOlderSessionEvents,
+    runSessionSearch,
+    handleSessionSearchResultClick,
     flushPendingMessageChunks,
     resetSessionRuntimeState,
     setSessionRuntimeForTest: (nextState: {
@@ -1636,12 +2021,19 @@ defineExpose({
       showVerifyPasswordDialog: showVerifyPasswordDialog.value,
       hasMoreEvents: hasMoreEvents.value,
       isLoadingMoreEvents: isLoadingMoreEvents.value,
+      isApplyingLoadedEvents: isApplyingLoadedEvents.value,
+      loadedSessionEvents: loadedSessionEvents.value,
+      firstLoadedEventId: firstLoadedEventId.value,
+      visibleGroupedEntries: visibleGroupedEntries.value,
+      topGroupSpacerHeight: topGroupSpacerHeight.value,
+      bottomGroupSpacerHeight: bottomGroupSpacerHeight.value,
       pendingSkillSave: pendingSkillSave.value,
       pendingToolSave: pendingToolSave.value,
       isReplayingHistory: _isReplayingHistory,
       lastTurnHadError: lastTurnHadError.value,
       sessionSearchQuery: sessionSearchQuery.value,
       isSessionSearchOpen: isSessionSearchOpen.value,
+      sessionSearchResults: sessionSearchResults.value,
     }),
   },
 });
@@ -1735,10 +2127,14 @@ const activeUserMessageIndex = ref(0);
 
 const handleScroll = (_: Event) => {
   follow.value = simpleBarRef.value?.isScrolledToBottom() ?? false;
+  const container = simpleBarRef.value?.contentWrapperRef;
+  if (container && container.scrollTop <= TOP_LOAD_THRESHOLD_PX) {
+    void loadOlderSessionEvents();
+  }
+  updateVisibleGroupWindow();
 
   // Update timeline active index: find the user message nearest to viewport center
   if (!chatContainerRef.value || !simpleBarRef.value) return;
-  const container = simpleBarRef.value.contentWrapperRef;
   if (!container) return;
   const viewportCenter = container.scrollTop + container.clientHeight / 2;
 
@@ -1875,6 +2271,32 @@ const handleCopyLink = async () => {
 }
 .animate-fadeIn {
   animation: fadeIn 0.4s ease-out;
+}
+
+.history-batch-loading {
+  min-height: 30px;
+  background: rgba(255, 255, 255, 0.84);
+  border-color: rgba(209, 213, 219, 0.72);
+  color: var(--text-secondary);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.dark .history-batch-loading {
+  background: rgba(31, 41, 55, 0.82);
+  border-color: rgba(75, 85, 99, 0.72);
+}
+
+.history-batch-loading__spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  border: 2px solid rgba(59, 130, 246, 0.24);
+  border-top-color: rgb(59, 130, 246);
+  animation: historyBatchSpin 0.7s linear infinite;
+}
+
+@keyframes historyBatchSpin {
+  to { transform: rotate(360deg); }
 }
 
 .session-search-shell {

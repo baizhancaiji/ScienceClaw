@@ -1,10 +1,11 @@
-import { computed, ref, watch, type Ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
-import type { Message, MessageContent } from '../types/message';
+import type { SessionSearchResult as ApiSessionSearchResult } from '../types/response';
 
 export interface SessionSearchResult {
   id: string;
-  messageIndex: number;
+  eventId: string;
+  eventIndex: number;
   messageKey: string;
   role: 'user' | 'assistant';
   roleLabel: string;
@@ -15,93 +16,28 @@ export interface SessionSearchResult {
   timestamp: number;
 }
 
-const SEARCHABLE_MESSAGE_TYPES = new Set(['user', 'assistant']);
+export const getSessionSearchMessageKey = (eventIdOrIndex: string | number) => `session-search-message-${eventIdOrIndex}`;
 
-const normalizeSearchText = (value: string) => value.toLocaleLowerCase();
+const toSessionSearchResult = (result: ApiSessionSearchResult): SessionSearchResult => ({
+  id: result.id,
+  eventId: result.event_id,
+  eventIndex: result.event_index,
+  messageKey: getSessionSearchMessageKey(result.event_id || result.event_index),
+  role: result.role,
+  roleLabel: result.role === 'user' ? 'User' : 'ScienceClaw',
+  text: result.text,
+  snippet: result.snippet,
+  matchStart: result.match_start,
+  matchEnd: result.match_end,
+  timestamp: result.timestamp,
+});
 
-const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();
-
-const buildSnippet = (text: string, matchStart: number, matchEnd: number) => {
-  const cleaned = collapseWhitespace(text);
-  if (!cleaned) return '';
-
-  const safeStart = Math.max(0, Math.min(matchStart, cleaned.length));
-  const safeEnd = Math.max(safeStart, Math.min(matchEnd, cleaned.length));
-  const snippetRadius = 42;
-  const snippetStart = Math.max(0, safeStart - snippetRadius);
-  const snippetEnd = Math.min(cleaned.length, safeEnd + snippetRadius);
-  const prefix = snippetStart > 0 ? '...' : '';
-  const suffix = snippetEnd < cleaned.length ? '...' : '';
-
-  return `${prefix}${cleaned.slice(snippetStart, snippetEnd)}${suffix}`;
-};
-
-export const getSessionSearchMessageKey = (messageIndex: number) => `session-search-message-${messageIndex}`;
-
-interface UseSessionSearchOptions {
-  excludedMessageIndexes?: Ref<number[]>;
-}
-
-export function useSessionSearch(messages: Ref<Message[]>, options: UseSessionSearchOptions = {}) {
+export function useSessionSearch() {
   const isOpen = ref(false);
   const query = ref('');
   const activeIndex = ref(0);
-  const excludedIndexes = computed(() => new Set(options.excludedMessageIndexes?.value ?? []));
-
-  const searchableMessages = computed(() =>
-    messages.value
-      .map((message, originalIndex) => ({ message, originalIndex }))
-      .filter(({ message, originalIndex }) =>
-        SEARCHABLE_MESSAGE_TYPES.has(message.type) && !excludedIndexes.value.has(originalIndex),
-      )
-      .map(({ message, originalIndex }) => {
-        const content = message.content as MessageContent;
-
-        return {
-          message,
-          originalIndex,
-          text: typeof content.content === 'string' ? content.content : '',
-          timestamp: content.timestamp,
-        };
-      })
-      .filter(({ text }) => text.trim().length > 0),
-  );
-
-  const results = computed<SessionSearchResult[]>(() => {
-    const trimmedQuery = query.value.trim();
-    if (!trimmedQuery) return [];
-
-    const normalizedQuery = normalizeSearchText(trimmedQuery);
-    const nextResults: SessionSearchResult[] = [];
-
-    for (const { message, originalIndex, text, timestamp } of searchableMessages.value) {
-      const normalizedText = normalizeSearchText(text);
-      let searchFrom = 0;
-
-      while (searchFrom < normalizedText.length) {
-        const matchStart = normalizedText.indexOf(normalizedQuery, searchFrom);
-        if (matchStart === -1) break;
-
-        const matchEnd = matchStart + normalizedQuery.length;
-        nextResults.push({
-          id: `${originalIndex}-${matchStart}`,
-          messageIndex: originalIndex,
-          messageKey: getSessionSearchMessageKey(originalIndex),
-          role: message.type as 'user' | 'assistant',
-          roleLabel: message.type === 'user' ? 'User' : 'ScienceClaw',
-          text,
-          snippet: buildSnippet(text, matchStart, matchEnd),
-          matchStart,
-          matchEnd,
-          timestamp,
-        });
-
-        searchFrom = matchEnd;
-      }
-    }
-
-    return nextResults;
-  });
+  const isSearching = ref(false);
+  const results = ref<SessionSearchResult[]>([]);
 
   const currentResult = computed(() => results.value[activeIndex.value] ?? null);
   const hasResults = computed(() => results.value.length > 0);
@@ -115,9 +51,21 @@ export function useSessionSearch(messages: Ref<Message[]>, options: UseSessionSe
   const closeSearch = ({ clearQuery = true } = {}) => {
     isOpen.value = false;
     activeIndex.value = 0;
+    results.value = [];
+    isSearching.value = false;
     if (clearQuery) {
       query.value = '';
     }
+  };
+
+  const setSearchResults = (nextResults: ApiSessionSearchResult[]) => {
+    results.value = nextResults.map(toSessionSearchResult);
+    activeIndex.value = results.value.length ? Math.min(activeIndex.value, results.value.length - 1) : 0;
+  };
+
+  const clearSearchResults = () => {
+    results.value = [];
+    activeIndex.value = 0;
   };
 
   const selectResult = (index: number) => {
@@ -142,30 +90,22 @@ export function useSessionSearch(messages: Ref<Message[]>, options: UseSessionSe
     activeIndex.value = 0;
   });
 
-  watch(results, (nextResults) => {
-    if (!nextResults.length) {
-      activeIndex.value = 0;
-      return;
-    }
-
-    if (activeIndex.value >= nextResults.length) {
-      activeIndex.value = nextResults.length - 1;
-    }
-  });
-
   return {
     activeIndex,
     canSelectNext,
     canSelectPrevious,
+    clearSearchResults,
     closeSearch,
     currentResult,
     hasResults,
     isOpen,
+    isSearching,
     openSearch,
     query,
     results,
     selectNext,
     selectPrevious,
     selectResult,
+    setSearchResults,
   };
 }

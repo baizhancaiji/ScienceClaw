@@ -25,6 +25,24 @@ export interface GetSessionResponse {
     has_more?: boolean;
 }
 
+export interface SessionSearchResult {
+    id: string;
+    event_id: string;
+    event_index: number;
+    role: 'user' | 'assistant';
+    text: string;
+    snippet: string;
+    match_start: number;
+    match_end: number;
+    timestamp: number;
+}
+
+export interface SessionSearchResponse {
+    query: string;
+    results: SessionSearchResult[];
+    total: number;
+}
+
 export interface ListSessionItem {
     session_id: string;
     title: string | null;

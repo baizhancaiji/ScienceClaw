@@ -1,6 +1,6 @@
 import { apiClient, ApiResponse, createSSEConnection, SSECallbacks } from './client';
 import type { FileInfo } from './file';
-import { ListSessionItem, GetSessionResponse, ExternalSkillItem, ExternalToolItem } from '../types/response';
+import { ListSessionItem, GetSessionResponse, ExternalSkillItem, ExternalToolItem, SessionSearchResponse } from '../types/response';
 
 // Re-export or alias if needed for backward compatibility, 
 // but prefer using types from response.ts to ensure consistency.
@@ -80,6 +80,18 @@ export async function getSession(
   const response = await apiClient.get<ApiResponse<SessionDetail>>(
     `/sessions/${sessionId}`,
     { params },
+  );
+  return response.data.data;
+}
+
+export async function searchSessionMessages(
+  sessionId: string,
+  query: string,
+  limit = 30,
+): Promise<SessionSearchResponse> {
+  const response = await apiClient.get<ApiResponse<SessionSearchResponse>>(
+    `/sessions/${sessionId}/search`,
+    { params: { query, limit } },
   );
   return response.data.data;
 }

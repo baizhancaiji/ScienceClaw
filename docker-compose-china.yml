@@ -80,7 +80,7 @@ services:
       TZ: Asia/Shanghai
       API_KEY: "fdsfkjikmii"
     ports:
-      - "8068:8068"
+      - "18088:8068"
     restart: unless-stopped
     depends_on:
       searxng:
@@ -133,7 +133,7 @@ services:
       LARK_APP_ID: ${LARK_APP_ID-}
       LARK_APP_SECRET: ${LARK_APP_SECRET-}
     ports:
-      - "12001:8000"
+      - "18086:8000"
     command: >
       python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/backend
     restart: unless-stopped
@@ -171,7 +171,7 @@ services:
       DS_URL: ${API_BASE:-https://api.deepseek.com/v1}
       DS_MODEL: ${MODEL_NAME:-deepseek-chat}
     ports:
-      - "12002:8001"
+      - "18087:8001"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8001
     restart: unless-stopped
     depends_on:
